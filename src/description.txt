@@ -1,0 +1,414 @@
+Ritim Quality – Nasıl çalışır?
+
+1. Ürün tanımlanır
+
+Kalite yöneticisi/admin sisteme ürünü açar.
+
+Ürün
+├─ Parça No
+├─ Parça Adı
+├─ Müşteri
+├─ Revizyon
+├─ Teknik Resim
+└─ Kontrol Planı
+
+Teknik resim PDF/resim olarak sisteme yüklenir.
+
+2. Kontrol planı hazırlanır
+
+Teknik resimdeki karakteristikler numaralandırılır:
+
+#1  Ø20 H7
+#2  50 ±0.05
+#3  Diklik 0.02
+#4  Yüzey kontrolü
+#5  Çapak kontrolü
+...
+#18 Kaplama kontrolü
+
+Her karakteristik için sistemde nominal değer, alt/üst tolerans, birim, kontrol tipi, numune sayısı ve gerekiyorsa ölçüm yöntemi tutulur.
+
+Kontrol planı revizyon kontrollü olur; eski ölçümlerin hangi plan/revizyonla yapıldığı kaybolmaz. Bu yaklaşım ticari kalite sistemlerinde de kullanılıyor.
+
+3. Dört farklı karakteristik tipi
+A. Sayısal
+
+Örneğin:
+
+#13 – Çap
+
+Nominal     20.000 mm
+LSL         19.950
+USL         20.050
+
+
+Ölçülen:    [ 20.012 ]
+
+
+              UYGUN ✓
+
+Uygun/NOK sistem tarafından hesaplanır.
+
+B. OK / NOK
+
+Örneğin:
+
+#14 – Çapak kontrolü
+
+[ ✓ OK ] [ ✕ NOK ]
+
+C. Tekli seçim
+
+Örneğin yüzey:
+
+Normal / Çizik / Hasarlı / Kirli
+
+D. Çoklu seçim
+
+Birden fazla durum aynı anda seçilebilir.
+
+Örneğin:
+
+☑ Çizik
+☐ Çapak
+☑ Renk farklılığı
+☐ Çatlak
+
+Kontrol planında acceptance rule bulunur. Örneğin Çatlak = otomatik NOK, Çapak = NOK, diğerleri kabul edilebilir şeklinde tanımlanabilir.
+
+4. Operatörün ölçüm ekranı
+
+Bence ürünün en önemli UX'i burası.
+
+Telefon/tablet browser'ından lokal adrese girer:
+
+http://192.168.1.50
+
+Uygulama kurulmasına gerek yoktur.
+
+Header:
+
+NUMUNE 1/5　　　　　　　　　ADIM 13/18
+
+Altında teknik resim bulunur.
+
+Aktif ölçüm noktası #13 resim üzerinde vurgulanır.
+
+Altında:
+
+Ø20 ±0.05 mm
+
+[ 20.012 ]
+
+UYGUN ✓
+
+SONRAKİ →
+
+Operatör mümkün olduğunca düşünmeden ölç → gir → sonraki şeklinde ilerler. Teknik resim/görseller üzerinden karakteristiği yönlendiren inspection arayüzleri sektörde de kullanılan bir yaklaşım.
+
+5. Numune yönetimi
+
+Kontrol planında:
+
+1 / 3 / 5 / 10 / özel
+
+numune tanımlanabilir.
+
+Örneğin:
+
+NUMUNE 3/5 | ADIM 13/18
+
+Aynı karakteristiğin 5 ölçümü alınabilir:
+
+1    20.012   ✓
+2    20.008   ✓
+3    20.019   ✓
+4    20.047   ✓
+5    20.061   ✕
+
+Son numune tolerans dışındaysa sistem otomatik NOK gösterir.
+
+6. Fotoğraf / video kanıtı
+
+Karakteristik bazında:
+
+Medya yok
+Opsiyonel
+NOK olduğunda zorunlu
+Her kontrolde zorunlu
+
+seçilebilir.
+
+NOK oluştuğunda:
+
+📷 Fotoğraf çek
+
+🎥 Video çek
+
+📎 Dosya yükle
+
+Operatör telefon/tablet kamerasını kullanabilir.
+
+Fotoğraf/video ilgili:
+
+Ürün → Inspection → Numune → Karakteristik → Sonuç
+
+ile ilişkilendirilir.
+
+7. CMM tamamen ayrı çalışır
+
+Burada operatör ekranıyla CMM'yi birbirine karıştırmıyoruz.
+
+ZEISS
+Hexagon
+Mitutoyo
+Renishaw
+Diğer CMM
+       ↓
+CMM Importer
+       ↓
+Ritim Quality DB
+
+CMM ölçümünü bitirir ve sonuç dosyasını belirlenen lokal klasöre bırakır.
+
+Importer otomatik yakalar.
+
+Örneğin:
+
+Part       ABC-100
+Serial     SN00124
+Char       DIA_13
+Nominal    20.000
+Actual     20.012
+LSL        19.950
+USL        20.050
+Result     PASS
+
+database'e aktarılır.
+
+CMM → SPC otomatik veri aktarımı zaten endüstride kullanılan bir model; DELMIAWorks örneğin PC-DMIS output importunu destekliyor, Prolink ise CMM ve diğer ölçüm cihazları için çok sayıda driver sunuyor.
+
+8. Universal CMM Importer
+
+Uzun vadede ürünün önemli özelliklerinden biri olabilir.
+
+İlk hedef:
+
+Q-DAS / QIF / CSV / TXT
+
+Sonrasında:
+
+PC-DMIS / CALYPSO / MCOSMOS vb. adapter'lar.
+
+Generic CSV/TXT için müşteri bir kez mapping yapar:
+
+CMM                   RITIM
+
+
+MEAS        →          Actual
+NOMINAL     →          Nominal
++TOL        →          Upper tolerance
+-TOL        →          Lower tolerance
+FEATURE     →          Characteristic
+
+Template kaydedilir:
+
+Hexagon CMM-01
+
+Sonraki dosyalar otomatik işlenir.
+
+Serbest formatlı CMM outputlarının keyword veya pozisyon bazlı parse edilmesi de CMM-SPC entegrasyonunda uzun süredir kullanılan bir yöntem.
+
+9. Tek Measurement Database
+
+Burası sistemin esas omurgası.
+
+Manuel ölçüm:
+
+MANUAL → Measurement DB
+
+CMM:
+
+CMM → Measurement DB
+
+İleride dijital kumpas:
+
+GAUGE → Measurement DB
+
+Import:
+
+IMPORT → Measurement DB
+
+Hepsinin ortak modeli olur:
+
+Part
+Revision
+Lot
+Serial
+Work Order
+
+
+Characteristic
+Nominal
+LSL
+USL
+Actual
+Unit
+
+
+Sample
+
+
+Source
+Equipment
+Operator
+
+
+Date / Time
+Status
+
+
+Photo
+Video
+Original CMM file
+
+Dolayısıyla kalite verisi tek yerde bulunur.
+
+10. SPC
+
+Her sayısal karakteristiğin geçmiş ölçümleri üzerinden sistem otomatik istatistik oluşturur.
+
+Temel olarak:
+
+Cp / Cpk
+
+Pp / Ppk
+
+Histogram
+
+X̄-R
+
+I-MR
+
+Trend
+
+Min / Max / Mean / Std. deviation
+
+Out-of-tolerance
+
+gibi analizler yapılabilir. Bunlar modern SPC sistemlerinin temel fonksiyonları arasında.
+
+Örneğin:
+
+Ø20 H7
+
+Cpk: 1.72 🟢
+
+Son 500 ölçüm:
+
+497 Uygun / 3 NOK
+
+ve trend grafiği.
+
+11. Raporlama
+
+Filtreler:
+
+Ürün
+Parça
+Müşteri
+Revizyon
+Tarih
+Lot
+Work Order
+Karakteristik
+CMM
+Ölçüm cihazı
+Operatör
+
+Rapor örneği:
+
+ABC Savunma – Part 1025-A – Rev C
+
+Manuel: 126 ölçüm
+CMM: 384 ölçüm
+Toplam: 510 ölçüm
+
+Uygun: 506
+NOK: 4
+
+Cpk: 1.61
+
+Yani CMM ile manuel ölçüm aynı raporun içerisinde bulunabilir.
+
+12. İzlenebilirlik
+
+Bir ölçüme tıklandığında:
+
+Part:              ABC-1025
+Revision:          C
+Lot:               LOT-24018
+Serial:            SN00125
+
+
+Characteristic:    #13
+Nominal:           20.000
+Measured:          20.012
+
+
+Source:             CMM
+CMM:                ZEISS-01
+Program:            ABC1025_REV_C
+
+
+Measured:
+15.08.2026 14:32:16
+
+
+Result:
+UYGUN
+
+
+Original CMM File:
+✓
+
+
+Evidence:
+📷 2
+🎥 1
+
+görülebilir.
+
+Ve bütün sistem on-premise
+
+Bence bizim konumlandırmamızın önemli kısmı burası:
+
+              FABRİKA
+
+
+Telefon ─┐
+Tablet ──┤
+PC ──────┤
+CMM ─────┤
+Gauge ───┤
+         ↓
+ ┌─────────────────┐
+ │   RITIM QUALITY │
+ │   Local Server  │
+ ├─────────────────┤
+ │ Measurement DB  │
+ │ CMM Importer    │
+ │ SPC Engine      │
+ │ Media Storage   │
+ │ Reporting       │
+ └─────────────────┘
+
+İnternet olmadan çalışabilir.
+
+Tarayıcıdan erişilir.
+
+Veritabanı, teknik resimler, ölçümler, fotoğraflar, videolar ve CMM dosyaları müşterinin tesisinde kalır.
+
+Bence ürünün tek cümlelik tanımı artık oldukça net:
+
+Ritim Quality, teknik resim üzerindeki kontrol karakteristiklerinden manuel, görsel ve CMM ölçüm sonuçlarını tek bir on-premise kalite veri tabanında toplayan; SPC, proses yeterlilik ve izlenebilirlik sağlayan kalite kontrol platformudur.

@@ -1,0 +1,14 @@
+node_modules
+.runtime
+.npm-cache
+.data
+.env*
+!.env.example
+dist-server
+on-premise
+marketing
+tests
+tools
+assets
+coverage
+*.log

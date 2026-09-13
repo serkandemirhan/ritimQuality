@@ -1,0 +1,10 @@
+import {readFile} from 'node:fs/promises';
+const fixture=JSON.parse(await readFile('.runtime/quality-test-fixture.json','utf8'));
+process.env.DATABASE_URL=fixture.connectionString;
+process.env.JWT_SECRET='isolated-test-secret-not-for-production-123456789';
+process.env.DISABLE_HMR='false';
+process.env.API_PORT='3301';process.env.API_PROXY_TARGET='http://127.0.0.1:3301';process.env.VAPID_PUBLIC_KEY='';process.env.VAPID_PRIVATE_KEY='';
+await import('../dist-server/index.js');
+const {createServer}=await import('vite');
+const server=await createServer({server:{host:'127.0.0.1',port:3300,strictPort:true}});
+await server.listen();console.log('Review app ready on http://127.0.0.1:3300');

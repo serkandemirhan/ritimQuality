@@ -1,0 +1,26 @@
+@import "tailwindcss";
+@layer components {
+  .auth-input {
+    @apply w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20;
+  }
+}
+
+@media (pointer: coarse) {
+  button, select, input:not([type="file"]), [role="button"] { min-height:44px; }
+  button, [role="button"] { min-width:44px; }
+  input, select, textarea { font-size:16px !important; }
+}
+@media (max-width:1023px) {
+  body { padding-bottom:calc(4.5rem + env(safe-area-inset-bottom)); }
+  .quality-operator { overflow-wrap:anywhere; }
+  .quality-session, .quality-measurement-grid { overflow:visible; }
+  .quality-measurement-grid > div:last-child { overflow:visible; height:auto; }
+  .quality-measurement-grid > div:last-child > div { overflow:visible; }
+  .quality-session button { min-height:44px; min-width:44px; }
+  [data-hand="right"] .quality-mobile-menu { margin-left:auto; }
+  [data-hand="left"] .quality-measurement-actions > div:first-child { flex-direction:row-reverse; }
+  [data-hand="left"] .quality-bottom-nav { direction:rtl; }
+  .quality-bottom-nav button { direction:ltr; }
+}
+@media (prefers-reduced-motion:reduce) { *, *::before, *::after { scroll-behavior:auto !important; animation:none !important; transition:none !important; } }
+button:focus-visible, a:focus-visible { outline:3px solid #2563eb; outline-offset:3px; }

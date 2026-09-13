@@ -1,0 +1,17 @@
+node_modules/
+.npm-cache/
+.runtime/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+!.env.cloud.example
+
+dist-server/
+on-premise/dist-server/
+.data/
+.vercel/
+*.pem
