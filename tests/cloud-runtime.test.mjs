@@ -36,6 +36,15 @@ test('Vercel cannot silently fall back to its temporary filesystem',()=>{
   process.env.MEDIA_STORAGE='supabase';assert.equal(usesSupabaseStorage(),true);
   delete process.env.VERCEL;process.env.MEDIA_STORAGE='local';assert.equal(usesSupabaseStorage(),false);
 });
+
+test('installable app assets define a standalone PWA and offline shell',async()=>{
+  const manifest=JSON.parse(await readFile('public/manifest.webmanifest','utf8'));
+  assert.equal(manifest.display,'standalone');assert.equal(manifest.start_url,'/');
+  assert.ok(manifest.icons.some(icon=>icon.sizes==='192x192'&&icon.purpose.includes('maskable')));
+  assert.ok(manifest.icons.some(icon=>icon.sizes==='512x512'));
+  const worker=await readFile('public/service-worker.js','utf8');
+  assert.match(worker,/addEventListener\('fetch'/);assert.match(worker,/addEventListener\('push'/);
+});
 test('webhook rejects unsigned bodies without depending on JSON parsing',async()=>{
   const response=await fetch(base+'/api/billing/webhook',{method:'POST',headers:{'Content-Type':'application/json'},body:'not-json'});
   assert.equal(response.status,400);assert.match((await response.json()).error,/signature/);

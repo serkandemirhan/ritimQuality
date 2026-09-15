@@ -18,7 +18,7 @@ const ROLE_INFO: Record<UserRole, { label: string; description: string; classNam
     icon: <Shield className="h-4 w-4" />,
   },
   quality_engineer: {
-    label: 'Kalite Mühendisi',
+    label: 'Kalite Uzmanı',
     description: 'Kontrol planlarını, ölçümleri ve SPC analizlerini yönetir.',
     className: 'border-blue-200 bg-blue-50 text-blue-700',
     icon: <Sparkles className="h-4 w-4" />,
@@ -44,6 +44,7 @@ const emptyUser = (): Partial<User> => ({
 });
 
 export const UserManager: React.FC<UserManagerProps> = ({ users, currentUser, onUserSelect, onSaveUser, onDeleteUser }) => {
+  const [saving,setSaving]=useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | User['status']>('all');
@@ -68,6 +69,9 @@ export const UserManager: React.FC<UserManagerProps> = ({ users, currentUser, on
   const submitForm = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!formData.name?.trim() || !formData.email?.trim()) return;
+    if(saving)return;
+    setSaving(true);
+    try {
     const saved = await onSaveUser({
       id: formData.id || `usr-${Date.now()}`,
       name: formData.name.trim(), email: formData.email.trim(), role: formData.role || 'operator',
@@ -76,6 +80,7 @@ export const UserManager: React.FC<UserManagerProps> = ({ users, currentUser, on
       pinCode: formData.pinCode?.trim() || undefined, avatarUrl: formData.avatarUrl,
     });
     if(saved!==false)closeForm();
+    } finally {setSaving(false);}
   };
 
   const deleteUser = (user: User) => {
@@ -170,7 +175,7 @@ export const UserManager: React.FC<UserManagerProps> = ({ users, currentUser, on
                 <label className="text-xs font-bold text-slate-700">İstasyon / Tezgâh<input type="text" value={formData.stationOrMachine || ''} onChange={(event) => setFormData({ ...formData, stationOrMachine: event.target.value })} className="mt-1.5 h-10 w-full rounded-xl border border-slate-300 px-3 text-sm font-normal outline-none focus:border-blue-500" placeholder="Örn. CNC-02" /></label>
                 <label className="text-xs font-bold text-slate-700 sm:col-span-2">Geçici şifre <span className="font-normal text-slate-400">(yeni kullanıcı için en az 10 karakter)</span><input type="password" required={!editingUser} minLength={10} maxLength={128} value={formData.pinCode || ''} onChange={(event) => setFormData({ ...formData, pinCode: event.target.value })} className="mt-1.5 h-10 w-full rounded-xl border border-slate-300 px-3 text-sm font-normal outline-none focus:border-blue-500" placeholder="••••" /></label>
               </div>
-              <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-5"><button type="button" onClick={closeForm} className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100">İptal</button><button type="submit" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"><CheckCircle2 className="h-4 w-4" />{editingUser ? 'Kaydet' : 'Kullanıcı oluştur'}</button></div>
+              <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-5"><button type="button" onClick={closeForm} className="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100">İptal</button><button disabled={saving} type="submit" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700"><CheckCircle2 className="h-4 w-4" />{editingUser ? 'Kaydet' : 'Kullanıcı oluştur'}</button></div>
             </form>
           </div>
         </div>

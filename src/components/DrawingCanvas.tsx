@@ -295,9 +295,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       }`}
     >
       {/* Smart Blueprint Toolbar: Clean and Ergonomic */}
-      <div className="flex items-center justify-between px-3 py-2 bg-[#1E293B] border-b border-slate-700 z-10 text-xs text-slate-200 select-none">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[#1E293B] border-b border-slate-700 z-10 text-xs text-slate-200 select-none">
         {/* Left: View Filter (Sadece Aktif Nokta vs Tüm Noktalar) */}
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           <div className="flex items-center gap-1.5 font-bold text-white text-xs shrink-0">
             <Crosshair className="w-4 h-4 text-blue-400 shrink-0" />
             <span className="hidden sm:inline">Teknik Resim</span>
@@ -316,7 +316,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
               title="Resmi karıştırmamak için yalnızca şu an ölçülen aktif noktayı gösterir"
             >
               <Focus className="w-3 h-3 text-blue-300" />
-              <span>Sadece Aktif Nokta {activePointNo ? `(#${activePointNo})` : ''}</span>
+              <span className="whitespace-nowrap">Aktif nokta {activePointNo ? `#${activePointNo}` : ''}</span>
             </button>
 
             <button
@@ -330,7 +330,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
               title="Tüm noktaları resim üzerinde göster"
             >
               <Layers className="w-3 h-3 text-slate-300" />
-              <span>Tüm Noktalar ({characteristics.length})</span>
+              <span className="whitespace-nowrap">Tümü ({characteristics.length})</span>
             </button>
           </div>
 
@@ -422,7 +422,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           {isPdfMedia(imageUrl) ? (
             <object data={resolvedImageUrl} type="application/pdf" aria-label="PDF teknik resim" className="block h-[65vh] min-h-[460px] w-[min(900px,90vw)] pointer-events-none rounded-xl bg-white" />
           ) : (
-            <img src={resolvedImageUrl||undefined} alt="Teknik Resim Kontrol Planı" className="w-full h-auto max-h-[75vh] object-contain block pointer-events-none rounded-xl bg-slate-900/60" referrerPolicy="no-referrer" />
+            <>{resolvedImageUrl ? <img src={resolvedImageUrl} alt="Teknik Resim Kontrol Planı" className="w-full h-auto max-h-[75vh] object-contain block pointer-events-none rounded-xl bg-slate-900/60" referrerPolicy="no-referrer" /> : <div className="flex min-h-40 items-center justify-center rounded-xl bg-slate-900 px-6 text-center text-sm text-slate-400">Bu kontrol planına teknik resim eklenmemiş.</div>}</>
           )}
 
           {/* Interactive Inspection Point Hotspots / Pins */}

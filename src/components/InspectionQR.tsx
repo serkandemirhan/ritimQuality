@@ -37,12 +37,13 @@ export function InspectionQR({products,onSelect}:{products:Product[];onSelect:(i
     };void start();
     return()=>{canceled=true;clearTimeout(timer);stream.current?.getTracks().forEach(t=>t.stop());stream.current=null;};
   },[scanning]);
-  return <details className="rounded-xl border bg-white p-4"><summary className="cursor-pointer font-bold">QR ile kontrol aç / etiket oluştur</summary><div className="mt-4 space-y-3">
+  return <div className="grid gap-3 sm:grid-cols-2"><details className="rounded-xl border bg-white p-4"><summary className="cursor-pointer font-bold">QR Tara</summary><div className="mt-4 space-y-3">
     {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
     <form className="flex flex-wrap gap-2" onSubmit={event=>{event.preventDefault();select(input);}}><input aria-label="QR bağlantısı veya parça kodu" value={input} onChange={e=>setInput(e.target.value)} placeholder="Parça kodu veya QR bağlantısı" className="min-w-0 flex-1 rounded-lg border p-3"/><button className="rounded-lg bg-blue-700 p-3 text-white">Aç</button><button type="button" className="rounded-lg border p-3" onClick={()=>setScanning(true)}>Kamerayla tara</button></form>
     {scanning&&<div><video ref={video} playsInline muted className="max-h-72 w-full rounded-xl"/><button type="button" onClick={stop} className="rounded-lg border p-3">Kamerayı kapat</button></div>}
-    <label className="block text-sm">Etiket parçası<select value={productId} onChange={event=>setProductId(event.target.value)} className="mt-1 w-full rounded-lg border p-3">{products.map(p=><option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}</select></label>
+  </div></details><details className="rounded-xl border bg-white p-4"><summary className="cursor-pointer font-bold">Etiket Oluştur</summary><div className="mt-4 space-y-3">
+    <label className="block text-sm">Etiket ürünü<select value={productId} onChange={event=>setProductId(event.target.value)} className="mt-1 w-full rounded-lg border p-3">{products.map(p=><option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}</select></label>
     <label className="block text-sm">İş emri (isteğe bağlı)<input value={workOrder} onChange={e=>setWorkOrder(e.target.value)} maxLength={120} className="mt-1 w-full rounded-lg border p-3"/></label>
     {qr&&<div><img src={qr} alt="Kontrol planını açan QR etiketi" width={256} height={256}/><a href={qr} download={'kontrol-'+(products.find(p=>p.id===productId)?.code||'etiket')+'.png'} className="inline-block rounded-lg border p-3">QR etiketini indir</a><p className="mt-2 break-all text-xs text-slate-500">{link.href}</p></div>}
-  </div></details>;
+  </div></details></div>;
 }

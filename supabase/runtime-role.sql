@@ -12,8 +12,8 @@ GRANT USAGE ON SCHEMA public TO qualitrack_app;
 DO $$ DECLARE table_name text; api_role text; sequence_name text; BEGIN
   FOREACH table_name IN ARRAY ARRAY[
     'tenants','users','products','control_plans','inspection_logs','audit_logs','stripe_events',
-    'measurement_results','media_evidence','plants','departments','quality_cases','inspection_approvals',
-    'quality_tasks','quality_notifications','push_subscriptions'
+    'measurement_results','media_evidence','plants','departments','stations','quality_cases','inspection_approvals',
+    'quality_tasks','quality_notifications','push_subscriptions','inspection_drafts'
   ] LOOP
     EXECUTE format('REVOKE ALL ON TABLE public.%I FROM PUBLIC',table_name);
     FOREACH api_role IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP

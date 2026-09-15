@@ -24,13 +24,14 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setStatusMessage({ type: 'success', text: 'Tüm veritabanı yedeği JSON dosyası olarak indirildi.' });
+    setStatusMessage({ type: 'success', text: 'Veriler dışa aktarıldı.' });
   };
 
   // Import JSON
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!confirm('Bu tarayıcıdaki veriler yedekle değiştirilecek. Devam edilsin mi?')) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -41,7 +42,7 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({
           setStatusMessage({ type: 'success', text: 'Veritabanı yedeği başarıyla geri yüklendi!' });
           onDataRestored();
         } else {
-          setStatusMessage({ type: 'error', text: 'Geçersiz JSON dosyası! Lütfen doğru formatta yedek seçin.' });
+          setStatusMessage({ type: 'error', text: 'Yedek dosyası okunamadı. Lütfen geçerli bir yedek seçin.' });
         }
       }
     };
@@ -65,7 +66,7 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({
             <span className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center">
               <Database className="w-4 h-4" />
             </span>
-            Lokal Veritabanı & Yedekleme Yönetimi
+            Veri Yönetimi
           </h3>
           <button
             type="button"
@@ -77,7 +78,7 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({
         </div>
 
         <p className="text-xs text-slate-500 leading-relaxed font-medium">
-          Bu uygulama KOBİ ve imalat atölyeleri için tamamen yerel çalışır. Verilerinizi JSON formatında dışa aktarabilir, başka bilgisayarlara taşıyabilir veya fabrika demo verilerini yeniden yükleyebilirsiniz.
+          Ritim Cloud verilerinizi sunucuda saklar. Bu dışa aktarım, ekranda yüklenmiş ürün, plan ve ölçüm kayıtlarını içerir; tam sunucu yedeği değildir. Sunucu yedeklerini sistem yöneticiniz yönetir.
         </p>
 
         {statusMessage && (
@@ -95,7 +96,7 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({
           {/* Backup Export */}
           <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
             <div>
-              <div className="text-xs font-bold text-slate-900">Veritabanı Yedeği İndir (JSON)</div>
+              <div className="text-xs font-bold text-slate-900">Verileri Dışa Aktar</div>
               <div className="text-[11px] text-slate-500 font-medium">Tüm ürünler, kontrol planları ve ölçüm logları</div>
             </div>
             <button
@@ -108,11 +109,12 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({
             </button>
           </div>
 
+          {import.meta.env.DEV && !StorageService.getCompany().id && <>
           {/* Backup Import */}
           <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
             <div>
               <div className="text-xs font-bold text-slate-900">Yedekten Geri Yükle</div>
-              <div className="text-[11px] text-slate-500 font-medium">Daha önce alınmış bir .json dosyasını yükleyin</div>
+              <div className="text-[11px] text-slate-500 font-medium">Daha önce indirdiğiniz yedek dosyasını seçin</div>
             </div>
             <label className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-500/20 transition">
               <Upload className="w-3.5 h-3.5" />
@@ -141,6 +143,7 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({
               <span>Sıfırla</span>
             </button>
           </div>
+          </>}
         </div>
 
         <div className="flex justify-end pt-3 border-t border-slate-100">

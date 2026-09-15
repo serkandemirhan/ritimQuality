@@ -8,6 +8,7 @@ import { mediaRouter } from './routes/media.js';
 import { pushRouter } from './routes/push.js';
 import { cronRouter } from './routes/cron.js';
 import { cloudMediaRouter } from './routes/cloudMedia.js';
+import { draftRouter } from './routes/drafts.js';
 
 // Importable in Vercel and tests: no listening socket or background timer here.
 export const app = express();
@@ -27,6 +28,7 @@ app.use('/api', workflowRouter);
 app.use('/api', pushRouter);
 app.use('/api/billing', billingRouter);
 app.use('/api', cloudMediaRouter);
+app.use('/api', draftRouter);
 app.use('/api', mediaRouter);
 app.use('/api', saasRouter);
 app.use('/api', (_req, res) => res.status(404).json({ error: 'API adresi bulunamadı.' }));

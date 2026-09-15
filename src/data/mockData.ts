@@ -270,7 +270,7 @@ export const INITIAL_CONTROL_PLANS: ControlPlan[] = [
     revisionNote: 'Müşteri talebiyle Dış Çap taşlama toleransı ±0.03 mm yerine ±0.02 mm olarak daraltıldı.',
     isActive: true, // Default active for operator
     status: 'active',
-    author: 'Serkan Demirhan (Kalite Müdürü)',
+    author: 'Demo Yönetici (Kalite Müdürü)',
     approvedBy: 'Ahmet Yılmaz (Üretim Direktörü)',
     drawingImageUrl: SHAFT_BUSHING_SVG,
     createdAt: '2026-08-10T09:00:00.000Z',
@@ -388,7 +388,7 @@ export const INITIAL_CONTROL_PLANS: ControlPlan[] = [
     revisionNote: 'İlk seri üretim onaylı kontrol planı devreye alındı.',
     isActive: false, // Old revision
     status: 'archived',
-    author: 'Serkan Demirhan',
+    author: 'Demo Yönetici',
     approvedBy: 'Ahmet Yılmaz',
     drawingImageUrl: SHAFT_BUSHING_SVG,
     createdAt: '2026-08-01T09:00:00.000Z',
@@ -561,7 +561,7 @@ export const INITIAL_CONTROL_PLANS: ControlPlan[] = [
 // Helper to generate realistic historical inspection data with realistic normal distribution + small variations
 export const generateRealisticInspectionLogs = (): InspectionLog[] => {
   const logs: InspectionLog[] = [];
-  const operators = ['Ahmet Kurt', 'Murat Demir', 'Hasan Çelik', 'Mustafa Kara', 'Emre Şen'];
+  const operators = ['Operatör 01', 'Operatör 02', 'Operatör 03', 'Operatör 04', 'Operatör 05'];
   const machines = ['CNC Torna #01 (Doosan)', 'CNC Torna #02 (Mazak)', 'Taşlama #04 (Studer)', '5-Eksen Freze #02 (DMG Mori)'];
 
   // Base timestamps spread across the last 10 days
@@ -672,7 +672,7 @@ import { SubscriptionPlan, User, TenantCompany } from '../types';
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: 'starter',
-    name: 'Starter (Küçük Atölye)',
+    name: 'Starter',
     monthlyPrice: 1490,
     annualPrice: 14900,
     maxControlPlans: 5,
@@ -686,12 +686,12 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       'Standart Ölçüm Sertifikası (PDF / Yazdır)',
       'E-posta Destek',
     ],
-    badge: 'KOBİ Başlangıç',
+    badge: 'Başlangıç',
     isPopular: false,
   },
   {
     id: 'pro',
-    name: 'Pro İmalatçı (Talaşlı & Seri Üretim)',
+    name: 'Professional',
     monthlyPrice: 3890,
     annualPrice: 38900,
     maxControlPlans: 50,
@@ -712,7 +712,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   },
   {
     id: 'enterprise',
-    name: 'Enterprise (Otomotiv & Havacılık)',
+    name: 'Enterprise',
     monthlyPrice: 8990,
     annualPrice: 89900,
     maxControlPlans: 9999,
@@ -728,7 +728,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       'Özel Kurulum ve Veri Aktarım Desteği',
       'Öncelikli Kurumsal Destek',
     ],
-    badge: 'Büyük Ölçekli Fabrikalar',
+    badge: 'Kurumsal',
     isPopular: false,
   },
 ];
@@ -736,8 +736,8 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
 export const INITIAL_USERS: User[] = [
   {
     id: 'usr-001',
-    name: 'Ahmet Kurt',
-    email: 'ahmet.kurt@demirhanmakina.com',
+    name: 'Operatör 01',
+    email: 'operator01@example.com',
     role: 'operator',
     department: 'Talaşlı İmalat / Atölye',
     stationOrMachine: 'CNC Torna İstasyon #01',
@@ -748,8 +748,8 @@ export const INITIAL_USERS: User[] = [
   },
   {
     id: 'usr-002',
-    name: 'Zeynep Kaya',
-    email: 'zeynep.kaya@demirhanmakina.com',
+    name: 'Kalite Uzmanı',
+    email: 'quality@example.com',
     role: 'quality_engineer',
     department: 'Kalite Güvence & Laboratuvar',
     stationOrMachine: 'CMM & Metroloji Odası',
@@ -760,8 +760,8 @@ export const INITIAL_USERS: User[] = [
   },
   {
     id: 'usr-003',
-    name: 'Serkan Demirhan',
-    email: 'serkan@demirhanmakina.com',
+    name: 'Demo Yönetici',
+    email: 'admin@example.com',
     role: 'admin',
     department: 'Genel Yönetim & Fabrika Müdürlüğü',
     stationOrMachine: 'Yönetim Merkezi',
@@ -772,8 +772,8 @@ export const INITIAL_USERS: User[] = [
   },
   {
     id: 'usr-004',
-    name: 'Mehmet Ali Çetin',
-    email: 'm.cetin@demirhanmakina.com',
+    name: 'Operatör 02',
+    email: 'operator02@example.com',
     role: 'operator',
     department: 'Taşlama & Honlama Bölümü',
     stationOrMachine: 'Puntaşsız Taşlama #03',
@@ -784,8 +784,8 @@ export const INITIAL_USERS: User[] = [
   },
   {
     id: 'usr-005',
-    name: 'Ayşe Erdem',
-    email: 'ayse.erdem@denetim-kalite.org',
+    name: 'Demo Denetçi',
+    email: 'auditor@example.com',
     role: 'auditor',
     department: 'IATF 16949 / ISO 9001 Dış Denetçi',
     stationOrMachine: 'Denetim Portalı',

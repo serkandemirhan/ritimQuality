@@ -24,3 +24,13 @@
 }
 @media (prefers-reduced-motion:reduce) { *, *::before, *::after { scroll-behavior:auto !important; animation:none !important; transition:none !important; } }
 button:focus-visible, a:focus-visible { outline:3px solid #2563eb; outline-offset:3px; }
+
+@layer components {
+  .quality-card { @apply rounded-2xl bg-white p-5 shadow-sm sm:p-6; }
+  .quality-primary { @apply rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50; }
+  .quality-secondary { @apply rounded-xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-50; }
+  .quality-destructive { @apply rounded-xl bg-red-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50; }
+}
+main { min-height: 65vh; }
+button:disabled { cursor:wait; }
+input:not([type=checkbox]):not([type=radio]):not([type=file]), select { min-height:40px; }

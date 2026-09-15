@@ -1,0 +1,10 @@
+import {SaasApi} from '../services/api';
+import React,{useEffect,useState} from 'react';
+import {Bell} from 'lucide-react';
+export function NotificationPanel({onNavigate}:{onNavigate:(tab:'work'|'cases'|'approvals')=>void}) {
+  const [open,setOpen]=useState(false);
+  const [items,setItems]=useState<{id:number;title:string;kind:string;read_at:string|null}[]>([]);
+  const [error,setError]=useState('');
+  useEffect(()=>{let live=true;const refresh=async()=>{try{const data=await SaasApi.work() as {notifications:typeof items};if(live){setItems(data.notifications);setError('');}}catch{if(live)setError('Bildirimler yüklenemedi.');}};void refresh();const timer=setInterval(refresh,30000);return()=>{live=false;clearInterval(timer);};},[]);
+  return <div className="relative"><button type="button" aria-label="Bildirimler" aria-expanded={open} onClick={()=>setOpen(!open)} className="relative rounded-xl p-3"><Bell className="h-5 w-5"/>{items.some(i=>!i.read_at)&&<span className="absolute right-0 top-0 rounded-full bg-red-600 px-1.5 text-xs text-white">{items.filter(i=>!i.read_at).length}</span>}</button>{open&&<section aria-label="Bildirim paneli" className="absolute right-0 top-full z-50 max-h-96 w-80 max-w-[85vw] overflow-auto rounded-xl border border-slate-200 bg-white p-4 shadow-xl"><div className="mb-3 flex justify-between"><h2 className="font-semibold">Bildirimler</h2><button onClick={()=>setOpen(false)}>Kapat</button></div>{error?<p role="alert">{error}</p>:!items.length?<p className="text-sm text-slate-500">Yeni bildirim yok.</p>:items.map(item=><button key={item.id} className="block w-full border-t border-slate-100 py-3 text-left text-sm" onClick={async()=>{try{await SaasApi.readNotification(item.id);setItems(prev=>prev.map(i=>i.id===item.id?{...i,read_at:new Date().toISOString()}:i));setOpen(false);onNavigate(item.kind==='ncr'?'cases':item.kind==='approval'?'approvals':'work');}catch{setError('Bildirim güncellenemedi.');}}}>{!item.read_at?'● ':''}{item.title}</button>)}</section>}</div>;
+}

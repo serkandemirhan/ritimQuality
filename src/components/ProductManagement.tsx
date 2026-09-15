@@ -1,3 +1,4 @@
+import { EmptyState } from './EmptyState';
 import { SaasApi } from '../services/api';
 import { MediaImage } from './MediaImage';
 import React, { useMemo, useState } from 'react';
@@ -42,6 +43,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const [saving,setSaving]=useState(false);
   // Form State
   const [code, setCode] = useState<string>('');
   const [name, setName] = useState<string>('');
@@ -79,8 +81,10 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
-    try {
     e.preventDefault();
+    if(saving)return;
+    setSaving(true);
+    try {
     if (!name || !code) return;
 
     const productData: Product = {
@@ -143,7 +147,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
     setIsAddModalOpen(false);
     onProductsChanged();
   
-    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); }
+    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); } finally {setSaving(false);}
   };
 
   const handleDrawingUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,7 +176,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
 
   const selectedProduct = products.find(product => product.id === selectedProductId) || null;
   const selectedPlans = selectedProduct ? controlPlans.filter(plan => plan.productId === selectedProduct.id) : [];
-  const selectedActivePlan = selectedPlans.find(plan => plan.isActive && plan.status === 'active') || selectedPlans[0];
+  const selectedActivePlan = selectedPlans.find(plan => plan.isActive && plan.status === 'active');
 
   return (
     <div className="space-y-6">
@@ -249,7 +253,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
           <div className="max-h-[calc(100vh-310px)] min-h-64 overflow-y-auto">
             {filteredProducts.map(product => {
               const plans = controlPlans.filter(plan => plan.productId === product.id);
-              const activePlan = plans.find(plan => plan.isActive && plan.status === 'active') || plans[0];
+              const activePlan = plans.find(plan => plan.isActive && plan.status === 'active');
               return (
                 <button key={product.id} type="button" onClick={() => setSelectedProductId(product.id)} className="grid w-full grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-100 px-4 py-3 text-left transition last:border-b-0 hover:bg-blue-50/50 sm:grid-cols-[52px_minmax(180px,1.4fr)_minmax(130px,1fr)_minmax(120px,.8fr)_100px_24px]">
                   <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-slate-900 sm:h-11 sm:w-11"><MediaImage src={product.defaultDrawingUrl || SHAFT_BUSHING_SVG} alt="" className="h-full w-full object-contain" /></div>
@@ -261,7 +265,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                 </button>
               );
             })}
-            {filteredProducts.length === 0 && <div className="flex min-h-64 flex-col items-center justify-center text-slate-400"><ImageIcon className="mb-2 h-8 w-8"/><span className="text-sm font-bold">Ürün bulunamadı</span></div>}
+            {filteredProducts.length === 0 && <EmptyState title={products.length?"Aramanızla eşleşen ürün yok":"İlk ürününüzü oluşturun"} description="Ürün kodu, teknik resim ve malzemeyle başlayın; ardından kontrol planını hazırlayın." action={handleOpenAdd} label="İlk ürününü oluştur"/>}
           </div>
         </div>
       )}
@@ -409,7 +413,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
                   İptal
                 </button>
                 <button
-                  type="submit"
+                  disabled={saving} type="submit"
                   className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-md shadow-blue-500/20 transition"
                 >
                   {editingProduct ? 'Güncelle' : 'Ürünü Kaydet'}

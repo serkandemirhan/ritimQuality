@@ -4,10 +4,10 @@ import { z } from 'zod';
 const valueSchema = z.union([z.number().finite(), z.string(), z.boolean(), z.array(z.string()), z.null()]);
 const characteristicSchema = z.object({
   id: z.string().min(1), pointNo: z.number().int().positive(), name: z.string().min(1),
-  type: z.enum(['numeric', 'ok_nok', 'single_select', 'multi_select']).default('numeric'),
+  type: z.enum(['numeric', 'ok_nok', 'visual', 'single_select', 'multi_select']).default('numeric'),
   nominal: z.number().finite(), lsl: z.number().finite(), usl: z.number().finite(),
   options: z.array(z.string()).optional(), rejectedOptions: z.array(z.string()).optional(),
-  evidencePolicy: z.enum(['none', 'optional', 'required_on_fail', 'always_required']).default('none'),
+  evidencePolicy: z.enum(['none', 'optional', 'required_on_fail', 'always_required', 'photo_required', 'media_required', 'document_required']).default('none'),
 }).passthrough();
 export const planSchema = z.object({
   id: z.string().min(1), productId: z.string().min(1), version: z.string().min(1),
@@ -41,6 +41,7 @@ export function validateInspection(input: Record<string, unknown>, rawPlan: unkn
     conflict('Ürün veya plan revizyonu değişti. Kontrol planını yeniden açın.');
   const samples = z.array(z.object({
     sampleIndex: z.number().int().positive(), values: z.record(valueSchema),
+    pointNotes: z.record(z.string().trim().max(2000)).optional(),
     evidence: z.record(z.array(z.object({ id: z.string().uuid() }).passthrough())).optional(),
   })).min(1).max(1000).parse(input.samples);
   if (input.sampleCount !== samples.length || samples.some((s, index) => s.sampleIndex !== index + 1))
@@ -48,7 +49,7 @@ export function validateInspection(input: Record<string, unknown>, rawPlan: unkn
   const expected = new Set(plan.characteristics.map(c => c.id));
   let failed = 0; let warning = 0;
   const normalized = samples.map(sample => {
-    if (Object.keys(sample.values).some(id => !expected.has(id)) || Object.keys(sample.evidence || {}).some(id => !expected.has(id)))
+    if (Object.keys(sample.pointNotes || {}).some(id => !expected.has(id)) || Object.keys(sample.values).some(id => !expected.has(id)) || Object.keys(sample.evidence || {}).some(id => !expected.has(id)))
       conflict('Planda bulunmayan kontrol noktası.');
     const statuses: Record<string, 'pass' | 'warning' | 'fail'> = {};
     for (const c of plan.characteristics) {
@@ -57,7 +58,7 @@ export function validateInspection(input: Record<string, unknown>, rawPlan: unkn
       if (c.type === 'numeric') {
         if (typeof value !== 'number' || !Number.isFinite(value)) conflict(`#${c.pointNo}: sayısal ölçüm zorunludur.`);
         status = value < c.lsl || value > c.usl ? 'fail' : Math.min(value - c.lsl, c.usl - value) <= (c.usl - c.lsl) * .12 ? 'warning' : 'pass';
-      } else if (c.type === 'ok_nok') {
+      } else if (c.type === 'ok_nok' || c.type === 'visual') {
         if (![true, false, 'OK', 'NOK'].includes(value as boolean | string)) conflict(`#${c.pointNo}: OK/NOK seçin.`);
         status = value === true || value === 'OK' ? 'pass' : 'fail';
       } else {
@@ -65,7 +66,7 @@ export function validateInspection(input: Record<string, unknown>, rawPlan: unkn
         if (!chosen.length || new Set(chosen).size !== chosen.length || chosen.some(v => !c.options?.includes(v))) conflict(`#${c.pointNo}: geçerli seçim zorunludur.`);
         if (chosen.some(v => c.rejectedOptions?.includes(v))) status = 'fail';
       }
-      if ((c.evidencePolicy === 'always_required' || c.evidencePolicy === 'required_on_fail' && status === 'fail') && !sample.evidence?.[c.id]?.length)
+      if ((['always_required','photo_required','media_required','document_required'].includes(c.evidencePolicy) || c.evidencePolicy === 'required_on_fail' && status === 'fail') && !sample.evidence?.[c.id]?.length)
         conflict(`#${c.pointNo}: kanıt dosyası zorunludur.`);
       statuses[c.id] = status;
       if (status === 'fail') failed++;

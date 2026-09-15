@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {qualityOverview} from '../src/services/overview';
+import {inspectionExport,safeCell} from '../src/services/exportRecords';
+import type {InspectionLog} from '../src/types';
+const log=(status:InspectionLog['overallStatus'],timestamp:string)=>({id:timestamp,overallStatus:status,timestamp,sessionCode:'=1+1',productName:'Parça, "A" & B',productCode:'A',sampleCount:1,failedPointsCount:0} as InspectionLog);
+test('empty periods have no invented success rate or comparison',()=>{const result=qualityOverview([],new Date('2026-09-15T12:00:00Z'));assert.equal(result.rate,null);assert.equal(result.change,null);assert.ok(result.trend.every(d=>d.rate===null));});
+test('quality rate includes in-tolerance warning and excludes future records',()=>{const result=qualityOverview([log('pass','2026-09-14T12:00:00Z'),log('warning','2026-09-13T12:00:00Z'),log('fail','2026-09-12T12:00:00Z'),log('pass','2026-08-01T12:00:00Z'),log('fail','2027-01-01T12:00:00Z')],new Date('2026-09-15T12:00:00Z'));assert.ok(Math.abs(result.rate!-200/3)<.001);assert.ok(Math.abs(result.change!+100/3)<.001);});
+test('CSV preserves quotes and separators and neutralizes spreadsheet formulas',()=>{const csv=inspectionExport([log('pass','2026-09-15')],'csv');assert.ok(csv.includes('"Parça, ""A"" & B"'));assert.ok(csv.includes('"\'=1+1"'));assert.equal(safeCell('  @SUM(A1)'),"'  @SUM(A1)");});
+test('Excel export is actual SpreadsheetML with escaped data',()=>{const xml=inspectionExport([log('fail','2026-09-15')],'excel');assert.ok(xml.includes('urn:schemas-microsoft-com:office:spreadsheet'));assert.ok(xml.includes('&quot;A&quot; &amp; B'));assert.ok(xml.includes('Uygunsuz'));});

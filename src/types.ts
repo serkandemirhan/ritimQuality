@@ -1,6 +1,6 @@
 export type CriticalClass = 'critical' | 'major' | 'minor';
-export type CharacteristicType = 'numeric' | 'ok_nok' | 'single_select' | 'multi_select';
-export type EvidencePolicy = 'none' | 'optional' | 'required_on_fail' | 'always_required';
+export type CharacteristicType = 'numeric' | 'ok_nok' | 'visual' | 'single_select' | 'multi_select';
+export type EvidencePolicy = 'none' | 'optional' | 'required_on_fail' | 'always_required' | 'photo_required' | 'media_required' | 'document_required';
 export type MeasurementSource = 'manual' | 'gauge' | 'import' | 'cmm';
 
 export type MeasurementUnit = 'mm' | 'µm' | '°' | 'N' | 'Ra' | 'kg' | 'bar' | 'adet';
@@ -21,6 +21,14 @@ export interface PinCoordinate {
   x: number; // 0-100%
   y: number; // 0-100%
 }
+
+export interface ProductImage { id:string; name:string; url:string; mimeType?:string; }
+export type ImageAnnotation =
+  | {id:string;type:'pin';x:number;y:number;label?:string;color?:string}
+  | {id:string;type:'measurement_line';startX:number;startY:number;endX:number;endY:number;label?:string;color?:string}
+  | {id:string;type:'area';startX:number;startY:number;endX:number;endY:number;label?:string;color?:string}
+  | {id:string;type:'note';x:number;y:number;label:string;color?:string};
+export interface CharacteristicImageLink { id:string;characteristicId:string;imageId:string;annotations:ImageAnnotation[]; }
 
 export interface Characteristic {
   id: string;
@@ -58,6 +66,7 @@ export interface ControlPlan {
   drawingImageUrl: string;
   defaultSampleCount?: number;
   characteristics: Characteristic[];
+  characteristicImageLinks?: CharacteristicImageLink[];
   createdAt: string;
   updatedAt: string;
 }
@@ -72,6 +81,7 @@ export interface Product {
   category: string; // Kategori (e.g. "Talaşlı İmalat", "Plastik Enjeksiyon")
   description: string;
   defaultDrawingUrl: string;
+  images?: ProductImage[];
   createdAt: string;
   updatedAt: string;
 }
@@ -92,9 +102,11 @@ export interface SampleMeasurement {
   values: Record<string, MeasurementValue>; // characteristicId -> measured/selected value
   statuses: Record<string, 'pass' | 'warning' | 'fail' | 'empty'>;
   evidence?: Record<string, EvidenceAttachment[]>;
+  pointNotes?: Record<string, string>;
 }
 
 export interface InspectionLog {
+  draftId?: string;
   controlPlanSnapshot?: ControlPlan;
   operatorUserId?: string;
   id: string;

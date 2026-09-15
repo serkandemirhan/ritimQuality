@@ -15,7 +15,9 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "supabase:setup": "node --env-file=.env.cloud --import tsx server/db/setupSupabase.ts",
-    "test:cloud": "tsx tests/inspection-validation.test.ts && node tests/cloud-runtime.test.mjs"
+    "test:cloud": "tsx tests/inspection-validation.test.ts && node tests/cloud-runtime.test.mjs",
+    "demo:provision": "tsx tools/sales-demo.ts",
+    "test:revisions": "tsx tests/sales-revisions.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

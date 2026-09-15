@@ -1,3 +1,5 @@
+import {SOURCE_LABELS} from '../services/terms';
+import { exportInspectionRecords } from '../services/exportRecords';
 import React, { useState, useMemo } from 'react';
 import { Product, ControlPlan, InspectionLog, User as AppUser, EvidenceAttachment } from '../types';
 import { StorageService } from '../services/storage';
@@ -21,6 +23,9 @@ import {
 } from 'lucide-react';
 
 interface MeasurementLogsProps {
+  initialLogId?:string;
+  onOpenPlan?:(id:string)=>void;
+  onOpenSPC?:()=>void;
   products: Product[];
   controlPlans: ControlPlan[];
   logs: InspectionLog[];
@@ -30,6 +35,7 @@ interface MeasurementLogsProps {
 }
 
 export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
+  initialLogId, onOpenPlan, onOpenSPC,
   products,
   controlPlans,
   logs,
@@ -47,7 +53,7 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
   const [operatorFilter,setOperatorFilter]=useState('all');
   const [equipmentFilter,setEquipmentFilter]=useState('all');
   const [characteristicFilter,setCharacteristicFilter]=useState('all');
-  const [selectedLogForDetail, setSelectedLogForDetail] = useState<InspectionLog | null>(null);
+  const [selectedLogForDetail, setSelectedLogForDetail] = useState<InspectionLog | null>(()=>logs.find(l=>l.id===initialLogId)||null);
 
   // Filter logs
   const filteredLogs = useMemo(() => {
@@ -99,32 +105,12 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
   // Daily statistics
   const todayStr = new Date().toISOString().slice(0, 10);
   const todayLogs = logs.filter(l => l.timestamp.slice(0, 10) === todayStr);
-  const passedCount = filteredLogs.filter(l => l.overallStatus === 'pass').length;
-  const passRate = filteredLogs.length > 0 ? (passedCount / filteredLogs.length) * 100 : 100;
-
-  // Export to CSV
-  const handleExportCSV = () => {
-    if (filteredLogs.length === 0) return;
-
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    csvContent += 'Oturum Kodu,Tarih Saat,Parça Kodu,Parça Adı,Ürün Revizyonu,Plan Revizyonu,Parti No,Seri No,İş Emri No,Kaynak,Operatör,Ekipman,Numune Sayısı,Genel Durum,Hatalı Nokta Sayısı\n';
-
-    filteredLogs.forEach(l => {
-      csvContent += `"${l.sessionCode}","${l.timestamp}","${l.productCode}","${l.productName}","${l.productRevision||''}","${l.controlPlanVersion}","${l.lotNumber}","${l.serialNumber||''}","${l.orderNumber}","${l.source||'manual'}","${l.operatorName}","${l.equipmentId||l.machineNo}",${l.sampleCount},"${l.overallStatus.toUpperCase()}",${l.failedPointsCount}\n`;
-    });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Kalite_Olcum_Kayitlari_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const passedCount = filteredLogs.filter(l => l.overallStatus !== 'fail').length;
+  const passRate = filteredLogs.length > 0 ? (passedCount / filteredLogs.length) * 100 : null;
 
   const handleDeleteLog = async (logId: string) => {
     try {
-    if (confirm('Bu ölçüm kaydını kalıcı olarak silmek istediğinize emin misiniz?')) {
+    if (confirm('Bu ölçüm kaydı geçersiz kılınacak ve denetim izinde korunacak. Devam edilsin mi?')) {
       await StorageService.deleteInspectionLog(logId);
       onLogsChanged();
     }
@@ -134,6 +120,7 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
 
   return (
     <div className="space-y-5">
+      {onOpenSPC&&<button className="quality-secondary" onClick={onOpenSPC}>SPC Analizine Git</button>}
       {/* Top Banner with Daily Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
@@ -161,7 +148,7 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
             Genel Uygunluk (Kabul) Oranı
           </span>
           <div className="text-2xl font-black font-mono text-emerald-600 mt-1">
-            %{passRate.toFixed(1)}
+            {passRate===null?'?':`%${passRate.toFixed(1)}`}
           </div>
           <span className="text-[11px] text-slate-400 mt-1 block">Tolerans içi parça oranı</span>
         </div>
@@ -170,26 +157,20 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
             Excel / CSV Raporu
           </span>
-          <button
-            type="button"
-            onClick={handleExportCSV}
-            className="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 transition"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Kayıtları CSV İndir</span>
-          </button>
+          <details className="relative mt-2"><summary className="quality-primary cursor-pointer">Dışa Aktar</summary><div className="absolute right-0 z-30 grid min-w-40 gap-2 rounded-xl bg-white p-3 shadow-xl"><button disabled={!filteredLogs.length} onClick={()=>exportInspectionRecords(filteredLogs,'csv')} className="quality-secondary">CSV</button><button disabled={!filteredLogs.length} onClick={()=>exportInspectionRecords(filteredLogs,'excel')} className="quality-secondary">Excel</button></div></details>
         </div>
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3 text-xs"><span className="font-bold text-slate-800">Kaynak Özeti:</span>{(['manual','gauge','import','cmm'] as const).map(source=><span key={source} className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono font-bold uppercase text-slate-700">{source}: {filteredLogs.filter(log=>(log.source||'manual')===source).reduce((total,log)=>total+log.samples.reduce((sum,sample)=>sum+Object.values(sample.statuses).filter(status=>status!=='empty').length,0),0)}</span>)}<span className="ml-auto font-bold text-emerald-700">Uygun: {filteredLogs.filter(log=>log.overallStatus==='pass').length} / {filteredLogs.length}</span></div>
+        <div className="flex flex-wrap items-center gap-3 text-xs"><span className="font-bold text-slate-800">Kaynak Özeti:</span>{(['manual','gauge','import','cmm'] as const).map(source=><span key={source} className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono font-bold uppercase text-slate-700">{SOURCE_LABELS[source]}: {filteredLogs.filter(log=>(log.source||'manual')===source).reduce((total,log)=>total+log.samples.reduce((sum,sample)=>sum+Object.values(sample.statuses).filter(status=>status!=='empty').length,0),0)}</span>)}<span className="ml-auto font-bold text-emerald-700">Uygun: {filteredLogs.filter(log=>log.overallStatus==='pass').length} / {filteredLogs.length}</span></div>
       </div>
 
+      {selectedLogForDetail&&onOpenPlan&&<button className="quality-secondary" onClick={()=>onOpenPlan(selectedLogForDetail.productId)}>İlgili Kontrol Planını Aç</button>}
       {/* Main Table Card */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
         {/* Filters Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-100">
-          <div className="relative flex-1 max-w-md">
+          <div className="relative min-w-60 flex-1 max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -236,12 +217,14 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
               <option value="week">Son 7 Gün</option>
               <option value="month">Son 30 Gün</option>
             </select>
+            <details><summary className="quality-secondary cursor-pointer">Gelişmiş Filtreler</summary><div className="mt-3 flex flex-wrap gap-2">
             <select value={customerFilter} onChange={e=>setCustomerFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Müşteriler</option>{[...new Set(products.map(p=>p.customer))].map(value=><option key={value}>{value}</option>)}</select>
             <select value={revisionFilter} onChange={e=>setRevisionFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Revizyonlar</option>{[...new Set(products.map(p=>p.revision||'').filter(Boolean))].map(value=><option key={value}>{value}</option>)}</select>
-            <select value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Kaynaklar</option><option value="manual">Manuel</option><option value="gauge">Gauge</option><option value="import">Import</option><option value="cmm">CMM</option></select>
+            <select value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Kaynaklar</option><option value="manual">Manuel</option><option value="gauge">Ölçüm cihazı</option><option value="import">Dosyadan aktarım</option><option value="cmm">CMM</option></select>
             <select value={operatorFilter} onChange={e=>setOperatorFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Operatörler</option>{[...new Set(logs.map(l=>l.operatorName))].map(value=><option key={value}>{value}</option>)}</select>
             <select value={equipmentFilter} onChange={e=>setEquipmentFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Cihazlar</option>{[...new Set(logs.map(l=>l.equipmentId||l.machineNo).filter(Boolean))].map(value=><option key={value}>{value}</option>)}</select>
             <select value={characteristicFilter} onChange={e=>setCharacteristicFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Karakteristikler</option>{controlPlans.flatMap(plan=>plan.characteristics).filter((char,index,array)=>array.findIndex(item=>item.id===char.id)===index).map(char=><option key={char.id} value={char.id}>#{char.pointNo} {char.name}</option>)}</select>
+            </div></details>
           </div>
         </div>
 
@@ -455,6 +438,7 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
                               );
                             })}
                           </div>
+                          {Object.entries(s.pointNotes||{}).map(([charId,note])=><p key={charId} className="mt-2 whitespace-pre-wrap break-words text-xs text-slate-700"><strong>{(selectedLogForDetail.controlPlanSnapshot || controlPlans.find(plan=>plan.id===selectedLogForDetail.controlPlanId))?.characteristics.find(point=>point.id===charId)?.name || charId}:</strong> {note}</p>)}
                           {Object.entries(s.evidence||{}).map(([charId,items])=><div key={charId} className="mt-1 flex flex-wrap gap-1 text-[10px] text-blue-700">Kanıt: {(items as EvidenceAttachment[]).map(item=><button type="button" key={item.id} onClick={()=>void SaasApi.openEvidence(item.id)} className="rounded bg-blue-50 px-1.5 py-0.5 font-bold hover:bg-blue-100">{item.kind==='photo'?'📷':item.kind==='video'?'🎥':'📎'} {item.fileName}</button>)}</div>)}
                         </td>
                       </tr>

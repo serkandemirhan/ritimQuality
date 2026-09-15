@@ -71,10 +71,15 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
     }
   };
 
+  const [savingCompany,setSavingCompany]=useState(false);
   const handleSaveCompany = async (e: React.FormEvent) => {
     e.preventDefault();
+    if(savingCompany)return;
+    setSavingCompany(true);
+    try {
     const saved = await onSaveCompanyDetails(companyForm);
     if(saved!==false)setIsEditingCompany(false);
+    } finally {setSavingCompany(false);}
   };
 
   // Quota percentages
@@ -90,7 +95,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-xs uppercase font-mono font-bold px-2.5 py-0.5 rounded-full bg-blue-900 text-blue-300 border border-blue-700">
-                SaaS Kurumsal Lisans
+                Abonelik
               </span>
               <span className="text-xs uppercase font-mono font-bold px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -109,7 +114,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
             <div className="flex flex-wrap items-center gap-4 pt-2 text-xs text-slate-300">
               <div className="flex items-center gap-1.5 font-mono">
                 <Key className="w-3.5 h-3.5 text-blue-400" />
-                <span className="text-slate-400">Lisans No:</span>
+                <span className="text-slate-400">Abonelik ID:</span>
                 <span className="text-white font-bold bg-slate-900/90 px-2 py-0.5 rounded border border-slate-700">
                   {company.licenseKey}
                 </span>
@@ -117,7 +122,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
                   type="button"
                   onClick={handleCopyLicense}
                   className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition"
-                  title="Lisans anahtarını kopyala"
+                  title="Abonelik kimliğini kopyala"
                 >
                   {copiedLicense ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
@@ -330,7 +335,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
                     </span>
                   </div>
 
-                  <div className="mt-4 mb-6">
+                  {import.meta.env.VITE_HIDE_PRICES!=='true'&&<div className="mt-4 mb-6">
                     <div className="flex items-baseline gap-1">
                       <span className="text-3xl font-black text-white">₺{price.toLocaleString()}</span>
                       <span className="text-xs text-slate-400">/ ay</span>
@@ -342,6 +347,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
                     )}
                   </div>
 
+                  }
                   {/* Feature Checklist */}
                   <ul className="space-y-2.5 text-xs text-slate-300 border-t border-slate-700/80 pt-4">
                     {plan.features.map((feat, idx) => (
@@ -508,7 +514,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
                   İptal
                 </button>
                 <button
-                  type="submit"
+                  disabled={savingCompany} type="submit"
                   className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-500/20 transition"
                 >
                   Bilgileri Kaydet

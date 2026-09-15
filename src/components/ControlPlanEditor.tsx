@@ -1,3 +1,6 @@
+import {PLAN_STATUS_LABELS} from '../services/terms';
+import {CharacteristicWorkspace} from './CharacteristicWorkspace';
+import { EmptyState } from './EmptyState';
 import { SaasApi } from '../services/api';
 import React, { useState, useEffect } from 'react';
 import { Product, ControlPlan, Characteristic, CriticalClass, MeasurementUnit, MeasurementTool, PinCoordinate, CharacteristicType, EvidencePolicy } from '../types';
@@ -25,28 +28,34 @@ import {
 } from 'lucide-react';
 
 interface ControlPlanEditorProps {
+  initialProductId?: string;
+  onCreateProduct?:()=>void;
+  onInspect?:(id:string)=>void;
   products: Product[];
   controlPlans: ControlPlan[];
   onSavePlan: (updatedPlan: ControlPlan) => void;
   onSetActiveVersion: (planId: string) => void;
   onDeletePlan: (planId: string) => void;
+  onProductUpdated?: (product: Product) => void;
 }
 
 export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
+  initialProductId, onCreateProduct, onInspect,
   products,
   controlPlans,
   onSavePlan,
   onSetActiveVersion,
-  onDeletePlan,
+  onDeletePlan,onProductUpdated,
 }) => {
-  const [selectedProductId, setSelectedProductId] = useState<string>(products[0]?.id || '');
+  const [selectedProductId, setSelectedProductId] = useState<string>(initialProductId || products[0]?.id || '');
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   
+  const [saving,setSaving]=useState(false);
   // Active Plan Form State
   const [currentPlan, setCurrentPlan] = useState<ControlPlan | null>(null);
   const [activePointNo, setActivePointNo] = useState<number | null>(1);
   const [isSavedBanner, setIsSavedBanner] = useState<boolean>(false);
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(Boolean(initialProductId));
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -172,6 +181,8 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
 
   // Create new revision from current plan (e.g. v1.1 -> v1.2)
   const handleCreateNewRevision = async () => {
+    if(saving)return;
+    setSaving(true);
     try {
     if (!currentPlan || !currentProduct) return;
     const currentVer = currentPlan.version;
@@ -196,11 +207,13 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
     setCurrentPlan(newRevision);
     alert(`${newVer} revizyonu başarıyla taslak olarak oluşturuldu. Kontrol edip aktifleştirin.`);
   
-    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); }
+    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); } finally {setSaving(false);}
   };
 
   // Create completely new control plan for this product
   const handleCreateBlankPlan = async () => {
+    if(saving)return;
+    setSaving(true);
     try {
     if (!currentProduct) return;
     const newPlan: ControlPlan = {
@@ -242,11 +255,13 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
     setSelectedPlanId(newPlan.id);
     setCurrentPlan(newPlan);
   
-    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); }
+    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); } finally {setSaving(false);}
   };
 
   // Save changes
   const handleSaveCurrentPlan = async () => {
+    if(saving)return;
+    setSaving(true);
     try {
     if (!currentPlan) return;
     await StorageService.saveControlPlan(currentPlan);
@@ -254,7 +269,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
     setIsSavedBanner(true);
     setTimeout(() => setIsSavedBanner(false), 3000);
   
-    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); }
+    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); } finally {setSaving(false);}
   };
 
   // Handle custom drawing image upload
@@ -328,7 +343,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
                 </button>
               );
             })}
-            {filteredProducts.length === 0 && <div className="flex min-h-64 flex-col items-center justify-center text-slate-400"><FileText className="mb-2 h-8 w-8"/><span className="text-sm font-bold">Kontrol planı kaydı bulunamadı</span></div>}
+            {filteredProducts.length === 0 && <EmptyState title="Kontrol planınızı hazırlayın" description="Önce bir ürün oluşturun; ardından revizyon ve ölçüm noktalarını tanımlayın." label="İlk ürününü oluştur" action={onCreateProduct}/>}
           </div>
         </div>
       </div>
@@ -349,18 +364,19 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
               <span className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shadow-xs">
                 <Sliders className="w-5 h-5" />
               </span>
-              Kontrol Planları & Görsel Nokta Tanımlama Studio
+              Kontrol Planı ve Ölçüm Noktaları
             </h2>
             <p className="text-xs text-slate-500 mt-1">
               Ürünlere ait kontrol planı revizyonlarını yönetin, teknik resim üzerine ölçüm noktalarını sürükleyip bırakın.
             </p>
           </div>
 
+          {currentPlan?.isActive&&onInspect&&<button className="quality-primary" onClick={()=>onInspect(currentPlan.productId)}>Ölçüme Başla</button>}
           {/* Action buttons */}
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={handleCreateBlankPlan}
+              disabled={saving} onClick={handleCreateBlankPlan}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition shadow-xs"
             >
               <Plus className="w-3.5 h-3.5 text-blue-600" />
@@ -370,7 +386,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
             {currentPlan && (
               <button
                 type="button"
-                onClick={handleCreateNewRevision}
+                disabled={saving} onClick={handleCreateNewRevision}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold border border-blue-200 shadow-xs transition"
               >
                 <Copy className="w-3.5 h-3.5 text-blue-600" />
@@ -382,11 +398,11 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
               <button
                 id="btn-save-control-plan"
                 type="button"
-                onClick={handleSaveCurrentPlan}
+                disabled={saving} onClick={handleSaveCurrentPlan}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition"
               >
                 <Save className="w-3.5 h-3.5" />
-                <span>Değişiklikleri Kaydet</span>
+                <span>{saving?'Kaydediliyor…':'Değişiklikleri Kaydet'}</span>
               </button>
             )}
           </div>
@@ -419,12 +435,12 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
               {productPlans.map(cp => {
                 const isSelected = selectedPlanId === cp.id;
                 return (
-                  <div
+                  <button type="button" aria-pressed={isSelected}
                     key={cp.id}
                     onClick={() => handleSelectPlan(cp.id)}
                     className={`px-3.5 py-2 rounded-xl border text-xs font-bold cursor-pointer transition flex items-center gap-2 ${
                       isSelected
-                        ? 'bg-blue-50 border-blue-300 text-blue-800 ring-2 ring-blue-500/20 shadow-xs'
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                   >
@@ -435,10 +451,10 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
                       </span>
                     ) : (
                       <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded text-[10px]">
-                        {cp.status}
+                        {PLAN_STATUS_LABELS[cp.status]}
                       </span>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -469,6 +485,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
               )}
             </div>
 
+            {currentPlan.status!=='archived'&&<button disabled={saving} className="quality-secondary" onClick={async()=>{if(!confirm('Bu plan arşivlenecek ve yeni ölçümlerde kullanılamayacak. Devam edilsin mi?'))return;setSaving(true);try{const stored=controlPlans.find(p=>p.id===currentPlan.id);if(!stored)return;const archived={...stored,status:'archived' as const,isActive:false};await StorageService.saveControlPlan(archived);setCurrentPlan(archived);onSavePlan(archived);}catch(error){StorageService.reportSyncError(error);}finally{setSaving(false);}}}>Arşivle</button>}
             <div className="flex items-center gap-4 text-slate-500 font-medium">
               <span>Revizyon Tarihi: <strong className="text-slate-800">{currentPlan.revisionDate}</strong></span>
               <span>Hazırlayan: <strong className="text-slate-800">{currentPlan.author}</strong></span>
@@ -484,7 +501,9 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
         )}
       </div>
 
-      {currentPlan && (
+      {!currentPlan&&currentProduct&&<EmptyState title="İlk kontrol planınızı hazırlayın" description="Bu ürün için toleransları ve ölçüm noktalarını tanımlayın." label="İlk kontrol planını oluştur" action={()=>void handleCreateBlankPlan()}/>}
+      {currentPlan&&currentProduct&&<CharacteristicWorkspace product={currentProduct} plan={currentPlan} onChange={setCurrentPlan} onProductUpdated={onProductUpdated}/>}
+      {false && currentPlan && (
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
           {/* Left: Interactive Blueprint with Pin Placement (6 cols) */}
           <div className="xl:col-span-6 flex flex-col gap-4">

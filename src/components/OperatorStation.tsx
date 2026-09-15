@@ -39,6 +39,7 @@ interface OperatorStationProps {
   controlPlans: ControlPlan[];
   currentUser?: User;
   onInspectionSaved: (newLog: InspectionLog) => void;
+  onOpenActions?:()=>void;
   onOpenCertificate: (log: InspectionLog) => void;
 }
 
@@ -48,7 +49,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   controlPlans,
   currentUser,
   onInspectionSaved,
-  onOpenCertificate,
+  onOpenCertificate, onOpenActions,
 }) => {
   const submissionRef = useRef<InspectionLog | null>(null);
   const savingRef = useRef(false);
@@ -56,8 +57,12 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const draftKey = 'quality:draft:' + SaasApi.scope();
   const restoredRef = useRef(false);
   const [draftAvailable,setDraftAvailable] = useState(() => Boolean(localStorage.getItem(draftKey)));
+  type ServerDraft={id:string;payload:Record<string,any>;claimed_by:string|null;claimed_by_name?:string;created_by_name:string;updated_at:string};
+  const [serverDrafts,setServerDrafts]=useState<ServerDraft[]>([]);
+  const [draftId,setDraftId]=useState<string|null>(null);
+  const [draftBusy,setDraftBusy]=useState(false);
   // Selection State
-  const [selectedProductId, setSelectedProductId] = useState<string>(initialProductId || new URLSearchParams(window.location.search).get('product') || products[0]?.id || '');
+  const [selectedProductId, setSelectedProductId] = useState<string>(initialProductId || new URLSearchParams(window.location.search).get('product') || '');
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   
   // Session Metadata
@@ -96,20 +101,22 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!isSessionActive || savedLog) return;
-    try { localStorage.setItem(draftKey, JSON.stringify({submission:submissionRef.current,selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId})); }
+    try { localStorage.setItem(draftKey, JSON.stringify({draftId,submission:submissionRef.current,selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId})); }
     catch { StorageService.reportSyncError(new Error('Taslak cihazda saklanamadı. Tarayıcı depolama alanını kontrol edin.')); }
-  }, [isSessionActive,savedLog,selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId,draftKey,saving]);
+  }, [isSessionActive,savedLog,draftId,selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId,draftKey,saving]);
+  const refreshDrafts=async()=>setServerDrafts(await SaasApi.inspectionDrafts() as ServerDraft[]);
+  useEffect(()=>{void refreshDrafts().catch(()=>{});},[]);
+  const applyDraft=(draft:Record<string,any>)=>{
+    if(!controlPlans.some(p=>p.id===draft.selectedPlanId&&p.isActive&&p.status==='active'))throw new Error('Taslağın planı artık aktif değil. Kalite sorumlunuzla görüşün.');
+    submissionRef.current=null;restoredRef.current=true;setDraftId(draft.id||draft.draftId);
+    setSelectedProductId(draft.productId||draft.selectedProductId);setSelectedPlanId(draft.selectedPlanId);setLotNumber(draft.lotNumber||'');setOrderNumber(draft.orderNumber||'');setMachineNo(draft.machineNo||'');setSampleCount(draft.sampleCount);setCustomSampleCount(draft.sampleCount);
+    setSamples(draft.samples);setNotes(draft.notes||'');setActivePointNo(draft.activePointNo);setActiveSampleIndex(draft.activeSampleIndex);setSerialNumber(draft.serialNumber||'');setSource(draft.source||'manual');setEquipmentId(draft.equipmentId||'');setOperatorName(currentUser.name);setIsSessionActive(true);setDraftAvailable(false);
+  };
   const restoreDraft = () => {
     try {
       const draft=JSON.parse(localStorage.getItem(draftKey) || 'null');
       if(!draft || !controlPlans.some(p=>p.id===draft.selectedPlanId && p.isActive && p.status==='active'))throw new Error('Taslağın planı aktif değil. Kalite sorumlunuzla görüşün.');
-      submissionRef.current=draft.submission||null;
-      restoredRef.current=true;
-      setSelectedProductId(draft.selectedProductId);setSelectedPlanId(draft.selectedPlanId);
-      setLotNumber(draft.lotNumber);setOrderNumber(draft.orderNumber);setMachineNo(draft.machineNo);setSampleCount(draft.sampleCount);
-      setSamples(draft.samples);setNotes(draft.notes);setActivePointNo(draft.activePointNo);setActiveSampleIndex(draft.activeSampleIndex);
-      setSerialNumber(draft.serialNumber||'');setSource(draft.source||'manual');setEquipmentId(draft.equipmentId||'');
-      setIsSessionActive(true);setDraftAvailable(false);
+      applyDraft({...draft,id:draft.draftId||crypto.randomUUID(),productId:draft.selectedProductId});
     }catch(error){alert(error instanceof Error?error.message:'Taslak açılamadı.');}
   };
 
@@ -121,15 +128,15 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
       setSelectedProductId('');
       return;
     }
-    if (!products.some(product => product.id === selectedProductId)) {
-      setSelectedProductId(products[0].id);
+    if (selectedProductId && !products.some(product => product.id === selectedProductId)) {
+      setSelectedProductId('');
     }
   }, [products, selectedProductId]);
 
   // When product changes, automatically pick active control plan
   useEffect(() => {
     if (restoredRef.current) return;
-    if (!selectedProductId) return;
+    if (!selectedProductId) { setSelectedPlanId(''); return; }
     const plans = controlPlans.filter(cp => cp.productId === selectedProductId);
     const active = plans.find(cp => cp.isActive && cp.status === 'active');
     if (active) {
@@ -163,6 +170,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const handleStartSession = () => {
     if (!currentPlan || !currentPlan.isActive || currentPlan.status !== 'active' || !characteristics.length || !lotNumber.trim() || !orderNumber.trim()) { alert('Aktif plan, parti ve iş emri zorunludur.'); return; }
 
+    setDraftId(crypto.randomUUID());
     // Initialize blank sample matrix
     const initialSamples: SampleMeasurement[] = [];
     for (let i = 1; i <= sampleCount; i++) {
@@ -257,7 +265,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const setQualitativeValue = (char: Characteristic, value: MeasurementValue) => {
     if(submissionRef.current)return;
     const rejected=char.rejectedOptions||[];
-    const status: 'pass'|'fail' = char.type==='ok_nok'
+    const status: 'pass'|'fail' = char.type==='ok_nok'||char.type==='visual'
       ? (value===true||value==='OK'?'pass':'fail')
       : (Array.isArray(value)?value.some(item=>rejected.includes(item)):rejected.includes(String(value)))?'fail':'pass';
     setSamples(previous=>previous.map(sample=>sample.sampleIndex===activeSampleIndex?{...sample,values:{...sample.values,[char.id]:value},statuses:{...sample.statuses,[char.id]:status}}:sample));
@@ -266,10 +274,11 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
   const handleEvidenceUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file=event.target.files?.[0]; if(!file||!currentCharacteristic||submissionRef.current) return;
+    const sampleIndex=activeSampleIndex; const characteristicId=currentCharacteristic.id;
     setMediaUploading(true);
     try {
       const attachment=await SaasApi.uploadFile(file);
-      setSamples(previous=>previous.map(sample=>sample.sampleIndex===activeSampleIndex?{...sample,evidence:{...(sample.evidence||{}),[currentCharacteristic.id]:[...((sample.evidence||{})[currentCharacteristic.id]||[]),attachment]}}:sample));
+      setSamples(previous=>previous.map(sample=>sample.sampleIndex===sampleIndex?{...sample,evidence:{...(sample.evidence||{}),[characteristicId]:[...((sample.evidence||{})[characteristicId]||[]),attachment]}}:sample));
     } catch(error){alert(error instanceof Error?error.message:'Kanıt yüklenemedi.');}
     finally{setMediaUploading(false);event.target.value='';}
   };
@@ -346,17 +355,23 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   });
 
   const totalPossible = sampleCount * characteristics.length;
+  const activeCharacteristicIndex=characteristics.findIndex(c=>c.pointNo===activePointNo);
+  const isLastMeasurement=activeCharacteristicIndex===characteristics.length-1&&activeSampleIndex===sampleCount;
   const missingEvidenceCount=samples.reduce((total,sample)=>total+characteristics.filter(char=>{
     const policy=char.evidencePolicy||'none'; const status=sample.statuses[char.id]; const count=(sample.evidence?.[char.id]||[]).length;
-    return (policy==='always_required'||(policy==='required_on_fail'&&status==='fail'))&&count===0;
+    return (['always_required','photo_required','media_required','document_required'].includes(policy)||(policy==='required_on_fail'&&status==='fail'))&&count===0;
   }).length,0);
   const isComplete = totalChecked === totalPossible && totalPossible > 0 && missingEvidenceCount===0;
   const overallResult: 'pass' | 'warning' | 'fail' = failCount > 0 ? 'fail' : (warningCount > 0 ? 'warning' : 'pass');
 
+  const draftPayload=()=>({id:draftId||crypto.randomUUID(),productId:selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId});
+  const saveServerDraft=async(release=false)=>{if(!isSessionActive||savedLog||draftBusy)return;setDraftBusy(true);try{const payload=draftPayload();setDraftId(payload.id);await SaasApi.saveInspectionDraft(payload.id,payload);if(release){await SaasApi.releaseInspectionDraft(payload.id);localStorage.removeItem(draftKey);setIsSessionActive(false);setSamples([]);setDraftId(null);}await refreshDrafts();}catch(error){alert(error instanceof Error?error.message:'Taslak kaydedilemedi.');}finally{setDraftBusy(false);}};
+  const claimDraft=async(item:ServerDraft)=>{setDraftBusy(true);try{const claimed=await SaasApi.claimInspectionDraft(item.id) as ServerDraft;applyDraft({...claimed.payload,id:item.id});await refreshDrafts();}catch(error){alert(error instanceof Error?error.message:'Taslak devralınamadı.');}finally{setDraftBusy(false);}};
+
   // Save Session
   const handleSaveInspection = async () => {
     try {
-    if (!currentProduct || !currentPlan || savingRef.current || savedLog) return;
+    if (!currentProduct || !currentPlan || savingRef.current || savedLog || mediaUploading) return;
     savingRef.current = true; setSaving(true);
 
     const sessionCode = `INS-${crypto.randomUUID()}`;
@@ -384,13 +399,14 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
       timestamp: new Date().toISOString(),
       notes: notes || (overallResult === 'pass' ? 'Tüm kontrol noktaları toleranslar dahilindedir.' : 'Tolerans dışı noktalar tespit edildi.'),
       samples,
+      draftId: draftId || undefined,
     };
 
     submissionRef.current = newLog;
     const confirmed = await StorageService.saveInspectionLog(newLog);
     onInspectionSaved(confirmed);
     setSavedLog(confirmed);
-    localStorage.removeItem(draftKey); setDraftAvailable(false);
+    localStorage.removeItem(draftKey); setDraftAvailable(false);setDraftId(null);void refreshDrafts().catch(()=>{});
 
     if (overallResult === 'pass') {
       confetti({
@@ -418,6 +434,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
     <div className="w-full quality-operator">
       {!isSessionActive && <InspectionQR products={products} onSelect={(id,wo)=>{setSelectedProductId(id);setOrderNumber(wo);}}/>}
       {!isSessionActive && draftAvailable && <div className="mb-4 rounded-xl bg-blue-50 p-4"><p className="font-bold">Yarım kalan bir kontrolünüz var.</p><button type="button" onClick={restoreDraft} className="mt-2 rounded-lg bg-blue-700 px-4 py-3 text-white">Kontrole devam et</button></div>}
+      {!isSessionActive&&serverDrafts.length>0&&<section className="mb-4 rounded-xl bg-amber-50 p-4"><h2 className="font-bold">Devam edilebilecek kontroller</h2><div className="mt-2 grid gap-2">{serverDrafts.map(item=><div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-3 text-sm"><span>{products.find(p=>p.id===(item.payload.productId||item.payload.selectedProductId))?.name||'Ürün'} · {item.payload.orderNumber||'İş emri yok'} · {item.created_by_name}{item.claimed_by_name&&` · ${item.claimed_by_name} kullanıyor`}</span><button disabled={draftBusy||Boolean(item.claimed_by&&item.claimed_by!==currentUser.id)} className="quality-primary" onClick={()=>void claimDraft(item)}>{item.claimed_by===currentUser.id?'Devam et':'Devral'}</button></div>)}</div></section>}
       {isSessionActive && submissionRef.current && !savedLog && <p role="status" className="my-2 rounded-lg bg-amber-50 p-3 text-sm">Bu ölçüm gönderim için kilitlendi. Kaydet düğmesi aynı kaydın gönderimini tekrar dener.</p>}
       {/* =========================================================================
           MODE 1: SETUP SCREEN (When session is NOT active)
@@ -452,7 +469,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                 }`}
               >
                 {soundEnabled ? <Volume2 className="w-4 h-4 text-blue-600" /> : <VolumeX className="w-4 h-4" />}
-                <span>{soundEnabled ? 'Sesli Uyarı Açık' : 'Sessiz'}</span>
+                <span className="sr-only">{soundEnabled ? 'Sesli Uyarı Açık' : 'Sessiz'}</span>
               </button>
             </div>
 
@@ -469,6 +486,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                   onChange={(e) => setSelectedProductId(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
                 >
+                  <option value="">Ürün seçin</option>
                   {products.map(p => (
                     <option key={p.id} value={p.id}>
                       {p.code} - {p.name}
@@ -477,13 +495,14 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                 </select>
               </div>
 
+              {selectedProductId&&<>
               {/* Control Plan Version */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Kontrol Planı Revizyonu
                 </label>
                 <select
-                  id="select-operator-plan"
+                  id="select-operator-plan" disabled={currentUser.role==='operator'}
                   value={selectedPlanId}
                   onChange={(e) => {const plan=controlPlans.find(item=>item.id===e.target.value);setSelectedPlanId(e.target.value);if(plan)setSampleCount(plan.defaultSampleCount||5)}}
                   className="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
@@ -518,7 +537,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                       {cnt} Adet
                     </button>
                   ))}
-                  <input type="number" min={1} max={100} value={customSampleCount} onChange={e=>{const count=Math.max(1,Number(e.target.value)||1);setCustomSampleCount(count);setSampleCount(count)}} title="Özel numune adedi" className={`min-w-0 rounded-xl border px-1 text-center text-xs font-bold ${![1,3,5,10].includes(sampleCount)?'border-blue-600 bg-blue-600 text-white':'border-slate-200 bg-slate-50 text-slate-700'}`}/>
+                  <label className="text-center text-xs">Özel<input aria-label="Özel numune adedi" type="number" min={1} max={100} value={customSampleCount} onChange={e=>{const count=Math.min(100,Math.max(1,Math.trunc(Number(e.target.value))||1));setCustomSampleCount(count);setSampleCount(count)}} title="Özel numune adedi" className={`min-w-0 rounded-xl border px-1 text-center text-xs font-bold ${![1,3,5,10].includes(sampleCount)?'border-blue-600 bg-blue-600 text-white':'border-slate-200 bg-slate-50 text-slate-700'}`}/></label>
                 </div>
               </div>
 
@@ -529,7 +548,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Ölçüm Kaynağı</label>
-                <select value={source} onChange={e=>setSource(e.target.value as MeasurementSource)} className="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-sm font-semibold text-slate-900"><option value="manual">Manuel</option><option value="gauge">Dijital Ölçüm Cihazı</option><option value="import">Dosya İçe Aktarımı</option><option value="cmm" disabled>CMM (sonraki faz)</option></select>
+                <select value={source} onChange={e=>setSource(e.target.value as MeasurementSource)} className="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-sm font-semibold text-slate-900"><option value="manual">Manuel</option><option value="gauge">Dijital Ölçüm Cihazı</option><option value="import">Dosya İçe Aktarımı</option></select>
               </div>
 
               <div>
@@ -577,6 +596,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                   className="w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
                 />
               </div>
+              </>}
             </div>
 
             {/* Blueprint Preview Card */}
@@ -884,7 +904,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                       </div>
                       </> : (
                         <div className="grid grid-cols-2 gap-2">
-                          {currentCharacteristic.type==='ok_nok' ? <>
+                          {currentCharacteristic.type==='ok_nok'||currentCharacteristic.type==='visual' ? <>
                             <button type="button" onClick={()=>setQualitativeValue(currentCharacteristic,true)} className={`rounded-2xl border px-4 py-4 font-black ${currentVal===true?'border-emerald-600 bg-emerald-600 text-white':'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>✓ OK</button>
                             <button type="button" onClick={()=>setQualitativeValue(currentCharacteristic,false)} className={`rounded-2xl border px-4 py-4 font-black ${currentVal===false?'border-rose-600 bg-rose-600 text-white':'border-rose-200 bg-rose-50 text-rose-800'}`}>✕ NOK</button>
                           </> : (currentCharacteristic.options||[]).map(option=>{
@@ -898,10 +918,11 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                         </div>
                       )}
 
-                      {(currentCharacteristic.evidencePolicy||'none')!=='none'&&(
+                      {(currentValStatus==='fail'||(currentCharacteristic.evidencePolicy||'none')!=='none'||currentSampleObj?.evidence?.[currentCharacteristic.id]?.length||currentSampleObj?.pointNotes?.[currentCharacteristic.id])&&(
                         <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
-                          <div className="mb-2 flex items-center justify-between text-[11px] font-bold text-slate-600"><span>Fotoğraf / Video / Dosya Kanıtı</span><span>{currentCharacteristic.evidencePolicy==='optional'?'Opsiyonel':currentCharacteristic.evidencePolicy==='required_on_fail'?'NOK ise zorunlu':'Zorunlu'}</span></div>
-                          <label className="flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-blue-300 bg-white px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50">{mediaUploading?'Yükleniyor…':'📷 🎥 📎 Kanıt Ekle'}<input type="file" accept="image/*,video/*,application/pdf" capture="environment" className="hidden" disabled={mediaUploading} onChange={handleEvidenceUpload}/></label>
+                          <div className="mb-2 flex items-center justify-between text-[11px] font-bold text-slate-600"><span>Fotoğraf ve ölçüm notu</span><span>{(!currentCharacteristic.evidencePolicy||['none','optional'].includes(currentCharacteristic.evidencePolicy))?'İsteğe bağlı':currentCharacteristic.evidencePolicy==='required_on_fail'?'NOK ise zorunlu':'Zorunlu'}</span></div>
+                          <label className="flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-blue-300 bg-white px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50">{mediaUploading?'Yükleniyor…':'📷 🎥 📎 Kanıt Ekle'}<input type="file" accept="image/*,video/*,application/pdf" className="hidden" disabled={mediaUploading || saving || !!submissionRef.current} onChange={handleEvidenceUpload}/></label>
+                          <label className="mt-3 block text-xs font-semibold text-slate-600">Bu noktaya not ekle (isteğe bağlı)<textarea aria-label="Ölçüm noktası notu" maxLength={2000} disabled={saving || !!submissionRef.current} value={currentSampleObj?.pointNotes?.[currentCharacteristic.id] || ''} onChange={event=>{const value=event.target.value;setSamples(previous=>previous.map(sample=>sample.sampleIndex===activeSampleIndex?{...sample,pointNotes:{...sample.pointNotes,[currentCharacteristic.id]:value}}:sample));}} placeholder="Örn. yüzeyde çizik, kenarda çapak…" className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm"/></label>
                           {(currentSampleObj?.evidence?.[currentCharacteristic.id]||[]).map(item=><div key={item.id} className="mt-1 truncate text-[10px] text-emerald-700">✓ {item.fileName}</div>)}
                         </div>
                       )}
@@ -1002,14 +1023,18 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
                       <button
                         type="button"
+                        disabled={isLastMeasurement}
                         onClick={handleAdvanceNext}
-                        className="flex-1 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1 transition shadow-sm"
+                        className="flex-1 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1 transition shadow-sm disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
                       >
-                        <span>Sonraki</span>
+                        <span>{isLastMeasurement?'Son nokta':'Sonraki'}</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
+                    {!savedLog&&<div className="grid grid-cols-2 gap-2"><button disabled={draftBusy} type="button" className="quality-secondary" onClick={()=>void saveServerDraft(false)}>{draftBusy?'Kaydediliyor…':'Taslağı kaydet'}</button><button disabled={draftBusy} type="button" className="quality-secondary" onClick={()=>void saveServerDraft(true)}>Kaydet ve devret</button></div>}
+
+                    {savedLog?.overallStatus==='fail'&&<div role="status" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">Uygunsuzluk otomatik oluşturuldu ve kalite ekibine iletildi.{onOpenActions&&currentUser.role!=='operator'&&<button type="button" onClick={onOpenActions} className="mt-2 block font-semibold underline">Uygunsuzluğu ve aksiyonları aç</button>}</div>}
                     {/* Final Save / Certificate Trigger */}
                     {savedLog ? (
                       <button
@@ -1019,15 +1044,15 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                         className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 transition"
                       >
                         <Printer className="w-4 h-4" />
-                        <span>Kalite Raporu & Sertifika Görüntüle</span>
+                        <span>PDF Kalite Raporunu Aç</span>
                       </button>
                     ) : (
                       <button
                         id="btn-save-inspection-log"
                         type="button"
                         aria-busy={saving} onClick={handleSaveInspection}
-                        disabled={!isComplete || saving}
-                        className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition disabled:opacity-40"
+                        disabled={!isComplete || saving || mediaUploading}
+                        className={`w-full text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition disabled:opacity-40 ${isComplete?'bg-emerald-700 hover:bg-emerald-600':'bg-slate-900 hover:bg-slate-800'}`}
                       >
                         <Save className="w-4 h-4 text-blue-400" />
                         <span>Ölçümleri Kaydet ({totalChecked}/{totalPossible})</span>

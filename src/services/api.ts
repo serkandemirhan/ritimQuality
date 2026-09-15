@@ -21,7 +21,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...options.headers,
     },
   });
-  if (response.status === 204) return undefined as T;
+  const announce=()=>{if(options.method&&['POST','PUT','PATCH','DELETE'].includes(options.method)&&!path.startsWith('/auth')&&!path.startsWith('/notifications')&&!path.startsWith('/media'))window.dispatchEvent(new Event('quality-saved'));};
+  if (response.status === 204) {announce();return undefined as T;}
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     if (response.status === 401 && token) {
@@ -30,6 +31,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
     throw new ApiError(body.error || 'İstek tamamlanamadı.', response.status, body.code);
   }
+  announce();
   return body as T;
 }
 
@@ -39,10 +41,15 @@ export const SaasApi = {
   subscribePush: (body:unknown) => request('/push/subscriptions',{method:'POST',body:JSON.stringify(body)}),
   unsubscribePush: () => request('/push/subscriptions',{method:'DELETE'}),
   work: () => request('/work'),
+  inspectionDrafts: () => request('/inspection-drafts'),
+  saveInspectionDraft: (id:string,body:unknown) => request('/inspection-drafts/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(body)}),
+  claimInspectionDraft: (id:string) => request('/inspection-drafts/'+encodeURIComponent(id)+'/claim',{method:'POST'}),
+  releaseInspectionDraft: (id:string) => request('/inspection-drafts/'+encodeURIComponent(id)+'/release',{method:'POST'}),
   auditLogs: () => request('/audit-logs'),
   updateCase: (id:string,body:unknown) => request('/cases/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify(body)}),
   readNotification: (id:number) => request('/notifications/'+id+'/read',{method:'PATCH'}),
   createTask: (body:unknown) => request('/tasks',{method:'POST',body:JSON.stringify(body)}),
+  startTask: (id:string) => request('/tasks/'+encodeURIComponent(id)+'/start',{method:'POST'}),
   completeTask: (id:string,note:string) => request('/tasks/'+encodeURIComponent(id)+'/complete',{method:'POST',body:JSON.stringify({note})}),
   reviewInspection: (id:string,status:'approved'|'rejected',reason:string) => request('/approvals/'+encodeURIComponent(id),{method:'POST',body:JSON.stringify({status,reason})}),
   organization: () => request('/organization'),

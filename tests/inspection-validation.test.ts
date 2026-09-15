@@ -4,6 +4,12 @@ import { validateInspection, assertRevisionUnchanged, inspectionSignature } from
 const plan={id:'p1',productId:'part1',version:'v1.0',status:'active',isActive:true,characteristics:[{id:'diameter',pointNo:1,name:'Çap',nominal:10,lsl:9,usl:11}]};
 const input={id:'i1',productId:'part1',controlPlanId:'p1',controlPlanVersion:'v1.0',sampleCount:1,lotNumber:'LOT-1',orderNumber:'WO-1',samples:[{sampleIndex:1,values:{diameter:12},statuses:{diameter:'pass'}}]};
 const actor={id:'u1',name:'Operator'};
+test('optional point notes survive validation and remain bound to known points',()=>{
+ const samples=[{sampleIndex:1,values:{diameter:12},pointNotes:{diameter:'Yüzeyde çizik'}}];
+ assert.equal(validateInspection({...input,samples},plan,actor).samples[0].pointNotes?.diameter,'Yüzeyde çizik');
+ assert.doesNotThrow(()=>validateInspection(input,plan,actor));
+ for(const pointNotes of [{unknown:'Not'},{diameter:'x'.repeat(2001)}])assert.throws(()=>validateInspection({...input,samples:[{...samples[0],pointNotes}]},plan,actor));
+});
 test('server overrides forged pass results and binds actor and plan snapshot',()=>{
  const result=validateInspection({...input,operatorName:'Other',overallStatus:'pass'},plan,actor);
  assert.equal(result.overallStatus,'fail');assert.equal(result.failedPointsCount,1);assert.equal(result.operatorName,actor.name);assert.deepEqual(result.controlPlanSnapshot,plan);
