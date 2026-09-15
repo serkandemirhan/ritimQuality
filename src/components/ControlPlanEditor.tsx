@@ -351,18 +351,18 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
   }
 
   return (
-    <div className="space-y-5">
-      {currentPlan && <label className="flex items-center gap-3 rounded-xl border bg-white p-4"><input type="checkbox" checked={Boolean(currentPlan.requiresApproval)} onChange={event=>setCurrentPlan({...currentPlan,requiresApproval:event.target.checked})}/>Bu planla tamamlanan kontroller kalite onayı gerektirsin</label>}
+    <div className="space-y-3">
+      {currentPlan && <label className="flex min-h-9 items-center gap-2 rounded-lg border bg-white px-3 py-1.5 text-sm"><input type="checkbox" checked={Boolean(currentPlan.requiresApproval)} onChange={event=>setCurrentPlan({...currentPlan,requiresApproval:event.target.checked})}/>Bu planla tamamlanan kontroller kalite onayı gerektirsin</label>}
       {/* Top Header Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col justify-between gap-3 xl:flex-row xl:items-center">
           <div>
-            <button type="button" onClick={() => setDetailOpen(false)} className="mb-3 inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-700">
+            <button type="button" onClick={() => setDetailOpen(false)} className="mb-1 inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-700">
               <ArrowLeft className="h-4 w-4" /> Kontrol Planı Listesine Dön
             </button>
-            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2.5">
-              <span className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shadow-xs">
-                <Sliders className="w-5 h-5" />
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-blue-600 shadow-xs">
+                <Sliders className="h-4 w-4" />
               </span>
               Kontrol Planı ve Ölçüm Noktaları
             </h2>
@@ -371,13 +371,13 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
             </p>
           </div>
 
-          {currentPlan?.isActive&&onInspect&&<button className="quality-primary" onClick={()=>onInspect(currentPlan.productId)}>Ölçüme Başla</button>}
           {/* Action buttons */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 xl:flex-nowrap">
+            {currentPlan?.isActive&&onInspect&&<button className="whitespace-nowrap rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-500" onClick={()=>onInspect(currentPlan.productId)}>Ölçüme Başla</button>}
             <button
               type="button"
               disabled={saving} onClick={handleCreateBlankPlan}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 transition shadow-xs"
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-100"
             >
               <Plus className="w-3.5 h-3.5 text-blue-600" />
               <span>Yeni Kontrol Planı Ekle</span>
@@ -387,7 +387,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
               <button
                 type="button"
                 disabled={saving} onClick={handleCreateNewRevision}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold border border-blue-200 shadow-xs transition"
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700 shadow-xs transition hover:bg-blue-100"
               >
                 <Copy className="w-3.5 h-3.5 text-blue-600" />
                 <span>Bu Plandan Yeni Revizyon Türet</span>
@@ -399,7 +399,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
                 id="btn-save-control-plan"
                 type="button"
                 disabled={saving} onClick={handleSaveCurrentPlan}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition"
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-500"
               >
                 <Save className="w-3.5 h-3.5" />
                 <span>{saving?'Kaydediliyor…':'Değişiklikleri Kaydet'}</span>
@@ -409,7 +409,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
         </div>
 
         {/* Product & Version Selector Tabs */}
-        <div className="mt-5 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mt-3 grid grid-cols-1 gap-3 border-t border-slate-100 pt-3 md:grid-cols-2">
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               1. Parça / Ürün Seçimi
@@ -463,8 +463,8 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
 
         {/* Active Version Control Bar */}
         {currentPlan && (
-          <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-3">
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-3 text-xs">
+            <div className="flex items-center gap-2">
               <span className="text-slate-500 font-medium">Durum:</span>
               {currentPlan.isActive ? (
                 <span className="flex items-center gap-1.5 text-emerald-800 font-bold bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200">
@@ -483,10 +483,9 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
                   <span>Bu Versiyonu Aktif Varsayılan Olarak Belirle</span>
                 </button>
               )}
+              {currentPlan.status!=='archived'&&<button disabled={saving} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50" onClick={async()=>{if(!confirm('Bu plan arşivlenecek ve yeni ölçümlerde kullanılamayacak. Devam edilsin mi?'))return;setSaving(true);try{const stored=controlPlans.find(p=>p.id===currentPlan.id);if(!stored)return;const archived={...stored,status:'archived' as const,isActive:false};await StorageService.saveControlPlan(archived);setCurrentPlan(archived);onSavePlan(archived);}catch(error){StorageService.reportSyncError(error);}finally{setSaving(false);}}}>Arşivle</button>}
             </div>
-
-            {currentPlan.status!=='archived'&&<button disabled={saving} className="quality-secondary" onClick={async()=>{if(!confirm('Bu plan arşivlenecek ve yeni ölçümlerde kullanılamayacak. Devam edilsin mi?'))return;setSaving(true);try{const stored=controlPlans.find(p=>p.id===currentPlan.id);if(!stored)return;const archived={...stored,status:'archived' as const,isActive:false};await StorageService.saveControlPlan(archived);setCurrentPlan(archived);onSavePlan(archived);}catch(error){StorageService.reportSyncError(error);}finally{setSaving(false);}}}>Arşivle</button>}
-            <div className="flex items-center gap-4 text-slate-500 font-medium">
+            <div className="ml-auto flex items-center gap-4 font-medium text-slate-500">
               <span>Revizyon Tarihi: <strong className="text-slate-800">{currentPlan.revisionDate}</strong></span>
               <span>Hazırlayan: <strong className="text-slate-800">{currentPlan.author}</strong></span>
             </div>

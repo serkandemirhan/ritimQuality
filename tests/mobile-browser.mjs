@@ -66,18 +66,25 @@ try{
    if(tab==='control-plans'){
      await evaluate(`Array.from(document.querySelectorAll('button')).find(b=>b.innerText.includes('Test Part'))?.click()`);await delay(200);
      assert.equal(await evaluate(`document.querySelectorAll('#characteristic-chip-1').length`),1,'Characteristic navigation renders');
-     assert.equal(await evaluate(`Array.from(document.querySelectorAll('h3')).filter(e=>e.innerText.includes('Ölçüm Tanımı')).length`),1,'Single-characteristic mode renders one editor');
+     const chipBox=await evaluate(`(()=>{const box=document.querySelector('#characteristic-chip-1').getBoundingClientRect();return {width:box.width,height:box.height};})()`);
+     assert.ok(chipBox.width>=40&&chipBox.width<=44.5&&chipBox.height>=34&&chipBox.height<=36.5,'Characteristic chip uses compact fixed dimensions: '+JSON.stringify(chipBox));
+     assert.equal(await evaluate(`Array.from(document.querySelectorAll('h3')).filter(e=>e.innerText.startsWith('#1 ')).length`),1,'Single-characteristic mode renders one named editor');
      assert.ok(await evaluate(`(()=>{const labels=Array.from(document.querySelectorAll('label'));const tops=['Kontrol tipi','Önem seviyesi','Kanıt politikası'].map(text=>labels.find(label=>label.innerText.startsWith(text))?.getBoundingClientRect().top);return tops.every(Number.isFinite)&&Math.max(...tops)-Math.min(...tops)<2;})()`),'Type, severity and evidence policy share one row');
      assert.ok(await evaluate(`(()=>{const labels=Array.from(document.querySelectorAll('label'));const tops=['Nominal','Alt tolerans','Üst tolerans','Birim'].map(text=>labels.find(label=>label.innerText.startsWith(text))?.getBoundingClientRect().top);return tops.every(Number.isFinite)&&Math.max(...tops)-Math.min(...tops)<2;})()`),'Nominal, tolerances and unit share one row');
      const lineGeometry=await evaluate(`(()=>{const group=document.querySelector('g[data-annotation-id="test-measurement-line"]');if(!group)return {found:false};const main=group.querySelector('line:not([data-role])'),cap=group.querySelector('[data-role="start-cap"]'),svg=group.ownerSVGElement,box=svg.getBoundingClientRect();const n=e=>Number(e);const dx=(n(main.getAttribute('x2'))-n(main.getAttribute('x1')))*box.width/100,dy=(n(main.getAttribute('y2'))-n(main.getAttribute('y1')))*box.height/100,cx=(n(cap.getAttribute('x2'))-n(cap.getAttribute('x1')))*box.width/100,cy=(n(cap.getAttribute('y2'))-n(cap.getAttribute('y1')))*box.height/100,dot=Math.abs(dx*cx+dy*cy),cosine=dot/(Math.hypot(dx,dy)*Math.hypot(cx,cy));return {found:true,stroke:main.getAttribute('stroke'),dot,cosine,box:{width:box.width,height:box.height},line:{dx,dy},cap:{cx,cy}};})()`);
      assert.ok(lineGeometry.found&&lineGeometry.stroke==='#dc2626'&&lineGeometry.cosine<0.0001,'Measurement end cap is perpendicular and custom color persists: '+JSON.stringify(lineGeometry));
+     assert.equal(await evaluate(`document.querySelectorAll('g[data-annotation-id="test-measurement-line"] polygon[data-role$="-arrow"]').length`),2,'Measurement line has engineering arrowheads at both endpoints');
+     assert.equal(await evaluate(`document.querySelectorAll('[role="menu"] button').length`),0,'Color choices stay collapsed until requested');
+     await evaluate(`document.querySelector('button[aria-haspopup="menu"]').click()`);await delay(50);
+     assert.equal(await evaluate(`document.querySelectorAll('[role="menu"] button').length`),6,'Selected color opens a compact color menu');
+     await evaluate(`document.querySelector('[role="menu"] button').click()`);await delay(50);
      await evaluate(`document.querySelector('g[data-annotation-id="test-measurement-line"]').dispatchEvent(new MouseEvent('click',{bubbles:true}))`);await delay(50);
-     assert.equal(await evaluate(`document.querySelectorAll('circle[aria-label$="noktasını taşı"]').length`),2,'Selected measurement exposes draggable start and end handles');
-     const startHandle=await evaluate(`(()=>{const handle=document.querySelector('circle[aria-label="Başlangıç noktasını taşı"]');handle.scrollIntoView({block:'center'});const rect=handle.getBoundingClientRect();return {x:rect.left+rect.width/2,y:rect.top+rect.height/2,before:Number(handle.getAttribute('cx'))};})()`);await delay(80);
+     assert.equal(await evaluate(`document.querySelectorAll('rect[aria-label$="noktasını taşı"]').length`),2,'Selected measurement exposes square draggable start and end handles');
+     const startHandle=await evaluate(`(()=>{const handle=document.querySelector('rect[aria-label="Başlangıç noktasını taşı"]');handle.scrollIntoView({block:'center'});const rect=handle.getBoundingClientRect();return {x:rect.left+rect.width/2,y:rect.top+rect.height/2,before:Number(handle.getAttribute('x'))};})()`);await delay(80);
      await command('Input.dispatchMouseEvent',{type:'mousePressed',x:startHandle.x,y:startHandle.y,button:'left',clickCount:1});
      await command('Input.dispatchMouseEvent',{type:'mouseMoved',x:startHandle.x+35,y:startHandle.y+15,button:'left',buttons:1});
      await command('Input.dispatchMouseEvent',{type:'mouseReleased',x:startHandle.x+35,y:startHandle.y+15,button:'left',clickCount:1});await delay(80);
-     assert.notEqual(await evaluate(`Number(document.querySelector('circle[aria-label="Başlangıç noktasını taşı"]').getAttribute('cx'))`),startHandle.before,'Measurement start handle is draggable');
+     assert.notEqual(await evaluate(`Number(document.querySelector('rect[aria-label="Başlangıç noktasını taşı"]').getAttribute('x'))`),startHandle.before,'Measurement start handle is draggable');
      await evaluate(`document.querySelector('#btn-toggle-all-characteristics').click()`);await delay(100);
      assert.equal(await evaluate(`document.querySelectorAll('details[data-characteristic-id]').length`),1,'Compact all view renders characteristics as accordions');
    }
