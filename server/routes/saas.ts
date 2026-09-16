@@ -1,5 +1,5 @@
 import { createInspectionWorkflow } from '../services/workflow.js';
-import { inspectionSignature, validateInspection, planSchema, assertRevisionUnchanged, conflict } from '../services/inspectionValidation.js';
+import { inspectionRulesSchema, inspectionSignature, validateInspection, planSchema, assertRevisionUnchanged, conflict } from '../services/inspectionValidation.js';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
@@ -40,6 +40,27 @@ saasRouter.get('/bootstrap', async (req, res, next) => {
       };
     });
     res.json(data);
+  } catch (error) { next(error); }
+});
+
+saasRouter.get('/inspection-rules', async (req, res, next) => {
+  try {
+    const result = await withTenant(req.auth!.tenantId, client => client.query('SELECT inspection_rules FROM tenants WHERE id=$1', [req.auth!.tenantId]));
+    res.json(inspectionRulesSchema.parse(result.rows[0].inspection_rules));
+  } catch (error) { next(error); }
+});
+
+saasRouter.put('/inspection-rules', requireRole('admin'), async (req, res, next) => {
+  try {
+    const input = inspectionRulesSchema.strict().parse(req.body);
+    const { tenantId, userId } = req.auth!;
+    await withTenant(tenantId, async client => {
+      await assertSubscription(client, tenantId);
+      const before = (await client.query('SELECT inspection_rules FROM tenants WHERE id=$1 FOR UPDATE', [tenantId])).rows[0].inspection_rules;
+      await client.query('UPDATE tenants SET inspection_rules=$2, updated_at=now() WHERE id=$1', [tenantId, input]);
+      await audit(client, { tenantId, userId, action: 'inspection_rules.updated', entityType: 'tenant', entityId: tenantId, before, after: input, ip: req.ip });
+    });
+    res.json(input);
   } catch (error) { next(error); }
 });
 
@@ -149,7 +170,8 @@ saasRouter.post('/inspection-logs', requireRole('admin', 'quality_engineer', 'op
       }
       const plan = (await client.query('SELECT payload FROM control_plans WHERE tenant_id=$1 AND id=$2 FOR SHARE',[tenantId,controlPlanId])).rows[0]?.payload;
       const actor = (await client.query('SELECT name FROM users WHERE tenant_id=$1 AND id=$2',[tenantId,userId])).rows[0];
-      payload = { ...validateInspection(payload,plan,{id:userId,name:actor.name}), requestSignature: signature };
+      const rules = inspectionRulesSchema.parse((await client.query('SELECT inspection_rules FROM tenants WHERE id=$1 FOR SHARE', [tenantId])).rows[0].inspection_rules);
+      payload = { ...validateInspection(payload,plan,{id:userId,name:actor.name},rules), requestSignature: signature };
       const attachments = (payload.samples as any[]).flatMap(sample => Object.values(sample.evidence || {}).flat()) as {id:string}[];
       const mediaIds=attachments.map(item=>item.id);
       const draftId=typeof payload.draftId==='string'?z.string().uuid().parse(payload.draftId):null;

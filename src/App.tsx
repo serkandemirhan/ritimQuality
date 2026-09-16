@@ -26,6 +26,7 @@ export default function App() {
   const [recordId,setRecordId]=useState('');
   const openRecord=(id:string)=>{setRecordId(id);setActiveTab('logs');};
   const [planProductId,setPlanProductId] = useState('');
+  const [measurementActive, setMeasurementActive] = useState(false);
   const [kiosk,setKiosk] = useState(false);
   const [inspectionProductId,setInspectionProductId] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -185,7 +186,7 @@ export default function App() {
           Sunucu senkronizasyonu başarısız: {syncError} · Kapat
         </button>
       )}
-      {!kiosk && <Navbar
+      {!kiosk && !measurementActive && <Navbar
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onOpenBackupModal={() => setIsBackupModalOpen(true)}
@@ -196,8 +197,8 @@ export default function App() {
         company={company}
       />}
 
-      <div className={`flex min-h-screen flex-col ${kiosk ? '' : 'lg:pl-[280px]'}`}>
-        <header className="flex min-h-20 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-8">
+      <div className={`flex min-h-screen flex-col ${kiosk || measurementActive ? '' : 'lg:pl-[280px]'}`}>
+        <header hidden={measurementActive} className="app-page-header flex min-h-20 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-8">
           <div className="min-w-0">
             <h1 className="text-xl font-black tracking-tight text-slate-900">{pageMeta[activeTab].title}</h1>
             <p className="mt-1 text-xs text-slate-500">{pageMeta[activeTab].description}</p>
@@ -223,6 +224,7 @@ export default function App() {
         {activeTab === 'settings' && <Settings onNavigate={setActiveTab} currentUser={currentUser} users={users} products={products} onInspect={handleSelectProductForInspection} onOpenBackup={()=>setIsBackupModalOpen(true)}/>}
         {activeTab === 'operator' && (
           <OperatorStation
+            onSessionChange={setMeasurementActive}
             onOpenActions={()=>setActiveTab('cases')}
             initialProductId={inspectionProductId}
             products={products}
@@ -325,7 +327,7 @@ export default function App() {
       )}
 
         {/* Professional Footer */}
-        <footer className="border-t border-slate-200 bg-white py-4 px-4 text-center text-xs text-slate-500 font-sans">
+        <footer hidden={measurementActive} className="app-page-footer border-t border-slate-200 bg-white py-4 px-4 text-center text-xs text-slate-500 font-sans">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>Ritim Quality · v1.0 · Ritim Cloud</span>
           <span>Revizyon kontrollü kalite kayıtları</span>

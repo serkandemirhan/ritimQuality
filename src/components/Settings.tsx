@@ -1,3 +1,4 @@
+import { InspectionRulesSettings } from './InspectionRulesSettings';
 import React, { useState } from 'react';
 import { PushSettings } from './PushSettings';
 import { WorkCenter } from './WorkCenter';
@@ -20,6 +21,7 @@ export function Settings({currentUser,users,products,onInspect,onOpenBackup,onNa
         <p className="mt-3 text-xs text-slate-500">Tercihiniz bu tarayıcıda hesabınız için saklanır.</p>
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><h2 className="font-bold">Cihaz bildirimleri</h2><p className="mt-2 mb-4 text-sm text-slate-500">Uygulama kapalıyken de gelişmelerden haberdar olun. Uygulama içindeki bildirimler üst menüdeki zil simgesinde bulunur.</p><PushSettings/></section>
+      {currentUser.role==='admin'&&<InspectionRulesSettings/>}
       <PWAInstall/>
       {currentUser.role==='admin'&&<section className="rounded-2xl border border-slate-200 bg-white p-6"><h2 className="font-bold">Çalışma alanı yönetimi</h2><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={()=>onNavigate('users')} className="rounded-lg border px-4 py-3 text-sm font-semibold">Kullanıcılar ve roller</button><button type="button" onClick={()=>onNavigate('subscription')} className="rounded-lg border px-4 py-3 text-sm font-semibold">Abonelik ve faturalandırma</button><button type="button" onClick={onOpenBackup} className="rounded-lg border px-4 py-3 text-sm font-semibold">Veri Yönetimi</button></div></section>}
     </div>:<WorkCenter section={section} onSectionChange={setSection} currentUser={currentUser} users={users} products={products} onInspect={onInspect}/>}

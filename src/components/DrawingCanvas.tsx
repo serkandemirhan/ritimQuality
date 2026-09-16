@@ -50,6 +50,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollStageRef = useRef<HTMLDivElement>(null);
   
+  const [imageRatio, setImageRatio] = useState(1.6);
+  const [stageSize, setStageSize] = useState({width: 0, height: 0});
+  useEffect(() => {
+    const stage = scrollStageRef.current;
+    if (!stage) return;
+    const observer = new ResizeObserver(() => setStageSize({width: Math.max(0, stage.clientWidth - 32), height: Math.max(0, stage.clientHeight - 32)}));
+    observer.observe(stage); return () => observer.disconnect();
+  }, []);
+  const fittedWidth = Math.min(stageSize.width, stageSize.height * imageRatio);
   // Transform & Zoom State
   const [zoom, setZoom] = useState<number>(1);
   const [showLabels, setShowLabels] = useState<boolean>(showLabelsDefault);
@@ -71,8 +80,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
   // Reset zoom on image change
   useEffect(() => {
-    setZoom(1);
-  }, [imageUrl]);
+    setZoom(compact && !isFullscreen ? 3 : 1);
+    setShowLabels(compact ? false : showLabelsDefault);
+  }, [imageUrl, compact, isFullscreen]);
 
   // Auto-scroll/center to active pinpoint when active point changes
   const centerOnPoint = useCallback((pointNo: number) => {
@@ -84,18 +94,20 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     const pinX = activeChar.pin.x / 100;
     const pinY = activeChar.pin.y / 100;
 
-    const imgWidth = containerRef.current.clientWidth * zoom;
-    const imgHeight = containerRef.current.clientHeight * zoom;
+    const imgWidth = containerRef.current.clientWidth;
+    const imgHeight = containerRef.current.clientHeight;
 
-    const targetScrollLeft = (pinX * imgWidth) - (stage.clientWidth / 2);
-    const targetScrollTop = (pinY * imgHeight) - (stage.clientHeight / 2);
+    const imageRect = containerRef.current.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    const targetScrollLeft = stage.scrollLeft + imageRect.left - stageRect.left + (pinX * imgWidth) - (stage.clientWidth / 2);
+    const targetScrollTop = stage.scrollTop + imageRect.top - stageRect.top + (pinY * imgHeight) - (stage.clientHeight / 2);
 
     stage.scrollTo({
       left: Math.max(0, targetScrollLeft),
       top: Math.max(0, targetScrollTop),
       behavior: 'smooth',
     });
-  }, [characteristics, zoom]);
+  }, [characteristics, zoom, fittedWidth]);
 
   useEffect(() => {
     if (activePointNo) {
@@ -295,7 +307,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       }`}
     >
       {/* Smart Blueprint Toolbar: Clean and Ergonomic */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[#1E293B] border-b border-slate-700 z-10 text-xs text-slate-200 select-none">
+      <div className={`${compact && !isFullscreen ? 'hidden' : 'flex'} flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[#1E293B] border-b border-slate-700 z-10 text-xs text-slate-200 select-none`}>
         {/* Left: View Filter (Sadece Aktif Nokta vs Tüm Noktalar) */}
         <div className="flex flex-wrap items-center gap-2 min-w-0">
           <div className="flex items-center gap-1.5 font-bold text-white text-xs shrink-0">
@@ -401,10 +413,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         </div>
       </div>
 
+      {compact && !isFullscreen && <div className="flex items-center justify-between bg-slate-800 px-2 text-white"><span className="text-xs">Nokta #{activePointNo}</span><button type="button" title="Tam Ekran Resim" aria-label="Çizimi büyüt" onClick={() => setIsFullscreen(true)} className="p-2"><Maximize className="h-4 w-4"/></button></div>}
       {/* Main Interactive Stage with Touch Pan & Zoom */}
       <div
         ref={scrollStageRef}
-        className="relative flex-1 w-full h-full min-h-[180px] overflow-auto bg-[#070B14] flex items-center justify-center p-2 sm:p-4 select-none touch-none cursor-grab active:cursor-grabbing"
+        className="relative flex-1 w-full h-full min-h-0 overflow-auto bg-[#070B14] flex items-start justify-start p-2 sm:p-4 select-none touch-none cursor-grab active:cursor-grabbing"
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleStageMouseMove}
         onMouseUp={handleStageMouseUp}
@@ -415,14 +428,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       >
         <div
           ref={containerRef}
-          style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-          className="relative max-w-full max-h-full transition-transform duration-100 ease-out shadow-2xl rounded-xl overflow-visible inline-block"
+          style={{ width: fittedWidth ? fittedWidth * zoom : undefined, flexShrink: 0, margin: 'auto' }}
+          className="relative transition-transform duration-100 ease-out shadow-2xl rounded-xl overflow-visible inline-block"
         >
           {/* Technical Drawing Blueprint Image */}
           {isPdfMedia(imageUrl) ? (
             <object data={resolvedImageUrl} type="application/pdf" aria-label="PDF teknik resim" className="block h-[65vh] min-h-[460px] w-[min(900px,90vw)] pointer-events-none rounded-xl bg-white" />
           ) : (
-            <>{resolvedImageUrl ? <img src={resolvedImageUrl} alt="Teknik Resim Kontrol Planı" className="w-full h-auto max-h-[75vh] object-contain block pointer-events-none rounded-xl bg-slate-900/60" referrerPolicy="no-referrer" /> : <div className="flex min-h-40 items-center justify-center rounded-xl bg-slate-900 px-6 text-center text-sm text-slate-400">Bu kontrol planına teknik resim eklenmemiş.</div>}</>
+            <>{resolvedImageUrl ? <img onLoad={event => {const image=event.currentTarget; if(image.naturalHeight) setImageRatio(image.naturalWidth/image.naturalHeight);}} src={resolvedImageUrl} alt="Teknik Resim Kontrol Planı" className="w-full h-auto object-contain block pointer-events-none rounded-xl bg-slate-900/60" referrerPolicy="no-referrer" /> : <div className="flex min-h-40 items-center justify-center rounded-xl bg-slate-900 px-6 text-center text-sm text-slate-400">Bu kontrol planına teknik resim eklenmemiş.</div>}</>
           )}
 
           {/* Interactive Inspection Point Hotspots / Pins */}
@@ -488,7 +501,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       </div>
 
       {/* Footer Info Strip: Clean & Informative */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#1E293B] border-t border-slate-700/80 text-slate-300 text-[10px] sm:text-[11px] select-none">
+      <div className={`${compact && !isFullscreen ? 'hidden' : 'flex'} items-center justify-between px-3 py-1.5 bg-[#1E293B] border-t border-slate-700/80 text-slate-300 text-[10px] sm:text-[11px] select-none`}>
         {/* Active Point Quick Info in Footer */}
         {activeChar ? (
           <div className="flex items-center gap-2 truncate">

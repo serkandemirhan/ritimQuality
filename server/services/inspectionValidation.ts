@@ -34,9 +34,15 @@ export function canonical(value: unknown): string {
 export const inspectionSignature = (value: unknown) => createHash('sha256').update(canonical(value)).digest('hex');
 export function conflict(message: string): never { throw Object.assign(new Error(message), { status: 409 }); }
 
-export function validateInspection(input: Record<string, unknown>, rawPlan: unknown, actor: { id: string; name: string }) {
+export const inspectionRulesSchema = z.object({
+  requireActivePlan: z.boolean().default(false),
+  requireLotNumber: z.boolean().default(false),
+  requireOrderNumber: z.boolean().default(false),
+});
+
+export function validateInspection(input: Record<string, unknown>, rawPlan: unknown, actor: { id: string; name: string }, rules = inspectionRulesSchema.parse({})) {
   const plan = planSchema.parse(rawPlan);
-  if (!plan.isActive || plan.status !== 'active') conflict('Yalnızca aktif kontrol planıyla ölçüm kaydedilebilir.');
+  if (rules.requireActivePlan && (!plan.isActive || plan.status !== 'active')) conflict('Yalnızca aktif kontrol planıyla ölçüm kaydedilebilir.');
   if (input.productId !== plan.productId || input.controlPlanId !== plan.id || input.controlPlanVersion !== plan.version)
     conflict('Ürün veya plan revizyonu değişti. Kontrol planını yeniden açın.');
   const samples = z.array(z.object({
@@ -74,9 +80,9 @@ export function validateInspection(input: Record<string, unknown>, rawPlan: unkn
     }
     return { ...sample, statuses };
   });
-  z.string().trim().min(1).max(120).parse(input.lotNumber);
-  z.string().trim().min(1).max(120).parse(input.orderNumber);
-  return { ...input, samples: normalized, operatorUserId: actor.id, operatorName: actor.name,
+  const lotNumber = z.string().trim().min(rules.requireLotNumber ? 1 : 0).max(120).parse(input.lotNumber ?? '');
+  const orderNumber = z.string().trim().min(rules.requireOrderNumber ? 1 : 0).max(120).parse(input.orderNumber ?? '');
+  return { ...input, lotNumber, orderNumber, samples: normalized, operatorUserId: actor.id, operatorName: actor.name,
     controlPlanSnapshot: rawPlan, sampleCount: samples.length, totalPointsChecked: samples.length * plan.characteristics.length,
     failedPointsCount: failed, warningPointsCount: warning, overallStatus: failed ? 'fail' : warning ? 'warning' : 'pass' };
 }

@@ -4,6 +4,8 @@ import type { BillingPeriod, SubscriptionPlanId } from '../types';
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 const TOKEN_KEY = 'qualitrack_access_token';
 
+export interface InspectionRules { requireActivePlan: boolean; requireLotNumber: boolean; requireOrderNumber: boolean; }
+
 export interface AuthInput { workspace: string; email: string; password: string; }
 export interface RegisterInput extends AuthInput { companyName: string; name: string; }
 
@@ -37,6 +39,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 const pending = pendingStore(TOKEN_KEY);
 export const SaasApi = {
+  inspectionRules: () => request<InspectionRules>('/inspection-rules'),
+  saveInspectionRules: (rules: InspectionRules) => request<InspectionRules>('/inspection-rules', {method:'PUT', body:JSON.stringify(rules)}),
   pushConfig: () => request('/push/config'),
   subscribePush: (body:unknown) => request('/push/subscriptions',{method:'POST',body:JSON.stringify(body)}),
   unsubscribePush: () => request('/push/subscriptions',{method:'DELETE'}),

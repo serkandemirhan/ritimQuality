@@ -19,7 +19,7 @@ test('rejects missing points, nonfinite values and unknown points',()=>{
 });
 test('rejects foreign product, stale revision, archived plan and sample mismatch',()=>{
  for(const fields of [{productId:'other'},{controlPlanVersion:'v2.0'},{sampleCount:2}])assert.throws(()=>validateInspection({...input,...fields},plan,actor));
- assert.throws(()=>validateInspection(input,{...plan,isActive:false,status:'archived'},actor));
+ assert.throws(()=>validateInspection(input,{...plan,isActive:false,status:'archived'},actor,{requireActivePlan:true,requireLotNumber:false,requireOrderNumber:false}));
 });
 test('required-on-fail evidence uses recalculated result',()=>{
  assert.throws(()=>validateInspection(input,{...plan,characteristics:[{...plan.characteristics[0],evidencePolicy:'required_on_fail'}]},actor));
@@ -35,4 +35,17 @@ test('used revision permits only lifecycle changes; JSON key order is irrelevant
  assert.throws(()=>assertRevisionUnchanged(plan,{...plan,characteristics:[{...plan.characteristics[0],usl:20}]}));
  assert.equal(inspectionSignature({a:1,b:{c:2,d:3}}),inspectionSignature({b:{d:3,c:2},a:1}));
  assert.notEqual(inspectionSignature(input),inspectionSignature({...input,lotNumber:'other'}));
+});
+
+test('inspection business rules independently enforce optional metadata and plan state', () => {
+ const empty = {...input, lotNumber:'  ', orderNumber:''};
+ const inactive = {...plan, isActive:false, status:'draft'};
+ const optional = {requireActivePlan:false, requireLotNumber:false, requireOrderNumber:false};
+ assert.doesNotThrow(() => validateInspection(empty, inactive, actor, optional));
+ for (const key of Object.keys(optional)) {
+   assert.throws(() => validateInspection(empty, inactive, actor, {...optional, [key]:true}));
+ }
+ assert.doesNotThrow(() => validateInspection({...empty, lotNumber:'LOT'}, inactive, actor, {...optional, requireLotNumber:true}));
+ assert.doesNotThrow(() => validateInspection({...empty, orderNumber:'WO'}, inactive, actor, {...optional, requireOrderNumber:true}));
+ assert.throws(() => validateInspection({...empty, lotNumber:'x'.repeat(121)}, plan, actor, optional));
 });

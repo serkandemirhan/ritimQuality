@@ -34,3 +34,87 @@ button:focus-visible, a:focus-visible { outline:3px solid #2563eb; outline-offse
 main { min-height: 65vh; }
 button:disabled { cursor:wait; }
 input:not([type=checkbox]):not([type=radio]):not([type=file]), select { min-height:40px; }
+
+/* Measurement workspace: drawing and entry remain side by side. */
+.app-page-header[hidden] { display:none; }
+body:has(.quality-session) { padding-bottom:0; }
+.quality-session { display:flex; flex-direction:column; gap:12px; }
+.measurement-ribbon { margin-bottom:0; min-width:0; }
+.measurement-samples { min-width:0; overflow-x:auto; }
+.quality-session .quality-measurement-grid { display:grid; grid-template-columns:minmax(0, 1.6fr) minmax(300px, 1fr); gap:16px; align-items:stretch; overflow:visible; }
+.quality-drawing { min-width:0; height:calc(100dvh - 110px); min-height:400px; }
+.measurement-deck { min-width:0; padding:18px; background:white; border:1px solid #e2e8f0; border-radius:16px; }
+.measurement-deck-inner { display:flex; flex-direction:column; gap:18px; height:100%; }
+.measurement-info { min-width:0; }
+.measurement-tolerance-summary { font-size:12px; color:#475569; margin:8px 0; }
+.quality-session .measurement-value { font-size:30px !important; min-height:56px; }
+.measurement-points { margin-top:auto; min-width:0; }
+.quality-session .quality-measurement-actions { position:static; }
+.measurement-other summary { cursor:pointer; font-size:13px; color:#475569; padding:8px; }
+.measurement-result > div { flex-wrap:wrap; gap:4px; }
+.measurement-keypad { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.measurement-keypad button { min-height:44px; border:1px solid #dbe3ef; background:white; border-radius:9px; font-size:24px; font-weight:600; touch-action:manipulation; }
+.measurement-keypad button:active { background:#dbeafe; }
+.measurement-keypad .keypad-next { grid-column:span 2; background:#155dfb; color:white; font-size:13px; }
+@media (max-width:767px) {
+  .quality-session { gap:6px; }
+  .measurement-ribbon { padding:6px 8px; border-radius:12px; }
+  .measurement-ribbon > div:first-child { flex:1; }
+  .measurement-ribbon > div:first-child > div > span:first-child { display:none; }
+  .measurement-ribbon > div:last-child { gap:2px; }
+  .measurement-ribbon button { min-width:36px; min-height:40px; }
+  .quality-session .quality-measurement-grid { grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); gap:8px; }
+  .measurement-deck, .measurement-deck-inner { display:contents; }
+  .quality-session .quality-drawing { grid-column:1; grid-row:1; height:auto; min-height:280px; }
+  .measurement-info { grid-column:2; grid-row:1; padding:8px; background:white; border:1px solid #e2e8f0; border-radius:12px; }
+  .measurement-point-title { align-items:flex-start; }
+  .measurement-point-title h2 { white-space:normal; font-size:12px; }
+  .measurement-point-title > div > div:first-child { width:26px; height:26px; }
+  .measurement-critical, .measurement-tool, .measurement-enter-hint, .measurement-presets { display:none; }
+  .measurement-tolerances { display:flex; flex-direction:column; gap:3px; }
+  .measurement-tolerances > div { display:flex; justify-content:space-between; align-items:center; padding:5px; border-radius:6px; }
+  .measurement-tolerances > div:nth-child(2) { order:-1; }
+  .measurement-tolerances > div > div { font-size:10px; margin:0; letter-spacing:0; }
+  .measurement-tolerances > div > div:last-child { font-size:12px; }
+  .measurement-tolerance-summary { font-size:10px; margin:4px 0; }
+  .quality-session .measurement-value { font-size:24px !important; padding:6px 24px 6px 4px; min-height:48px; }
+  .measurement-result > div { padding:5px; font-size:11px; }
+  .measurement-result > div > span:last-child { display:none; }
+  .measurement-points { grid-column:1 / -1; margin:0; }
+  .measurement-points button { min-width:36px; min-height:36px; }
+  .measurement-points button > span:nth-child(2) { display:none; }
+  .measurement-keypad { grid-column:1 / -1; }
+  .quality-session .quality-measurement-actions { grid-column:1 / -1; padding:0; border:0; gap:4px; background:transparent; }
+  .measurement-other { order:3; }
+  .measurement-evidence { overflow-wrap:anywhere; }
+}
+
+@media (max-width:767px) { .measurement-evidence { grid-column:1 / -1; grid-row:6; } }
+
+.app-page-footer[hidden] { display:none; }
+@media (max-width:767px) {
+  .quality-session .quality-drawing { min-height:240px; }
+  .quality-session:has(.measurement-keypad) .quality-measurement-actions > div:first-child { display:none; }
+  .quality-session:has(.measurement-keypad) #btn-save-inspection-log:disabled { display:none; }
+  .measurement-ribbon { padding:4px 8px; }
+  .measurement-ribbon > div:last-child > button[title="Sesli Uyarı Açık"], .measurement-ribbon > div:last-child > button[title="Sessiz"] { display:none; }
+}
+
+@media (max-width:767px) {
+  .quality-session .quality-measurement-grid { grid-template-rows:auto; }
+  .quality-session .quality-drawing { height:280px; min-height:0; align-self:stretch; }
+  .measurement-info { min-height:280px; }
+}
+@media (max-width:767px) and (max-height:700px) {
+  .measurement-ribbon { min-height:48px; }
+  .measurement-ribbon button { min-height:32px; }
+  .measurement-info { padding:6px; min-height:244px; }
+  .quality-session .quality-drawing { height:260px; }
+  .measurement-point-title { padding-bottom:4px; }
+  .measurement-tolerances { margin:4px 0; }
+  .measurement-tolerances > div { padding:3px; }
+  .measurement-tolerance-summary { font-size:9px; }
+  .measurement-result > div { padding:3px; }
+  .measurement-points > div:first-child { display:none; }
+  .measurement-keypad { gap:4px; }
+}
