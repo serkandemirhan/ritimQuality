@@ -1,3 +1,4 @@
+import { Card, Button } from './ui';
 import React, {useEffect,useState} from 'react';
 import {SaasApi} from '../services/api';
 import type {Product,ControlPlan,User,InspectionLog} from '../types';
@@ -15,5 +16,5 @@ export function Onboarding({products,plans,users,logs,onNavigate}:{products:Prod
     {label:'4. İlk kontrolü kaydet',description:'Parti ve iş emriyle ölçüm yapıp sunucu kaydını doğrulayın.',tab:'operator',done:logs.length>0},
   ];
   if(complete||dismissed)return null;
-  return <section className="m-3 rounded-2xl border border-blue-200 bg-blue-50 p-4"><h2 className="font-bold">İlk kontrole başlayalım</h2><div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{steps.map(step=><button type="button" key={step.tab} onClick={()=>onNavigate(step.tab)} className="rounded-xl border bg-white p-4 text-left"><span className="block font-bold">{step.done?'✓ ':''}{step.label}</span><span className="mt-1 block text-sm text-slate-600">{step.description}</span></button>)}</div></section>;
+  return <Card className="mb-6"><h2 className="font-bold">İlk kontrole başlayalım</h2><div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{steps.map(step=><Button key={step.tab} onClick={()=>onNavigate(step.tab)} className="flex-col items-start text-left"><span className="block font-bold">{step.done?'✓ ':''}{step.label}</span><span className="mt-1 block text-sm text-slate-600">{step.description}</span></Button>)}</div></Card>;
 }

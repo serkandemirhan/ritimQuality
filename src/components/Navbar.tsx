@@ -1,3 +1,4 @@
+import { Sidebar, IconButton, Modal } from './ui';
 import React, { useEffect, useState } from 'react';
 import {
   BarChart3,
@@ -5,6 +6,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   CreditCard,
+  CheckCircle2,
   Database,
   History,
   LogOut,
@@ -15,12 +17,16 @@ import {
   ShieldCheck,
   Users,
   X,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { TenantCompany, User, UserRole } from '../types';
 
 export type NavTab = 'overview' | 'organization' | 'work' | 'operator' | 'control-plans' | 'products' | 'spc' | 'logs' | 'users' | 'subscription' | 'cases' | 'approvals' | 'notifications' | 'settings';
 
 interface NavbarProps {
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
   activeTab: NavTab;
   onTabChange: (tab: NavTab) => void;
   onOpenBackupModal: () => void;
@@ -38,11 +44,11 @@ type NavItem = {
   icon: React.ReactNode;
   badge?: string;
   allowedRoles: UserRole[];
-  group: 'Genel Bakış' | 'Operasyon' | 'Kalite Yönetimi' | 'Yönetim';
+  group: 'Operasyon' | 'Kalite' | 'Analitik' | 'Yönetim';
 };
 
 export const Navbar: React.FC<NavbarProps> = ({
-  activeTab,
+  activeTab, collapsed=false, onToggleCollapse,
   onTabChange,
   onOpenBackupModal,
   onLogout,
@@ -58,14 +64,18 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, [activeTab]);
 
   useEffect(() => {
-    document.body.style.overflow = mobileOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [mobileOpen]);
+    const desktop = window.matchMedia('(min-width: 1024px)');
+    const closeOnDesktop = () => { if (desktop.matches) setMobileOpen(false); };
+    desktop.addEventListener('change', closeOnDesktop);
+    return () => desktop.removeEventListener('change', closeOnDesktop);
+  }, []);
 
   const navItems: NavItem[] = [
-    {id:'overview',label:'Genel Bakış',description:'Kalite performansı',icon:<BarChart3 className="h-4 w-4"/>,allowedRoles:['admin','quality_engineer','auditor'],group:'Genel Bakış'},
+    {id:'overview',label:'Genel Bakış',description:'Kalite performansı',icon:<BarChart3 className="h-4 w-4"/>,allowedRoles:['admin','quality_engineer','auditor'],group:'Operasyon'},
     {id:'organization',label:'Organizasyon',description:'Tesis, bölüm ve istasyon',icon:<Building2 className="h-4 w-4"/>,allowedRoles:['admin'],group:'Yönetim'},
     {id:'settings',label:'Ayarlar',description:'Tercihler ve veri yönetimi',icon:<Settings2 className="h-4 w-4"/>,allowedRoles:['admin'],group:'Yönetim'},
+    {id:'cases',label:'Uygunsuzluklar',description:'Kalite aksiyonları',icon:<ShieldCheck className="h-4 w-4"/>,allowedRoles:['admin','quality_engineer','operator','auditor'],group:'Operasyon'},
+    {id:'approvals',label:'Onaylar',description:'Ölçüm incelemeleri',icon:<CheckCircle2 className="h-4 w-4"/>,allowedRoles:['admin','quality_engineer','auditor'],group:'Operasyon'},
     {id:'work',label:'Aksiyonlar',description:'Atanan görevler',icon:<ClipboardCheck className="h-4 w-4"/>,allowedRoles:['admin','quality_engineer','operator','auditor'],group:'Operasyon'},
     {
       id: 'operator',
@@ -82,7 +92,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       description: 'Noktalar ve revizyonlar',
       icon: <ClipboardCheck className="h-4 w-4" />,
       allowedRoles: ['admin', 'quality_engineer'],
-      group: 'Kalite Yönetimi',
+      group: 'Kalite',
     },
     {
       id: 'products',
@@ -91,7 +101,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       icon: <Package className="h-4 w-4" />,
       badge: String(productCount),
       allowedRoles: ['admin', 'quality_engineer'],
-      group: 'Kalite Yönetimi',
+      group: 'Kalite',
     },
     {
       id: 'spc',
@@ -99,7 +109,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       description: 'Proses yetenek raporları',
       icon: <BarChart3 className="h-4 w-4" />,
       allowedRoles: ['admin', 'quality_engineer', 'auditor'],
-      group: 'Kalite Yönetimi',
+      group: 'Analitik',
     },
     {
       id: 'logs',
@@ -108,7 +118,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       icon: <History className="h-4 w-4" />,
       badge: String(logCount),
       allowedRoles: ['admin', 'quality_engineer', 'operator', 'auditor'],
-      group: 'Kalite Yönetimi',
+      group: 'Kalite',
     },
     {
       id: 'users',
@@ -129,8 +139,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     },
   ];
 
-  const visibleItems = navItems.filter(item => item.allowedRoles.includes(currentUser.role) && item.id!=='subscription');
-  const groups: NavItem['group'][] = ['Genel Bakış', 'Operasyon', 'Kalite Yönetimi', 'Yönetim'];
+  const visibleItems = navItems.filter(item => item.allowedRoles.includes(currentUser.role));
+  const mobileItems = (['work','operator','logs','overview'] as NavTab[]).map(id=>visibleItems.find(item=>item.id===id)).filter((item):item is NavItem=>!!item).slice(0,3);
+  const groups: NavItem['group'][] = ['Operasyon', 'Kalite', 'Analitik', 'Yönetim'];
 
   const initials = currentUser.name
     .split(' ')
@@ -139,14 +150,14 @@ export const Navbar: React.FC<NavbarProps> = ({
     .join('')
     .toUpperCase();
 
-  const sidebar = (
-    <aside className="flex h-full w-[280px] flex-col border-r border-slate-800 bg-slate-950 text-slate-100 shadow-2xl lg:shadow-none">
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-800 px-5">
+  const renderSidebar = (mobile = false) => (
+    <Sidebar className={`rq-navigation flex h-full flex-col ${collapsed && !mobile ? 'is-collapsed' : ''}`}>
+      <div className="rq-brand-row flex h-16 shrink-0 items-center justify-between border-b border-slate-800 px-4">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 shadow-lg shadow-blue-950/40">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-800 border border-slate-700">
             <ShieldCheck className="h-6 w-6 text-white" />
           </div>
-          <div className="min-w-0">
+          <div className="rq-nav-label min-w-0">
             <div className="text-lg font-black tracking-tight text-white">Ritim Quality</div>
             <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{company.name}</div>
           </div>
@@ -162,28 +173,29 @@ export const Navbar: React.FC<NavbarProps> = ({
           if (!groupItems.length) return null;
           return (
             <div key={group} className="mb-3 last:mb-0">
-              <div className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">{group}</div>
+              <div className="rq-nav-group mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">{group}</div>
               <div className="space-y-1">
                 {groupItems.map(item => {
-                  const active = item.id === activeTab || item.id==='work'&&['cases','approvals'].includes(activeTab);
+                  const active = item.id === activeTab;
                   return (
                     <button
                       key={item.id}
                       aria-current={active ? 'page' : undefined}
-                      title={item.description}
-                      id={`nav-tab-${item.id}`}
+                      title={item.label}
+                      aria-label={item.label}
+                      id={`${mobile ? 'mobile-nav-tab' : 'nav-tab'}-${item.id}`}
                       type="button"
-                      onClick={() => onTabChange(item.id)}
-                      className={`group flex w-full items-center gap-3 rounded-xl px-3 py-1.5 text-left transition ${active ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/30' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100'}`}
+                      onClick={() => { onTabChange(item.id); setMobileOpen(false); }}
+                      className={`rq-nav-item ${active ? 'is-active' : ''}`}
                     >
                       <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${active ? 'bg-white/15 text-white' : 'bg-slate-900 text-slate-500 group-hover:bg-slate-800 group-hover:text-blue-400'}`}>{item.icon}</span>
-                      <span className="min-w-0 flex-1">
+                      <span className="rq-nav-label min-w-0 flex-1">
                         <span className="block truncate text-xs font-bold">{item.label}</span>
                       </span>
                       {item.badge ? (
-                        <span className={`rounded-md px-1.5 py-0.5 text-[9px] font-black ${active ? 'bg-white/15 text-white' : 'bg-slate-900 text-slate-500'}`}>{item.badge}</span>
+                        <span className={`rq-nav-meta rounded-md px-1.5 py-0.5 text-[9px] font-black ${active ? 'bg-white/15 text-white' : 'bg-slate-900 text-slate-500'}`}>{item.badge}</span>
                       ) : (
-                        <ChevronRight className={`h-3.5 w-3.5 ${active ? 'text-blue-200' : 'text-slate-700 group-hover:text-slate-500'}`} />
+                        <ChevronRight className={`rq-nav-meta h-3.5 w-3.5 ${active ? 'text-blue-200' : 'text-slate-700 group-hover:text-slate-500'}`} />
                       )}
                     </button>
                   );
@@ -194,8 +206,8 @@ export const Navbar: React.FC<NavbarProps> = ({
         })}
       </nav>
 
-      <div className="border-t border-slate-800 p-3"><button type="button" onClick={()=>onTabChange('settings')} className="w-full rounded-lg p-3 text-left text-sm text-slate-400">Kişisel ayarlar</button></div>
-    </aside>
+      <div className="rq-nav-footer border-t border-slate-800 p-3"><IconButton label={collapsed?'Menüyü genişlet':'Menüyü daralt'} onClick={onToggleCollapse} aria-expanded={!collapsed} className="rq-collapse hidden lg:inline-flex">{collapsed?<PanelLeftOpen size={18}/>:<PanelLeftClose size={18}/>}</IconButton><button type="button" onClick={()=>{onTabChange('settings');setMobileOpen(false);}} className="rq-nav-label w-full rounded-lg p-3 text-left text-sm text-slate-400">Kişisel ayarlar</button></div>
+    </Sidebar>
   );
 
   const activeItem = navItems.find(item => item.id === activeTab);
@@ -215,18 +227,15 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-[10px] font-black text-white">{initials}</div>
       </div>
 
-      <div className="fixed inset-y-0 left-0 z-50 hidden lg:block">{sidebar}</div>
+      <div className="fixed inset-y-0 left-0 z-50 hidden lg:block">{renderSidebar()}</div>
 
       <nav aria-label="Mobil gezinme" className="quality-bottom-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-slate-200 bg-white px-2 pt-1 text-slate-800 lg:hidden" style={{paddingBottom:'max(.5rem, env(safe-area-inset-bottom))'}}>
-        {visibleItems.filter(item=>['operator','logs','work','spc'].includes(item.id)).slice(0,3).map(item=><button key={item.id} type="button" onClick={()=>onTabChange(item.id)} aria-current={activeTab===item.id?'page':undefined} className={'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-xs '+(activeTab===item.id?'bg-blue-100 text-blue-800 font-bold':'')}>{item.icon}<span>{item.id==='operator'?'Ölçüm':item.id==='logs'?'Kayıtlar':item.id==='work'?'Aksiyonlar':'SPC'}</span></button>)}
+        {mobileItems.map(item=><button key={item.id} type="button" onClick={()=>onTabChange(item.id)} aria-current={activeTab===item.id?'page':undefined} className={'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-xs '+(activeTab===item.id?'bg-slate-100 text-slate-950 font-bold':'')}>{item.icon}<span>{item.id==='operator'?'Ölçüm':item.id==='logs'?'Kayıtlar':item.id==='work'?'Aksiyonlar':'Ana sayfa'}</span></button>)}
         <button type="button" onClick={()=>setMobileOpen(true)} aria-expanded={mobileOpen} className="flex min-h-14 flex-col items-center justify-center gap-1 text-xs"><Menu className="h-5 w-5"/>Diğer</button>
       </nav>
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button type="button" aria-label="Menüyü kapat" onClick={() => setMobileOpen(false)} className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" />
-          <div className="quality-mobile-menu relative h-full w-[280px] max-w-full animate-in slide-in-from-left duration-200">{sidebar}</div>
-        </div>
-      )}
+      <Modal open={mobileOpen} title="Gezinme" onClose={() => setMobileOpen(false)} className="rq-mobile-navigation">
+        <div className="quality-mobile-menu">{renderSidebar(true)}</div>
+      </Modal>
     </>
   );
 };

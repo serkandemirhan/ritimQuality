@@ -1,3 +1,5 @@
+import {InspectionTrace} from './InspectionTrace';
+import {Button, Input, Select, Card, MetricCard, SearchInput, DataTable, StatusBadge, Badge, DetailDrawer, Modal, Field, PageActions} from './ui';
 import {SOURCE_LABELS} from '../services/terms';
 import { exportInspectionRecords } from '../services/exportRecords';
 import React, { useState, useMemo } from 'react';
@@ -43,6 +45,9 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
   onOpenCertificate,
   onLogsChanged,
 }) => {
+  const [exportOpen,setExportOpen]=useState(false);
+  const [exportFormat,setExportFormat]=useState<'csv'|'excel'>('csv');
+  const [exportMessage,setExportMessage]=useState('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [productFilter, setProductFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -120,71 +125,22 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
 
   return (
     <div className="space-y-5">
-      {onOpenSPC&&<button className="quality-secondary" onClick={onOpenSPC}>SPC Analizine Git</button>}
-      {/* Top Banner with Daily Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-            Kayıtlı Toplam Ölçüm
-          </span>
-          <div className="text-2xl font-black font-mono text-slate-900 mt-1">
-            {logs.length} <span className="text-xs text-slate-400 font-normal">Oturum</span>
-          </div>
-          <span className="text-[11px] text-slate-400 mt-1 block">Veritabanında saklanan kayıtlar</span>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-            Bugün Yapılan Ölçümler
-          </span>
-          <div className="text-2xl font-black font-mono text-blue-600 mt-1">
-            {todayLogs.length} <span className="text-xs text-slate-400 font-normal">Parti</span>
-          </div>
-          <span className="text-[11px] text-slate-400 mt-1 block">Günlük vardiya ölçüm temposu</span>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-            Genel Uygunluk (Kabul) Oranı
-          </span>
-          <div className="text-2xl font-black font-mono text-emerald-600 mt-1">
-            {passRate===null?'?':`%${passRate.toFixed(1)}`}
-          </div>
-          <span className="text-[11px] text-slate-400 mt-1 block">Tolerans içi parça oranı</span>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-            Excel / CSV Raporu
-          </span>
-          <details className="relative mt-2"><summary className="quality-primary cursor-pointer">Dışa Aktar</summary><div className="absolute right-0 z-30 grid min-w-40 gap-2 rounded-xl bg-white p-3 shadow-xl"><button disabled={!filteredLogs.length} onClick={()=>exportInspectionRecords(filteredLogs,'csv')} className="quality-secondary">CSV</button><button disabled={!filteredLogs.length} onClick={()=>exportInspectionRecords(filteredLogs,'excel')} className="quality-secondary">Excel</button></div></details>
-        </div>
-      </div>
+      {onOpenSPC&&<Button className="quality-secondary" onClick={onOpenSPC}>SPC Analizine Git</Button>}
+      <div className="rq-metrics-row"><MetricCard label="Kayıtlı kontrol oturumları" value={logs.length} detail={'Bugün: '+todayLogs.length}/><MetricCard label="Uygun / uyarılı" value={passedCount} detail="Geçerli filtrelerdeki oturumlar" tone="success"/><MetricCard label="Uygunsuz" value={filteredLogs.filter(log=>log.overallStatus==='fail').length} detail="Geçerli filtrelerdeki oturumlar" tone="danger"/><MetricCard label="Uygunluk oranı" value={passRate===null?'—':'%'+passRate.toFixed(1)} detail="Uyarılı sonuçlar dahil"/></div>
+      <div className="rq-actions"><Button onClick={()=>{setExportMessage('');setExportOpen(true);}}><Download size={16}/>Dışa Aktar</Button><span className="rq-helper m-0">{filteredLogs.length} / {logs.length} kontrol oturumu</span></div>
+      <Modal open={exportOpen} title="Ölçüm kayıtlarını dışa aktar" onClose={()=>setExportOpen(false)}><div className="space-y-5"><Card><h3 className="rq-section-title">Geçerli filtrelerin sonucu</h3><p className="rq-helper">{filteredLogs.length} kontrol oturumu dışa aktarılacak. Arama, ürün, sonuç, tarih ve gelişmiş filtreler uygulanır.</p><div className="rq-summary"><Badge>{exportFormat==='csv'?'CSV · UTF-8':'Excel · XML'}</Badge><span>{filteredLogs.reduce((sum,log)=>sum+log.sampleCount,0)} numune</span></div></Card><Field label="Dosya biçimi"><Select value={exportFormat} onChange={event=>setExportFormat(event.target.value as 'csv'|'excel')}><option value="csv">CSV (.csv)</option><option value="excel">Excel çalışma sayfası (.xml)</option></Select></Field><p className="rq-helper">Sütunlar: oturum, tarih, ürün ve revizyonlar, parti, seri, iş emri, operatör, istasyon, numune sayısı, sonuç ve hatalı nokta sayısı.</p>{exportMessage&&<p role="status" className="rq-feedback rq-tone-info">{exportMessage}</p>}<PageActions><Button onClick={()=>setExportOpen(false)}>Kapat</Button><Button variant="primary" disabled={!filteredLogs.length} onClick={()=>{try{exportInspectionRecords(filteredLogs,exportFormat);setExportMessage('Dosya hazırlandı; tarayıcı indirmesi başlatıldı.');}catch{setExportMessage('Dosya hazırlanamadı. Lütfen yeniden deneyin.');}}}><Download size={16}/>Dosyayı indir</Button></PageActions></div></Modal>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-3 text-xs"><span className="font-bold text-slate-800">Kaynak Özeti:</span>{(['manual','gauge','import','cmm'] as const).map(source=><span key={source} className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono font-bold uppercase text-slate-700">{SOURCE_LABELS[source]}: {filteredLogs.filter(log=>(log.source||'manual')===source).reduce((total,log)=>total+log.samples.reduce((sum,sample)=>sum+Object.values(sample.statuses).filter(status=>status!=='empty').length,0),0)}</span>)}<span className="ml-auto font-bold text-emerald-700">Uygun: {filteredLogs.filter(log=>log.overallStatus==='pass').length} / {filteredLogs.length}</span></div>
       </div>
 
-      {selectedLogForDetail&&onOpenPlan&&<button className="quality-secondary" onClick={()=>onOpenPlan(selectedLogForDetail.productId)}>İlgili Kontrol Planını Aç</button>}
       {/* Main Table Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-        {/* Filters Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-100">
-          <div className="relative min-w-60 flex-1 max-w-md">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Oturum no, parça adı, parti no veya operatör ara..."
-              className="w-full bg-white border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs font-medium"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-xs">
+      <div className="rq-card">
+        <div className="rq-record-filters"><SearchInput value={searchTerm} onChange={event=>setSearchTerm(event.target.value)} placeholder="Oturum, ürün, parti veya operatör ara…" aria-label="Ölçüm kaydı ara"/>
+          <div className="rq-record-filter-fields">
             {/* Product filter */}
-            <select
-              value={productFilter}
+            <Select
+              aria-label="Ürün filtresi" value={productFilter}
               onChange={(e) => setProductFilter(e.target.value)}
               className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
             >
@@ -192,11 +148,11 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
               {products.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
-            </select>
+            </Select>
 
             {/* Status filter */}
-            <select
-              value={statusFilter}
+            <Select
+              aria-label="Sonuç filtresi" value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
             >
@@ -204,11 +160,11 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
               <option value="pass">Kabul (Uygun)</option>
               <option value="warning">Şartlı Kabul</option>
               <option value="fail">Tolerans Dışı (Red)</option>
-            </select>
+            </Select>
 
             {/* Date filter */}
-            <select
-              value={dateFilter}
+            <Select
+              aria-label="Tarih filtresi" value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
               className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
             >
@@ -216,21 +172,21 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
               <option value="today">Bugün</option>
               <option value="week">Son 7 Gün</option>
               <option value="month">Son 30 Gün</option>
-            </select>
-            <details><summary className="quality-secondary cursor-pointer">Gelişmiş Filtreler</summary><div className="mt-3 flex flex-wrap gap-2">
-            <select value={customerFilter} onChange={e=>setCustomerFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Müşteriler</option>{[...new Set(products.map(p=>p.customer))].map(value=><option key={value}>{value}</option>)}</select>
-            <select value={revisionFilter} onChange={e=>setRevisionFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Revizyonlar</option>{[...new Set(products.map(p=>p.revision||'').filter(Boolean))].map(value=><option key={value}>{value}</option>)}</select>
-            <select value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Kaynaklar</option><option value="manual">Manuel</option><option value="gauge">Ölçüm cihazı</option><option value="import">Dosyadan aktarım</option><option value="cmm">CMM</option></select>
-            <select value={operatorFilter} onChange={e=>setOperatorFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Operatörler</option>{[...new Set(logs.map(l=>l.operatorName))].map(value=><option key={value}>{value}</option>)}</select>
-            <select value={equipmentFilter} onChange={e=>setEquipmentFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Cihazlar</option>{[...new Set(logs.map(l=>l.equipmentId||l.machineNo).filter(Boolean))].map(value=><option key={value}>{value}</option>)}</select>
-            <select value={characteristicFilter} onChange={e=>setCharacteristicFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Karakteristikler</option>{controlPlans.flatMap(plan=>plan.characteristics).filter((char,index,array)=>array.findIndex(item=>item.id===char.id)===index).map(char=><option key={char.id} value={char.id}>#{char.pointNo} {char.name}</option>)}</select>
+            </Select>
+            <details><summary className="rq-button cursor-pointer">Gelişmiş Filtreler</summary><div className="rq-form-grid mt-3">
+            <Select aria-label="Müşteri filtresi" value={customerFilter} onChange={e=>setCustomerFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Müşteriler</option>{[...new Set(products.map(p=>p.customer))].map(value=><option key={value}>{value}</option>)}</Select>
+            <Select aria-label="Revizyon filtresi" value={revisionFilter} onChange={e=>setRevisionFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Revizyonlar</option>{[...new Set(products.map(p=>p.revision||'').filter(Boolean))].map(value=><option key={value}>{value}</option>)}</Select>
+            <Select aria-label="Kaynak filtresi" value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Kaynaklar</option><option value="manual">Manuel</option><option value="gauge">Ölçüm cihazı</option><option value="import">Dosyadan aktarım</option><option value="cmm">CMM</option></Select>
+            <Select aria-label="Operatör filtresi" value={operatorFilter} onChange={e=>setOperatorFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Operatörler</option>{[...new Set(logs.map(l=>l.operatorName))].map(value=><option key={value}>{value}</option>)}</Select>
+            <Select aria-label="Ekipman filtresi" value={equipmentFilter} onChange={e=>setEquipmentFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Cihazlar</option>{[...new Set(logs.map(l=>l.equipmentId||l.machineNo).filter(Boolean))].map(value=><option key={value}>{value}</option>)}</Select>
+            <Select aria-label="Karakteristik filtresi" value={characteristicFilter} onChange={e=>setCharacteristicFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Karakteristikler</option>{controlPlans.flatMap(plan=>plan.characteristics).filter((char,index,array)=>array.findIndex(item=>item.id===char.id)===index).map(char=><option key={char.id} value={char.id}>#{char.pointNo} {char.name}</option>)}</Select>
             </div></details>
           </div>
         </div>
 
         {/* Logs Table */}
         <div className="overflow-x-auto mt-4">
-          <table className="w-full text-left text-xs">
+          <DataTable label="Ölçüm kayıtları" className="rq-record-table">
             <thead>
               <tr className="border-b border-slate-200 text-slate-600 font-mono uppercase text-[11px] bg-slate-50">
                 <th className="p-3.5 font-bold">Kayıt No & Tarih</th>
@@ -254,9 +210,9 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
                 });
 
                 return (
-                  <tr key={log.id} className="hover:bg-slate-50 transition text-slate-700">
+                  <tr key={log.id} className={log.overallStatus==='fail'?'rq-row-alert':undefined}>
                     <td className="p-3.5">
-                      <div className="font-bold text-blue-600 font-sans">{log.sessionCode}</div>
+                      <Button variant="ghost" className="rq-technical" onClick={()=>setSelectedLogForDetail(log)}>{log.sessionCode}</Button>
                       <div className="text-[11px] text-slate-400 font-medium">{dateFormatted}</div>
                     </td>
 
@@ -287,61 +243,44 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
                     </td>
 
                     <td className="p-3.5 font-sans">
-                      {log.overallStatus === 'pass' && (
-                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-full text-[11px] font-bold">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          KABUL
-                        </span>
-                      )}
-                      {log.overallStatus === 'warning' && (
-                        <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-full text-[11px] font-bold">
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                          ŞARTLI KABUL
-                        </span>
-                      )}
-                      {log.overallStatus === 'fail' && (
-                        <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-800 border border-rose-200 px-2.5 py-1 rounded-full text-[11px] font-bold">
-                          <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                          RED ({log.failedPointsCount} Hata)
-                        </span>
-                      )}
+                      <StatusBadge status={log.overallStatus}/>{log.failedPointsCount>0&&<small>{log.failedPointsCount} uygunsuz nokta</small>}
                     </td>
 
                     <td className="p-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        <button
+                        <Button
                           type="button"
                           onClick={() => setSelectedLogForDetail(log)}
                           className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition"
                           title="Ölçüm Değerlerini Gör"
                         >
                           <Eye className="w-4 h-4" />
-                        </button>
+                        </Button>
 
-                        <button
+                        <Button
                           type="button"
                           onClick={() => onOpenCertificate(log)}
                           className="p-1.5 rounded-lg hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition"
                           title="Kalite Raporu Yazdır"
                         >
                           <Printer className="w-4 h-4" />
-                        </button>
+                        </Button>
 
-                        {(currentUser.role === 'admin' || currentUser.role === 'quality_engineer') && <button
+                        {(currentUser.role === 'admin' || currentUser.role === 'quality_engineer') && <Button
                           type="button"
                           onClick={() => handleDeleteLog(log.id)}
                           className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition"
                           title="Kaydı geçersiz kıl"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </button>}
+                        </Button>}
                       </div>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
+          </DataTable>
 
           {filteredLogs.length === 0 && (
             <div className="text-center py-10 text-slate-500 text-xs">
@@ -351,128 +290,14 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
         </div>
       </div>
 
-      {/* Measurement Detail Inspection Modal */}
-      {selectedLogForDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">
-                  Ölçüm Oturumu Detayı: {selectedLogForDetail.sessionCode}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {selectedLogForDetail.productName} ({selectedLogForDetail.productCode}) - Rev: {selectedLogForDetail.controlPlanVersion}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedLogForDetail(null)}
-                className="w-7 h-7 rounded-lg bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Meta Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-50 p-3.5 rounded-xl border border-slate-200 font-mono">
-              <div>
-                <span className="text-slate-500 block text-[10px] uppercase font-bold">Parti / Şarj:</span>
-                <span className="text-amber-700 font-bold">{selectedLogForDetail.lotNumber}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[10px] uppercase font-bold">İş Emri No:</span>
-                <span className="text-slate-800 font-semibold">{selectedLogForDetail.orderNumber}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[10px] uppercase font-bold">Operatör:</span>
-                <span className="text-slate-800 font-semibold">{selectedLogForDetail.operatorName}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block text-[10px] uppercase font-bold">Tezgah / İstasyon:</span>
-                <span className="text-slate-800 font-semibold">{selectedLogForDetail.machineNo}</span>
-              </div>
-              <div><span className="text-slate-500 block text-[10px] uppercase font-bold">Ürün / Plan Rev.:</span><span className="text-slate-800 font-semibold">{selectedLogForDetail.productRevision||'—'} / {selectedLogForDetail.controlPlanVersion}</span></div>
-              <div><span className="text-slate-500 block text-[10px] uppercase font-bold">Seri No:</span><span className="text-slate-800 font-semibold">{selectedLogForDetail.serialNumber||'—'}</span></div>
-              <div><span className="text-slate-500 block text-[10px] uppercase font-bold">Kaynak:</span><span className="text-slate-800 font-semibold uppercase">{selectedLogForDetail.source||'manual'}</span></div>
-              <div><span className="text-slate-500 block text-[10px] uppercase font-bold">Ekipman:</span><span className="text-slate-800 font-semibold">{selectedLogForDetail.equipmentId||selectedLogForDetail.machineNo}</span></div>
-            </div>
-
-            {/* Measured Values Matrix */}
-            <div>
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Numune Ölçüm Değerleri Matrisi
-              </h4>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-600 font-mono text-[11px] bg-slate-50">
-                      <th className="p-2.5 font-bold">Numune No</th>
-                      <th className="p-2.5 font-bold">Ölçüm Detayları</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-mono">
-                    {selectedLogForDetail.samples.map(s => (
-                      <tr key={s.sampleIndex} className="text-slate-700">
-                        <td className="p-2.5 font-bold text-blue-600">
-                          Numune #{s.sampleIndex}
-                        </td>
-                        <td className="p-2.5">
-                          <div className="flex flex-wrap gap-2">
-                            {Object.entries(s.values).map(([charId, val]) => {
-                              const st = s.statuses[charId];
-                              return (
-                                <span
-                                  key={charId}
-                                  className={`px-2 py-1 rounded-lg text-xs font-bold border ${
-                                    st === 'pass'
-                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                      : st === 'warning'
-                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                      : 'bg-rose-50 text-rose-800 border-rose-200'
-                                  }`}
-                                >
-                                  {val===null?'-':Array.isArray(val)?val.join(', '):val===true?'OK':val===false?'NOK':String(val)}
-                                </span>
-                              );
-                            })}
-                          </div>
-                          {Object.entries(s.pointNotes||{}).map(([charId,note])=><p key={charId} className="mt-2 whitespace-pre-wrap break-words text-xs text-slate-700"><strong>{(selectedLogForDetail.controlPlanSnapshot || controlPlans.find(plan=>plan.id===selectedLogForDetail.controlPlanId))?.characteristics.find(point=>point.id===charId)?.name || charId}:</strong> {note}</p>)}
-                          {Object.entries(s.evidence||{}).map(([charId,items])=><div key={charId} className="mt-1 flex flex-wrap gap-1 text-[10px] text-blue-700">Kanıt: {(items as EvidenceAttachment[]).map(item=><button type="button" key={item.id} onClick={()=>void SaasApi.openEvidence(item.id)} className="rounded bg-blue-50 px-1.5 py-0.5 font-bold hover:bg-blue-100">{item.kind==='photo'?'📷':item.kind==='video'?'🎥':'📎'} {item.fileName}</button>)}</div>)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Notes */}
-            {selectedLogForDetail.notes && (
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
-                <span className="text-slate-500 font-bold block text-[10px] uppercase">Operatör & Kalite Notu:</span>
-                <p className="text-slate-700 mt-1">{selectedLogForDetail.notes}</p>
-              </div>
-            )}
-
-            {/* Modal Actions */}
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenCertificate(selectedLogForDetail);
-                  setSelectedLogForDetail(null);
-                }}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-2 shadow-md shadow-emerald-500/20 transition"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Kalite Sertifikası Yazdır</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DetailDrawer open={!!selectedLogForDetail} title={'Kontrol detayı · '+(selectedLogForDetail?.sessionCode||'')} className="rq-wide-drawer" onClose={()=>setSelectedLogForDetail(null)}>{selectedLogForDetail&&<div className="space-y-5">
+        <div><h3 className="rq-section-title">{selectedLogForDetail.productName}</h3><p className="rq-helper rq-technical">{selectedLogForDetail.productCode} · Plan {selectedLogForDetail.controlPlanVersion}</p><StatusBadge status={selectedLogForDetail.overallStatus}/></div>
+        <dl className="rq-detail-grid">{[['Kontrol zamanı',new Date(selectedLogForDetail.timestamp).toLocaleString('tr-TR')],['İş emri',selectedLogForDetail.orderNumber],['Parti / şarj',selectedLogForDetail.lotNumber],['Seri numarası',selectedLogForDetail.serialNumber],['İstasyon',selectedLogForDetail.machineNo],['Operatör',selectedLogForDetail.operatorName],['Ürün revizyonu',selectedLogForDetail.productRevision],['Ölçüm kaynağı',SOURCE_LABELS[selectedLogForDetail.source||'manual']],['Ekipman',selectedLogForDetail.equipmentId||selectedLogForDetail.machineNo],['Numune',selectedLogForDetail.sampleCount]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value||'—'}</dd></div>)}</dl>
+        <DataTable label="Numune ölçümleri ve spesifikasyon"><thead><tr><th>Numune</th><th>Karakteristik / cihaz</th><th>Hedef / sınırlar</th><th>Ölçülen</th><th>Sonuç</th><th>Not / kanıt</th></tr></thead><tbody>{selectedLogForDetail.samples.flatMap(sample=>Object.entries(sample.values).map(([charId,value])=>{const point=(selectedLogForDetail.controlPlanSnapshot||controlPlans.find(plan=>plan.id===selectedLogForDetail.controlPlanId))?.characteristics.find(c=>c.id===charId);const status=sample.statuses[charId]||'empty';return <tr key={sample.sampleIndex+':'+charId} className={status==='fail'?'rq-row-alert':undefined}><td className="rq-technical">#{sample.sampleIndex}</td><td><strong>{point?'#'+point.pointNo+' '+point.name:charId}</strong><small>{point?.tool||'—'}</small></td><td className="rq-technical">{point?(point.type||'numeric')==='numeric'?<>{point.nominal} {point.unit}<small>{point.lsl} – {point.usl} {point.unit}</small></>:<>{point.type}<small>{point.rejectedOptions?.length?'NOK: '+point.rejectedOptions.join(', '):'OK / NOK'}</small></>:'Spesifikasyon bulunamadı'}</td><td className="rq-technical font-semibold">{value==null?'—':Array.isArray(value)?value.join(', '):value===true?'OK':value===false?'NOK':String(value)}{typeof value==='number'&&point?' '+point.unit:''}</td><td><StatusBadge status={status} label={status==='empty'?'Ölçülmedi':undefined}/></td><td><p className="whitespace-pre-wrap">{sample.pointNotes?.[charId]}</p>{(sample.evidence?.[charId]||[]).map(item=><Button key={item.id} variant="ghost" onClick={()=>void SaasApi.openEvidence(item.id)}>{item.fileName}</Button>)}</td></tr>;}))}</tbody></DataTable>
+        {selectedLogForDetail.notes&&<Card><h3 className="rq-section-title">Operatör / kalite notu</h3><p className="rq-helper whitespace-pre-wrap">{selectedLogForDetail.notes}</p></Card>}
+        <InspectionTrace log={selectedLogForDetail}/>
+        <PageActions>{onOpenPlan&&<Button onClick={()=>onOpenPlan(selectedLogForDetail.productId)}>İlgili kontrol planını aç</Button>}<Button variant="primary" onClick={()=>{onOpenCertificate(selectedLogForDetail);setSelectedLogForDetail(null);}}><Printer size={16}/>Kalite Sertifikası Yazdır</Button></PageActions>
+      </div>}</DetailDrawer>
     </div>
   );
 };

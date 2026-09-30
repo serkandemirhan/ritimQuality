@@ -1,3 +1,4 @@
+import {Button} from './ui';
 import React, {useState} from 'react';
 import { SaasApi } from '../services/api';
 export function PushSettings(){
@@ -13,5 +14,5 @@ export function PushSettings(){
       await SaasApi.subscribePush(subscription.toJSON());setMessage('Bu cihazda bildirimler etkin.');
     }catch(error){setMessage(error instanceof Error?error.message:'Bildirimler etkinleştirilemedi.');}finally{setBusy(false);}
   };
-  return <div className="rounded-xl border bg-white p-4"><div className="flex flex-wrap gap-2"><button disabled={busy} onClick={()=>void enable()} className="rounded-lg border p-3 text-sm">Bu cihazda bildirimleri aç</button><button disabled={busy} onClick={async()=>{setBusy(true);try{await SaasApi.unsubscribePush();const registration=await navigator.serviceWorker?.getRegistration();await (await registration?.pushManager.getSubscription())?.unsubscribe();setMessage('Hesabınızın cihaz bildirimleri kapatıldı.');}catch(error){setMessage(String(error));}finally{setBusy(false);}}} className="rounded-lg border p-3 text-sm">Tüm cihazlarda bildirimleri kapat</button></div>{message&&<p role="status" className="mt-2 text-sm">{message}</p>}</div>;
+  return <div className="rounded-xl border bg-white p-4"><div className="flex flex-wrap gap-2"><Button disabled={busy} onClick={()=>void enable()}>Bu cihazda bildirimleri aç</Button><Button disabled={busy} onClick={async()=>{setBusy(true);try{await SaasApi.unsubscribePush();const registration=await navigator.serviceWorker?.getRegistration();await (await registration?.pushManager.getSubscription())?.unsubscribe();setMessage('Hesabınızın cihaz bildirimleri kapatıldı.');}catch(error){setMessage(String(error));}finally{setBusy(false);}}}>Tüm cihazlarda bildirimleri kapat</Button></div>{message&&<p role="status" className="mt-2 text-sm">{message}</p>}</div>;
 }

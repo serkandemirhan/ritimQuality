@@ -1,17 +1,19 @@
+import {Modal, Button, StatusBadge} from './ui';
 import { MediaImage } from './MediaImage';
 import React, { useCallback, useEffect } from 'react';
-import { InspectionLog, ControlPlan, Product } from '../types';
+import { InspectionLog, ControlPlan, Product, TenantCompany } from '../types';
 import { Printer, Download, X, CheckCircle2, XCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 interface InspectionCertificateModalProps {
   log: InspectionLog | null;
+  company?: TenantCompany;
   product?: Product;
   controlPlan?: ControlPlan;
   onClose: () => void;
 }
 
 export const InspectionCertificateModal: React.FC<InspectionCertificateModalProps> = ({
-  log,
+  log, company,
   product,
   controlPlan,
   onClose,
@@ -19,24 +21,6 @@ export const InspectionCertificateModal: React.FC<InspectionCertificateModalProp
   const handleClose = useCallback(() => {
     onClose();
   }, [onClose]);
-
-  useEffect(() => {
-    if (!log) return;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') handleClose();
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [handleClose, log]);
 
   if (!log) return null;
 
@@ -55,70 +39,19 @@ export const InspectionCertificateModal: React.FC<InspectionCertificateModalProp
   });
 
   return (
-    <div
-      className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="inspection-certificate-title"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) handleClose();
-      }}
-    >
-      {/* Container */}
-      <div
-        className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        {/* Top Floating Action Bar (Hidden on Print) */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white/95 sticky top-0 z-20 print:hidden">
-          <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5" />
-            </span>
-            <h3 id="inspection-certificate-title" className="font-bold text-slate-900 text-base">
-              Kalite Kontrol Muayene Sertifikası (Önizleme & Yazdırma)
-            </h3>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <button
-              id="btn-trigger-print"
-              type="button"
-              onClick={handlePrint}
-              className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-xl text-xs flex items-center gap-2 shadow-md shadow-blue-500/20 transition"
-            >
-              <Printer className="w-4 h-4" />
-              <span>Yazdır / PDF Kaydet</span>
-            </button>
-            <button
-              id="btn-close-certificate"
-              type="button"
-              aria-label="Sertifika penceresini kapat"
-              title="Kapat"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                handleClose();
-              }}
-              className="relative z-30 h-9 px-3 shrink-0 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 inline-flex items-center justify-center gap-1.5 font-bold text-xs pointer-events-auto transition"
-            >
-              <X className="w-4 h-4" />
-              <span>Kapat</span>
-            </button>
-          </div>
-        </div>
-
+    <Modal open={!!log} title="Kalite kontrol raporu" onClose={handleClose} className="rq-report-modal">
+        <div className="rq-report-actions rq-actions"><span className="rq-helper m-0">Yazdırma önizlemesi · {log.sessionCode}</span><Button id="btn-trigger-print" variant="primary" onClick={handlePrint}><Printer size={16}/>Yazdır / PDF Kaydet</Button><Button id="btn-close-certificate" onClick={handleClose}>Kapat</Button></div>
         {/* Printable A4 Certificate Body */}
-        <div className="p-8 bg-white text-slate-950 print:p-0 print:m-0 font-sans">
+        <div className="rq-report-paper">
           {/* Certificate Header Block */}
           <div className="border-2 border-slate-950 p-4 mb-4">
             <div className="flex items-center justify-between border-b-2 border-slate-950 pb-3 mb-3">
               <div>
                 <h1 className="text-xl font-black tracking-wider uppercase">
-                  DEMİRHAN MAKİNA & KALIP SANAYİ
+                  {company?.legalName||company?.name||'Kalite Kontrol Raporu'}
                 </h1>
                 <p className="text-[11px] text-slate-600 font-semibold uppercase tracking-wide">
-                  Kalite Güvence Laboratuvarı • ISO 9001:2015 & IATF 16949 Onaylı
+                  {company?.facilityLocation||'Kalite kontrol kayıtları'}
                 </p>
               </div>
 
@@ -147,7 +80,7 @@ export const InspectionCertificateModal: React.FC<InspectionCertificateModalProp
               <div className="border border-slate-300 p-2 bg-slate-50">
                 <span className="text-[10px] text-slate-500 font-mono block uppercase">Kontrol Planı Rev:</span>
                 <strong className="text-slate-950 font-bold">{log.controlPlanVersion}</strong>
-                <div className="text-[11px] text-slate-600">Durum: Onaylı Seri Üretim</div>
+                <div className="text-[11px] text-slate-600">Plan: {controlPlan?.status==='active'?'Aktif':controlPlan?.status==='archived'?'Arşiv':controlPlan?.status==='draft'?'Taslak':'Belirtilmedi'}</div>
               </div>
 
               <div className="border border-slate-300 p-2 bg-slate-50">
@@ -177,7 +110,7 @@ export const InspectionCertificateModal: React.FC<InspectionCertificateModalProp
           )}
 
           {/* Detailed Measurement Matrix Table */}
-          <div className="border-2 border-slate-950 mb-4 overflow-hidden">
+          {Array.from({length:Math.max(1,Math.ceil(log.samples.length/5))},(_,index)=>log.samples.slice(index*5,index*5+5)).map((reportSamples,batch)=><div key={batch} className="rq-report-table border border-slate-300 mb-4"><p className="rq-eyebrow p-2">Numuneler {reportSamples[0]?.sampleIndex||'—'} – {reportSamples.at(-1)?.sampleIndex||'—'}</p>
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-900 text-white font-mono text-[11px] uppercase">
@@ -186,7 +119,7 @@ export const InspectionCertificateModal: React.FC<InspectionCertificateModalProp
                   <th className="p-2 border-r border-slate-800">Nominal</th>
                   <th className="p-2 border-r border-slate-800">Tolerans [LSL~USL]</th>
                   <th className="p-2 border-r border-slate-800">Ölçüm Cihazı</th>
-                  {log.samples.map(s => (
+                  {reportSamples.map(s => (
                     <th key={s.sampleIndex} className="p-2 text-center border-r border-slate-800">
                       N#{s.sampleIndex}
                     </th>
@@ -216,7 +149,7 @@ export const InspectionCertificateModal: React.FC<InspectionCertificateModalProp
                       </td>
 
                       {/* Sample values */}
-                      {log.samples.map(s => {
+                      {reportSamples.map(s => {
                         const val = s.values[char.id];
                         const st = s.statuses[char.id];
                         if (st === 'fail') hasCharFail = true;
@@ -255,7 +188,7 @@ export const InspectionCertificateModal: React.FC<InspectionCertificateModalProp
                 })}
               </tbody>
             </table>
-          </div>
+          </div>)}
 
           {/* Certificate Conclusion & Approval Signatures */}
           <div className="border-2 border-slate-950 p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
@@ -269,7 +202,7 @@ export const InspectionCertificateModal: React.FC<InspectionCertificateModalProp
                   ? 'border-amber-700 text-amber-800 bg-amber-100'
                   : 'border-rose-700 text-rose-800 bg-rose-100'
               }`}>
-                {log.overallStatus === 'pass' ? '✔ KABUL (SEVKE UYGUN)' : log.overallStatus === 'warning' ? '⚠ ŞARTLI KABUL' : '✖ RED (HURDA/YENİDEN İŞLEM)'}
+                {log.overallStatus === 'pass' ? '✔ UYGUN' : log.overallStatus === 'warning' ? '⚠ ŞARTLI KABUL' : '✖ UYGUNSUZ'}
               </div>
             </div>
 
@@ -281,7 +214,7 @@ export const InspectionCertificateModal: React.FC<InspectionCertificateModalProp
               </div>
               <div className="pt-4 border-t border-slate-300 flex justify-between text-[10px] text-slate-500">
                 <span>İmza: ______________</span>
-                <span>Tarih: {new Date().toISOString().slice(0, 10)}</span>
+                <span>Tarih: {log.timestamp.slice(0, 10)}</span>
               </div>
             </div>
 
@@ -289,7 +222,7 @@ export const InspectionCertificateModal: React.FC<InspectionCertificateModalProp
             <div className="border border-slate-400 p-3 flex flex-col justify-between">
               <div>
                 <span className="text-[10px] text-slate-500 uppercase font-mono block">Kalite Güvence Müdürü / Onay:</span>
-                <strong className="text-slate-950 text-xs mt-1 block">Serkan Demirhan (Kalite Müdürü)</strong>
+                <strong className="text-slate-950 text-xs mt-1 block">__________________</strong>
               </div>
               <div className="pt-4 border-t border-slate-300 flex justify-between text-[10px] text-slate-500">
                 <span>İmza: ______________</span>
@@ -302,7 +235,6 @@ export const InspectionCertificateModal: React.FC<InspectionCertificateModalProp
             Bu belge elektronik ortamda Ritim Quality KOBİ Kalite Yönetim Sistemi tarafından üretilmiştir.
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 };

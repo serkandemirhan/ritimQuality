@@ -1,8 +1,9 @@
+import { PageHeader, Button, Card, DataTable, SearchInput, TableToolbar, StatusBadge, Badge, Tabs, IconButton, Breadcrumb, Modal, FormSection, Field, Input, Select, Textarea, PageActions } from './ui';
 import { EmptyState } from './EmptyState';
 import { SaasApi } from '../services/api';
 import { MediaImage } from './MediaImage';
-import React, { useMemo, useState } from 'react';
-import { Product, ControlPlan } from '../types';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Product, ControlPlan, InspectionLog } from '../types';
 import { StorageService } from '../services/storage';
 import { SHAFT_BUSHING_SVG, FLANGE_BODY_SVG, CONNECTOR_HOUSING_SVG } from '../data/mockData';
 import { 
@@ -24,6 +25,8 @@ import {
 } from 'lucide-react';
 
 interface ProductManagementProps {
+  inspectionLogs?: InspectionLog[];
+  onOpenInspection?: (log:InspectionLog) => void;
   products: Product[];
   controlPlans: ControlPlan[];
   onProductsChanged: () => void;
@@ -32,7 +35,7 @@ interface ProductManagementProps {
 }
 
 export const ProductManagement: React.FC<ProductManagementProps> = ({
-  products,
+  products, inspectionLogs=[], onOpenInspection,
   controlPlans,
   onProductsChanged,
   onSelectProductForControlPlan,
@@ -42,6 +45,8 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [detailTab,setDetailTab] = useState('overview');
+  useEffect(()=>setDetailTab('overview'),[selectedProductId]);
 
   const [saving,setSaving]=useState(false);
   // Form State
@@ -176,253 +181,62 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
 
   const selectedProduct = products.find(product => product.id === selectedProductId) || null;
   const selectedPlans = selectedProduct ? controlPlans.filter(plan => plan.productId === selectedProduct.id) : [];
+  const productLogs=inspectionLogs.filter(log=>log.productId===selectedProductId).sort((a,b)=>Date.parse(b.timestamp)-Date.parse(a.timestamp));
   const selectedActivePlan = selectedPlans.find(plan => plan.isActive && plan.status === 'active');
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shadow-xs">
-              <Package className="w-5 h-5" />
-            </span>
-            Ürün & Parça Kataloğu Yönetimi
-          </h2>
-          <p className="text-xs text-slate-500 mt-1">
-            İmalatını yaptığınız parçaları tanımlayın, teknik resimlerini ve aktif kontrol planlarını yapılandırın.
-          </p>
-        </div>
-
-        <button
-          id="btn-add-new-product"
-          type="button"
-          onClick={handleOpenAdd}
-          className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Yeni Ürün Tanımla</span>
-        </button>
-      </div>
+      {!selectedProduct&&<PageHeader title="Ürün kütüphanesi" description="Parça kimlikleri, teknik resimler ve kontrol planları." actions={<Button id="btn-add-new-product" variant="primary" onClick={handleOpenAdd}><Plus size={16}/>Yeni Ürün Tanımla</Button>} summary={<><span><strong>{products.length}</strong> ürün</span><span><strong>{products.filter(p=>controlPlans.some(cp=>cp.productId===p.id&&cp.isActive&&cp.status==='active')).length}</strong> aktif planlı ürün</span></>}/>}
 
       {selectedProduct ? (
-        <div className="space-y-4">
-          <button type="button" onClick={() => setSelectedProductId(null)} className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-blue-700">
-            <ArrowLeft className="h-4 w-4" /> Ürün Listesine Dön
-          </button>
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="grid lg:grid-cols-[minmax(320px,42%)_1fr]">
-              <div className="flex min-h-72 items-center justify-center border-b border-slate-200 bg-slate-950 p-5 lg:border-b-0 lg:border-r">
-                <MediaImage src={selectedProduct.defaultDrawingUrl || SHAFT_BUSHING_SVG} alt={selectedProduct.name} className="max-h-[360px] max-w-full object-contain" referrerPolicy="no-referrer" />
-              </div>
-              <div className="p-6">
-                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-                  <div>
-                    <span className="rounded-lg bg-blue-50 px-2.5 py-1 font-mono text-xs font-black text-blue-700">{selectedProduct.code}</span>
-                    <h3 className="mt-3 text-2xl font-black text-slate-900">{selectedProduct.name}</h3>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">{selectedProduct.description}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => handleOpenEdit(selectedProduct)} className="rounded-xl border border-slate-200 p-2.5 text-slate-500 hover:bg-slate-50 hover:text-blue-600" title="Düzenle"><Edit3 className="h-4 w-4" /></button>
-                    <button type="button" onClick={() => handleDeleteProduct(selectedProduct.id)} className="rounded-xl border border-slate-200 p-2.5 text-slate-500 hover:bg-red-50 hover:text-red-600" title="Sil"><Trash2 className="h-4 w-4" /></button>
-                  </div>
-                </div>
-                <dl className="mt-6 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl bg-slate-50 p-3"><dt className="text-[10px] font-bold uppercase text-slate-400">Müşteri</dt><dd className="mt-1 text-sm font-bold text-slate-800">{selectedProduct.customer}</dd><div className="mt-1 text-[10px] font-mono text-blue-700">REV {selectedProduct.revision||'A'}</div></div>
-                  <div className="rounded-xl bg-slate-50 p-3"><dt className="text-[10px] font-bold uppercase text-slate-400">Malzeme</dt><dd className="mt-1 text-sm font-bold text-slate-800">{selectedProduct.material}</dd></div>
-                  <div className="rounded-xl bg-slate-50 p-3"><dt className="text-[10px] font-bold uppercase text-slate-400">Kategori</dt><dd className="mt-1 text-sm font-bold text-slate-800">{selectedProduct.category}</dd></div>
-                  <div className="rounded-xl bg-slate-50 p-3"><dt className="text-[10px] font-bold uppercase text-slate-400">Aktif Plan</dt><dd className="mt-1 text-sm font-bold text-slate-800">{selectedActivePlan?.version || 'Plan yok'} · {selectedActivePlan?.characteristics.length || 0} nokta</dd></div>
-                </dl>
-                <div className="mt-6 flex flex-wrap gap-2 border-t border-slate-100 pt-5">
-                  <button type="button" onClick={() => onSelectProductForControlPlan(selectedProduct.id)} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50"><Sliders className="h-4 w-4 text-blue-600" />Kontrol Planına Git</button>
-                  <button type="button" onClick={() => onSelectProductForInspection(selectedProduct.id)} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-500"><Play className="h-4 w-4 fill-white" />Ölçüme Başla</button>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="space-y-5">
+          <PageHeader title={selectedProduct.name} description={selectedProduct.description} breadcrumb={<Breadcrumb items={[{label:'Ürün kütüphanesi',onClick:()=>setSelectedProductId(null)},{label:selectedProduct.code}]}/>} summary={<><span className="rq-technical">{selectedProduct.code}</span><span>Revizyon <strong>{selectedProduct.revision||'A'}</strong></span><span>{selectedProduct.material}</span><span>Kontrol planı: {selectedActivePlan?<StatusBadge status="active"/>:<Badge>Aktif plan yok</Badge>}</span></>} actions={<><IconButton label="Düzenle" onClick={()=>handleOpenEdit(selectedProduct)}><Edit3 size={16}/></IconButton><IconButton label="Sil" variant="danger" onClick={()=>handleDeleteProduct(selectedProduct.id)}><Trash2 size={16}/></IconButton><Button onClick={()=>onSelectProductForControlPlan(selectedProduct.id)}><Sliders size={15}/>Kontrol Planına Git</Button><Button variant="primary" onClick={()=>onSelectProductForInspection(selectedProduct.id)}><Play size={15}/>Ölçüme Başla</Button></>}/>
+          <Tabs label="Ürün bölümleri" value={detailTab} onChange={setDetailTab} items={[{id:'overview',label:'Genel bilgiler'},{id:'drawings',label:'Teknik resim'},...(selectedPlans.length?[{id:'plans',label:'Kontrol planları'}]:[]),...(productLogs.length?[{id:'inspections',label:'Kontrol geçmişi'}]:[])]}/>
+          {detailTab==='overview'&&<div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,1fr)]">
+            <Card className="flex min-h-80 items-center justify-center bg-slate-950"><MediaImage src={selectedProduct.defaultDrawingUrl||SHAFT_BUSHING_SVG} alt={selectedProduct.name} className="max-h-[500px] w-full object-contain"/></Card>
+            <Card><h2 className="rq-section-title">Ürün kimliği</h2><dl className="rq-properties">{[['Ürün kodu',selectedProduct.code],['Müşteri / proje',selectedProduct.customer],['Malzeme',selectedProduct.material],['Kategori',selectedProduct.category],['Revizyon',selectedProduct.revision||'A'],['Aktif plan',selectedActivePlan?.version||'Plan yok'],['Ölçüm noktası',selectedActivePlan?.characteristics.length||0]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>{productLogs[0]&&<div className="mt-5 border-t border-slate-100 pt-4"><h3 className="rq-helper">Son kontrol</h3><StatusBadge status={productLogs[0].overallStatus}/><p className="rq-helper rq-technical">{new Date(productLogs[0].timestamp).toLocaleString('tr-TR')}</p></div>}</Card>
+          </div>}
+          {detailTab==='drawings'&&<Card><MediaImage src={selectedProduct.defaultDrawingUrl||SHAFT_BUSHING_SVG} alt={selectedProduct.name+' teknik resmi'} className="max-h-[680px] w-full object-contain bg-slate-950 rounded-lg"/>{selectedProduct.images?.map(image=><div key={image.id} className="mt-4"><h3 className="rq-section-title mb-3">{image.name}</h3><MediaImage src={image.url} alt={image.name} className="max-h-[500px] w-full object-contain"/></div>)}</Card>}
+          {detailTab==='plans'&&<DataTable label="Ürün kontrol planları"><thead><tr><th>Revizyon</th><th>Durum</th><th>Nokta</th><th>Hazırlayan</th><th>Revizyon tarihi</th><th>İşlem</th></tr></thead><tbody>{selectedPlans.map(plan=><tr key={plan.id}><td className="rq-technical">{plan.version}</td><td><StatusBadge status={plan.status}/></td><td>{plan.characteristics.length}</td><td>{plan.author}</td><td className="rq-technical">{plan.revisionDate}</td><td><Button onClick={()=>onSelectProductForControlPlan(selectedProduct.id)}>Planları aç</Button></td></tr>)}</tbody></DataTable>}
+          {detailTab==='inspections'&&<DataTable label="Ürünün kontrol geçmişi"><thead><tr><th>Kontrol</th><th>Zaman</th><th>Operatör</th><th>Sonuç</th></tr></thead><tbody>{productLogs.map(log=><tr key={log.id}><td>{onOpenInspection?<button className="rq-row-link rq-technical" onClick={()=>onOpenInspection(log)}>{log.sessionCode}</button>:<span className="rq-technical">{log.sessionCode}</span>}</td><td className="rq-technical">{new Date(log.timestamp).toLocaleString('tr-TR')}</td><td>{log.operatorName}</td><td><StatusBadge status={log.overallStatus}/></td></tr>)}</tbody></DataTable>}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative w-full sm:max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input value={searchTerm} onChange={event => setSearchTerm(event.target.value)} placeholder="Kod, ürün, müşteri veya malzeme ara..." className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-xs outline-none focus:border-blue-500 focus:bg-white" />
-            </div>
-            <span className="text-xs font-semibold text-slate-400">{filteredProducts.length} ürün</span>
-          </div>
-          <div className="max-h-[calc(100vh-310px)] min-h-64 overflow-y-auto">
-            {filteredProducts.map(product => {
-              const plans = controlPlans.filter(plan => plan.productId === product.id);
-              const activePlan = plans.find(plan => plan.isActive && plan.status === 'active');
-              return (
-                <button key={product.id} type="button" onClick={() => setSelectedProductId(product.id)} className="grid w-full grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-100 px-4 py-3 text-left transition last:border-b-0 hover:bg-blue-50/50 sm:grid-cols-[52px_minmax(180px,1.4fr)_minmax(130px,1fr)_minmax(120px,.8fr)_100px_24px]">
-                  <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-slate-900 sm:h-11 sm:w-11"><MediaImage src={product.defaultDrawingUrl || SHAFT_BUSHING_SVG} alt="" className="h-full w-full object-contain" /></div>
-                  <div className="min-w-0"><div className="truncate text-sm font-bold text-slate-900">{product.name}</div><div className="mt-0.5 truncate font-mono text-[10px] font-bold text-blue-600">{product.code}</div></div>
-                  <div className="hidden min-w-0 sm:block"><div className="truncate text-xs font-semibold text-slate-700">{product.customer}</div><div className="truncate text-[10px] text-slate-400">Müşteri / Proje</div></div>
-                  <div className="hidden min-w-0 sm:block"><div className="truncate text-xs text-slate-600">{product.category}</div><div className="truncate text-[10px] text-slate-400">{product.material}</div></div>
-                  <div className="text-right"><div className="text-xs font-black text-slate-700">{activePlan?.version || '—'}</div><div className="text-[10px] text-slate-400">{activePlan?.characteristics.length || 0} nokta</div></div>
-                  <ChevronRight className="hidden h-4 w-4 text-slate-300 sm:block" />
-                </button>
-              );
-            })}
-            {filteredProducts.length === 0 && <EmptyState title={products.length?"Aramanızla eşleşen ürün yok":"İlk ürününüzü oluşturun"} description="Ürün kodu, teknik resim ve malzemeyle başlayın; ardından kontrol planını hazırlayın." action={handleOpenAdd} label="İlk ürününü oluştur"/>}
-          </div>
+        <div>
+          <TableToolbar><SearchInput value={searchTerm} onChange={event=>setSearchTerm(event.target.value)} placeholder="Kod, ürün, müşteri veya malzeme ara…" aria-label="Ürün ara"/><span className="rq-helper m-0">{filteredProducts.length} ürün</span></TableToolbar>
+          <DataTable label="Ürün kütüphanesi"><thead><tr><th>Teknik resim</th><th>Ürün / parça kodu</th><th>Müşteri</th><th>Malzeme / kategori</th><th>Revizyon</th><th>Kontrol planı</th><th>Nokta</th><th><span className="sr-only">İşlem</span></th></tr></thead><tbody>
+            {filteredProducts.map(product => {const activePlan=controlPlans.find(plan=>plan.productId===product.id&&plan.isActive&&plan.status==='active');return <tr key={product.id}>
+              <td><div className="flex h-12 w-16 items-center justify-center overflow-hidden rounded-md bg-slate-950"><MediaImage src={product.defaultDrawingUrl || SHAFT_BUSHING_SVG} alt={product.name+' teknik resmi'} className="h-full w-full object-contain"/></div></td>
+              <td><button type="button" className="rq-row-link" onClick={()=>setSelectedProductId(product.id)}>{product.name}<small className="rq-technical">{product.code}</small></button></td>
+              <td>{product.customer}</td><td>{product.material}<small>{product.category}</small></td><td className="rq-technical">{product.revision||'A'}</td>
+              <td>{activePlan?<><StatusBadge status="active"/><small className="rq-technical">{activePlan.version}</small></>:<Badge>Plan yok</Badge>}</td><td className="rq-technical">{activePlan?.characteristics.length||0}</td>
+              <td><Button variant="ghost" aria-label={product.name+' detayını aç'} onClick={()=>setSelectedProductId(product.id)}><ChevronRight size={16}/></Button></td>
+            </tr>;})}
+          </tbody></DataTable>
+          {filteredProducts.length===0&&<EmptyState title={products.length?'Aramanızla eşleşen ürün yok':'İlk ürününüzü oluşturun'} description="Ürün kodu, teknik resim ve malzemeyle başlayın; ardından kontrol planını hazırlayın." action={handleOpenAdd} label="İlk ürününü oluştur"/>}
         </div>
       )}
 
-      {/* Add / Edit Product Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base">
-                {editingProduct ? 'Ürün Bilgilerini Düzenle' : 'Yeni Parça / Ürün Tanımla'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="w-7 h-7 rounded-lg bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveProduct} className="space-y-3.5 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Parça Kodu *</label>
-                  <input
-                    type="text"
-                    required
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="Örn: PRD-2026-001"
-                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono font-bold focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Parça Adı *</label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Örn: CNC Tahrik Şaftı"
-                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-medium focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Ürün / Teknik Resim Revizyonu</label>
-                <input type="text" required value={revision} onChange={e=>setRevision(e.target.value)} placeholder="Örn: C" className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono font-bold focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Müşteri / Proje Adı</label>
-                  <input
-                    type="text"
-                    value={customer}
-                    onChange={(e) => setCustomer(e.target.value)}
-                    placeholder="Örn: Bosch / Renault"
-                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-medium focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Malzeme Cinsi</label>
-                  <input
-                    type="text"
-                    value={material}
-                    onChange={(e) => setMaterial(e.target.value)}
-                    placeholder="Örn: AISI 4140 / 16MnCr5"
-                    className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-medium focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">İmalat Kategorisi</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-medium focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
-                >
-                  <option value="Talaşlı İmalat (CNC Torna & Freze)">Talaşlı İmalat (CNC Torna & Freze)</option>
-                  <option value="Taşlama & Honlama">Taşlama & Honlama</option>
-                  <option value="Plastik Enjeksiyon & Kalıp">Plastik Enjeksiyon & Kalıp</option>
-                  <option value="Sac Metal & Pres Baskı">Sac Metal & Pres Baskı</option>
-                  <option value="Alüminyum Döküm">Alüminyum Döküm</option>
-                  <option value="Montaj & Kauçuk Parçalar">Montaj & Kauçuk Parçalar</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Açıklama / Teknik Notlar</label>
-                <textarea
-                  rows={2}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Kritik kalite kontrol veya montaj gereksinimleri..."
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-medium resize-none focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
-                />
-              </div>
-
-              {/* Template Blueprint selection */}
-              <div>
-                <label className="block font-bold text-slate-700 mb-1.5">Hazır Teknik Resim Şablonu</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <div
-                    onClick={() => setDrawingUrl(SHAFT_BUSHING_SVG)}
-                    className={`p-2.5 rounded-xl border text-center cursor-pointer font-bold transition text-xs ${
-                      drawingUrl === SHAFT_BUSHING_SVG ? 'border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-500/20' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    Şaft / Burç Parçası
-                  </div>
-                  <div
-                    onClick={() => setDrawingUrl(FLANGE_BODY_SVG)}
-                    className={`p-2.5 rounded-xl border text-center cursor-pointer font-bold transition text-xs ${
-                      drawingUrl === FLANGE_BODY_SVG ? 'border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-500/20' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    Flanş Gövdesi
-                  </div>
-                  <div
-                    onClick={() => setDrawingUrl(CONNECTOR_HOUSING_SVG)}
-                    className={`p-2.5 rounded-xl border text-center cursor-pointer font-bold transition text-xs ${
-                      drawingUrl === CONNECTOR_HOUSING_SVG ? 'border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-500/20' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    Konnektör Gövdesi
-                  </div>
-                </div>
-              </div>
-
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-blue-300 bg-blue-50 px-3 py-2.5 font-bold text-blue-700 hover:bg-blue-100">
-                <Upload className="h-4 w-4"/> PDF veya Teknik Resim Yükle
-                <input type="file" className="hidden" accept="image/*,application/pdf" onChange={handleDrawingUpload}/>
-              </label>
-
-              <div className="flex justify-end gap-2.5 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition"
-                >
-                  İptal
-                </button>
-                <button
-                  disabled={saving} type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-md shadow-blue-500/20 transition"
-                >
-                  {editingProduct ? 'Güncelle' : 'Ürünü Kaydet'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <Modal open={isAddModalOpen} busy={saving} title={editingProduct?'Ürün bilgilerini düzenle':'Yeni parça / ürün'} onClose={()=>setIsAddModalOpen(false)}>
+        <form onSubmit={handleSaveProduct}>
+          <FormSection title="Temel bilgiler" description="Ürünü tanımlayan kod, ad ve teknik resim revizyonu.">
+            <Field label="Parça kodu *"><Input required value={code} onChange={e=>setCode(e.target.value)} placeholder="PRD-2026-001" className="rq-technical"/></Field>
+            <Field label="Parça adı *"><Input required value={name} onChange={e=>setName(e.target.value)} placeholder="CNC Tahrik Şaftı"/></Field>
+            <Field label="Ürün / teknik resim revizyonu *"><Input required value={revision} onChange={e=>setRevision(e.target.value)} className="rq-technical"/></Field>
+            <Field label="Müşteri / proje"><Input value={customer} onChange={e=>setCustomer(e.target.value)} placeholder="Müşteri veya proje adı"/></Field>
+          </FormSection>
+          <FormSection title="Sınıflandırma ve üretim" description="Malzeme, üretim kategorisi ve teknik notlar.">
+            <Field label="Malzeme"><Input value={material} onChange={e=>setMaterial(e.target.value)} placeholder="AISI 4140 / 16MnCr5"/></Field>
+            <Field label="İmalat kategorisi"><Select value={category} onChange={e=>setCategory(e.target.value)}>{Array.from(new Set([category,'Talaşlı İmalat (CNC Torna & Freze)','Taşlama & Honlama','Plastik Enjeksiyon & Kalıp','Sac Metal & Pres Baskı','Alüminyum Döküm','Montaj & Kauçuk Parçalar'])).map(value=><option key={value}>{value}</option>)}</Select></Field>
+            <Field label="Açıklama / teknik notlar"><Textarea rows={3} value={description} onChange={e=>setDescription(e.target.value)} placeholder="Kalite kontrol veya montaj gereksinimleri…"/></Field>
+          </FormSection>
+          <FormSection title="Teknik resimler ve belgeler" description="Mevcut şablonlardan birini seçin veya kendi teknik resminizi yükleyin.">
+            <div className="col-span-full grid grid-cols-1 sm:grid-cols-3 gap-2">{[[SHAFT_BUSHING_SVG,'Şaft / Burç Parçası'],[FLANGE_BODY_SVG,'Flanş Gövdesi'],[CONNECTOR_HOUSING_SVG,'Konnektör Gövdesi']].map(([url,label])=><Button key={label} aria-pressed={drawingUrl===url} onClick={()=>setDrawingUrl(url)}>{label}</Button>)}</div>
+            <Field label="PDF veya teknik resim yükle"><Input type="file" accept="image/*,application/pdf" onChange={handleDrawingUpload}/></Field>
+            {drawingUrl&&<MediaImage src={drawingUrl} alt="Seçilen teknik resim" className="h-28 w-full rounded-lg bg-slate-950 object-contain"/>}
+          </FormSection>
+          <PageActions><Button disabled={saving} onClick={()=>setIsAddModalOpen(false)}>İptal</Button><Button variant="primary" loading={saving} type="submit">{editingProduct?'Güncelle':'Ürünü kaydet'}</Button></PageActions>
+        </form>
+      </Modal>
     </div>
   );
 };

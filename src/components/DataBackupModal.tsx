@@ -1,6 +1,7 @@
+import {Button, Card, Field, Input, Modal, PageActions} from './ui';
 import React, { useState } from 'react';
 import { StorageService } from '../services/storage';
-import { Download, Upload, RotateCcw, X, CheckCircle2, AlertTriangle, Database } from 'lucide-react';
+import { Download, RotateCcw, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 interface DataBackupModalProps {
   onClose: () => void;
@@ -24,6 +25,7 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
     setStatusMessage({ type: 'success', text: 'Veriler dışa aktarıldı.' });
   };
 
@@ -58,104 +60,16 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-      <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-          <h3 className="font-bold text-slate-900 text-base flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center">
-              <Database className="w-4 h-4" />
-            </span>
-            Veri Yönetimi
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-7 h-7 rounded-lg bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center font-bold"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <p className="text-xs text-slate-500 leading-relaxed font-medium">
-          Ritim Cloud verilerinizi sunucuda saklar. Bu dışa aktarım, ekranda yüklenmiş ürün, plan ve ölçüm kayıtlarını içerir; tam sunucu yedeği değildir. Sunucu yedeklerini sistem yöneticiniz yönetir.
-        </p>
-
-        {statusMessage && (
-          <div className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
-            statusMessage.type === 'success'
-              ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
-              : 'bg-rose-50 border border-rose-200 text-rose-800'
-          }`}>
-            {statusMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-rose-600" />}
-            <span>{statusMessage.text}</span>
-          </div>
-        )}
-
-        <div className="space-y-3 pt-2">
-          {/* Backup Export */}
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold text-slate-900">Verileri Dışa Aktar</div>
-              <div className="text-[11px] text-slate-500 font-medium">Tüm ürünler, kontrol planları ve ölçüm logları</div>
-            </div>
-            <button
-              type="button"
-              onClick={handleExportJSON}
-              className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Yedek Al</span>
-            </button>
-          </div>
-
-          {import.meta.env.DEV && !StorageService.getCompany().id && <>
-          {/* Backup Import */}
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold text-slate-900">Yedekten Geri Yükle</div>
-              <div className="text-[11px] text-slate-500 font-medium">Daha önce indirdiğiniz yedek dosyasını seçin</div>
-            </div>
-            <label className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-500/20 transition">
-              <Upload className="w-3.5 h-3.5" />
-              <span>Dosya Seç</span>
-              <input
-                type="file"
-                accept=".json"
-                disabled={!import.meta.env.DEV} onChange={handleImportFile}
-                className="hidden"
-              />
-            </label>
-          </div>
-
-          {/* Reset to Demo */}
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold text-rose-600">Fabrika Demo Verilerine Sıfırla</div>
-              <div className="text-[11px] text-slate-500 font-medium">Örnek 3 parça, kontrol planları ve 30 ölçüm kaydı</div>
-            </div>
-            <button
-              type="button"
-              hidden={!import.meta.env.DEV} onClick={handleResetDemo}
-              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold py-2 px-3 rounded-xl text-xs flex items-center gap-1.5 transition"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Sıfırla</span>
-            </button>
-          </div>
-          </>}
-        </div>
-
-        <div className="flex justify-end pt-3 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
-          >
-            Kapat
-          </button>
-        </div>
-      </div>
+  return <Modal open title="Veri Yönetimi" onClose={onClose}>
+    <div className="space-y-5">
+      <p className="rq-helper">Ritim Cloud verilerinizi sunucuda saklar. Bu dışa aktarım, ekranda yüklenmiş ürün, plan ve ölçüm kayıtlarını içerir; tam sunucu yedeği değildir. Sunucu yedeklerini sistem yöneticiniz yönetir.</p>
+      {statusMessage&&<p role={statusMessage.type==='error'?'alert':'status'} className={'rq-feedback rq-tone-'+(statusMessage.type==='success'?'success':'danger')}>{statusMessage.type==='success'?<CheckCircle2 size={18}/>:<AlertTriangle size={18}/>}<span>{statusMessage.text}</span></p>}
+      <Card><h3 className="rq-section-title">Verileri dışa aktar</h3><p className="rq-helper">Yüklenmiş ürünler, kontrol planları ve ölçüm kayıtları · JSON</p><Button variant="primary" onClick={handleExportJSON}><Download size={16}/>Yedek Al</Button></Card>
+      {import.meta.env.DEV&&!StorageService.getCompany().id&&<section className="rq-danger-zone"><h3 className="rq-section-title">Veri değiştirme işlemleri</h3><p className="rq-helper">Geri yükleme ve sıfırlama mevcut yerel kayıtları değiştirir. İşlem öncesinde yedeğinizi dışa aktarın.</p>
+        <Field label="Yedekten geri yükle" hint="Daha önce indirdiğiniz JSON yedeğini seçin."><Input type="file" accept=".json" onChange={handleImportFile}/></Field>
+        <div className="mt-5"><h4 className="rq-section-title">Fabrika demo verilerine sıfırla</h4><p className="rq-helper">Mevcut kayıtların yerine örnek ürünler, kontrol planları ve ölçümler yüklenir.</p><Button variant="danger" onClick={handleResetDemo}><RotateCcw size={16}/>Sıfırla</Button></div>
+      </section>}
+      <PageActions><Button onClick={onClose}>Kapat</Button></PageActions>
     </div>
-  );
+  </Modal>;
 };

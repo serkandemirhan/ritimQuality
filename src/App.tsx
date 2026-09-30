@@ -1,19 +1,18 @@
+import { AppShell, Topbar, PageContainer, PageHeader, Breadcrumb, Button, Skeleton } from './components/ui';
 import { ROLE_LABELS } from './services/terms';
-import { Overview } from './components/Overview';
 import { Toast } from './components/Toast';
 import { NotificationPanel } from './components/NotificationPanel';
 import { Settings } from './components/Settings';
 import { Onboarding } from './components/Onboarding';
 import { WorkCenter } from './components/WorkCenter';
 import { PendingInspections } from './components/PendingInspections';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Product, ControlPlan, InspectionLog, User, TenantCompany, SubscriptionPlanId } from './types';
 import { StorageService } from './services/storage';
 import { Navbar, NavTab } from './components/Navbar';
 import { OperatorStation } from './components/OperatorStation';
 import { ControlPlanEditor } from './components/ControlPlanEditor';
 import { ProductManagement } from './components/ProductManagement';
-import { SPCReports } from './components/SPCReports';
 import { MeasurementLogs } from './components/MeasurementLogs';
 import { InspectionCertificateModal } from './components/InspectionCertificateModal';
 import { DataBackupModal } from './components/DataBackupModal';
@@ -21,11 +20,17 @@ import { UserManager } from './components/UserManager';
 import { SubscriptionManager } from './components/SubscriptionManager';
 import { SaasApi } from './services/api';
 
+const Overview=lazy(()=>import('./components/Overview').then(module=>({default:module.Overview})));
+const SPCReports=lazy(()=>import('./components/SPCReports').then(module=>({default:module.SPCReports})));
+const AnalyticsLoading=()=> <div role="status" aria-label="Analiz yükleniyor"><Skeleton className="h-24 mb-5"/><Skeleton className="h-96"/></div>;
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>(new URLSearchParams(window.location.search).get('view')==='work'?'work':new URLSearchParams(window.location.search).has('product')?'operator':StorageService.getCurrentUser().role==='operator'?'operator':'overview');
   const [recordId,setRecordId]=useState('');
   const openRecord=(id:string)=>{setRecordId(id);setActiveTab('logs');};
   const [planProductId,setPlanProductId] = useState('');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('ritim:sidebar-collapsed') === 'true');
+  const toggleSidebar = () => setSidebarCollapsed(value => {localStorage.setItem('ritim:sidebar-collapsed', String(!value));return !value;});
   const [measurementActive, setMeasurementActive] = useState(false);
   const [kiosk,setKiosk] = useState(false);
   const [inspectionProductId,setInspectionProductId] = useState('');
@@ -179,7 +184,8 @@ export default function App() {
 
   if(!hydrated)return <main className="p-8"><p role="status">{syncError || 'Çalışma alanı yükleniyor…'}</p>{syncError&&<button type="button" className="mt-4 rounded-lg border p-3" onClick={()=>window.location.reload()}>Yeniden dene</button>}</main>;
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans selection:bg-blue-600 selection:text-white">
+    <AppShell style={{'--rq-sidebar-width':sidebarCollapsed?'72px':'240px'} as React.CSSProperties}>
+      <a className="rq-skip-link" href="#main-content">İçeriğe geç</a>
       <Toast/>
       {syncError && (
         <button type="button" onClick={() => setSyncError('')} className="fixed right-4 top-4 z-[100] max-w-md rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-left text-xs font-semibold text-red-800 shadow-xl">
@@ -187,6 +193,7 @@ export default function App() {
         </button>
       )}
       {!kiosk && !measurementActive && <Navbar
+        collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onOpenBackupModal={() => setIsBackupModalOpen(true)}
@@ -197,28 +204,23 @@ export default function App() {
         company={company}
       />}
 
-      <div className={`flex min-h-screen flex-col ${kiosk || measurementActive ? '' : 'lg:pl-[280px]'}`}>
-        <header hidden={measurementActive} className="app-page-header flex min-h-20 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-8">
-          <div className="min-w-0">
-            <h1 className="text-xl font-black tracking-tight text-slate-900">{pageMeta[activeTab].title}</h1>
-            <p className="mt-1 text-xs text-slate-500">{pageMeta[activeTab].description}</p>
-          </div>
+      <div className={`flex min-h-screen flex-col ${kiosk || measurementActive ? '' : 'rq-shell-content'}`}>
+        <Topbar hidden={measurementActive} className="app-page-header">
+          <div className="rq-site-identity"><span className="rq-site-mark" aria-hidden="true"/><div><strong>{company.name}</strong>{company.facilityLocation&&<small>{company.facilityLocation}</small>}</div></div>
           <div className="flex items-center gap-3">
-            {activeTab==='operator'&&<button type="button" className="quality-secondary" onClick={()=>setKiosk(!kiosk)}>{kiosk?'Menüyü göster':'Odak modu'}</button>}
+            {activeTab==='operator'&&<Button onClick={()=>setKiosk(!kiosk)}>{kiosk?'Menüyü göster':'Odak modu'}</Button>}
             <NotificationPanel onNavigate={setActiveTab}/>
             <details className="relative text-sm"><summary className="cursor-pointer">{currentUser.name} · {ROLE_LABELS[currentUser.role]}</summary><div className="absolute right-0 z-40 min-w-48 rounded-xl bg-white p-4 shadow-xl"><button className="block p-2" onClick={()=>setActiveTab('settings')}>Kişisel ayarlar</button><button className="block p-2" onClick={async()=>{await SaasApi.logout();window.location.reload();}}>Oturumu kapat</button></div></details>
           </div>
-        </header>
+        </Topbar>
 
-        {activeTab === 'overview' && currentUser.role === 'admin' && <Onboarding products={products} plans={controlPlans} users={users} logs={inspectionLogs} onNavigate={setActiveTab}/>}
+
         <PendingInspections onSaved={loadData} />
         {/* Main Content Area */}
-        <main className={`flex-1 w-full mx-auto ${
-        activeTab === 'operator' 
-          ? 'max-w-[1700px] px-2 py-2 sm:px-4 sm:py-3 lg:px-6' 
-          : 'max-w-7xl px-4 py-6 sm:px-6 lg:px-8'
-        }`}>
-        {activeTab==='overview'&&<Overview canInspect={currentUser.role!=='auditor'} logs={inspectionLogs} onNavigate={setActiveTab} onOpenLog={log=>openRecord(log.id)}/>}
+        <PageContainer id="main-content" tabIndex={-1} className={measurementActive?'rq-terminal-page':'rq-workspace'}>
+        {!measurementActive&&!['products','control-plans','operator'].includes(activeTab)&&<PageHeader title={pageMeta[activeTab].title} description={pageMeta[activeTab].description} breadcrumb={<Breadcrumb items={[{label:'Ritim Quality'},{label:pageMeta[activeTab].title}]}/>}/>}
+        {activeTab === 'overview' && currentUser.role === 'admin' && <Onboarding products={products} plans={controlPlans} users={users} logs={inspectionLogs} onNavigate={setActiveTab}/>}
+        {activeTab==='overview'&&<Suspense fallback={<AnalyticsLoading/>}><Overview canInspect={currentUser.role!=='auditor'} logs={inspectionLogs} onNavigate={setActiveTab} onOpenLog={log=>openRecord(log.id)}/></Suspense>}
         {activeTab==='organization'&&currentUser.role==='admin'&&<WorkCenter section="organization" onSectionChange={()=>{}} users={users} products={products} currentUser={currentUser} onInspect={handleSelectProductForInspection}/>}
         {['work','cases','approvals','notifications'].includes(activeTab) && <WorkCenter onOpenRecord={openRecord} section={activeTab==='work'?'tasks':activeTab==='notifications'?'inbox':activeTab} onSectionChange={navigateWork} users={users} products={products} currentUser={currentUser} onInspect={handleSelectProductForInspection}/>}
         {activeTab === 'settings' && <Settings onNavigate={setActiveTab} currentUser={currentUser} users={users} products={products} onInspect={handleSelectProductForInspection} onOpenBackup={()=>setIsBackupModalOpen(true)}/>}
@@ -251,6 +253,7 @@ export default function App() {
 
         {activeTab === 'products' && ['admin','quality_engineer'].includes(currentUser.role) && (
           <ProductManagement
+            inspectionLogs={inspectionLogs} onOpenInspection={log=>openRecord(log.id)}
             products={products}
             controlPlans={controlPlans}
             onProductsChanged={loadData}
@@ -260,11 +263,13 @@ export default function App() {
         )}
 
         {activeTab === 'spc' && (
+          <Suspense fallback={<AnalyticsLoading/>}>
           <SPCReports
             products={products}
             controlPlans={controlPlans}
             inspectionLogs={inspectionLogs}
           />
+          </Suspense>
         )}
 
         {activeTab === 'logs' && (
@@ -303,11 +308,12 @@ export default function App() {
             onSaveCompanyDetails={handleSaveCompanyDetails}
           />
         )}
-        </main>
+        </PageContainer>
 
       {/* Printable ISO 9001 Certificate Modal */}
       {certificateLog && (
         <InspectionCertificateModal
+          company={company}
           log={certificateLog}
           product={certificateProduct}
           controlPlan={certificatePlan}
@@ -334,6 +340,6 @@ export default function App() {
         </div>
         </footer>
       </div>
-    </div>
+    </AppShell>
   );
 }

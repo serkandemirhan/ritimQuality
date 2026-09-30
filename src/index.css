@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./design-system.css";
 @layer components {
   .auth-input {
     @apply w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20;
@@ -118,3 +119,31 @@ body:has(.quality-session) { padding-bottom:0; }
   .measurement-points > div:first-child { display:none; }
   .measurement-keypad { gap:4px; }
 }
+
+/* Dedicated operator workspace: preserve phone keypad and drawing layout. */
+.rq-terminal-context{display:flex;flex-wrap:wrap;gap:16px 28px;padding:12px 16px;background:#fff;border:1px solid #dce2eb;border-radius:8px}.rq-terminal-context>span{display:grid;gap:4px;font-size:12px}.rq-terminal-context small{font-size:10px;color:#66768c}.rq-terminal-context strong{font-weight:600}.rq-terminal-context progress{height:4px;width:100%;accent-color:#2563eb}.rq-operator-workspace .measurement-ribbon{background:#010616;border-radius:8px;box-shadow:none}.rq-operator-workspace .measurement-result>div{border-radius:7px}.rq-operator-workspace .measurement-value{border-radius:8px}.rq-operator-workspace button:focus-visible{outline:3px solid #6693ca;outline-offset:3px}
+@media(min-width:1024px){.rq-operator-workspace .measurement-point-title h2{font-size:20px;line-height:1.4;white-space:normal}.rq-operator-workspace .measurement-tool{font-size:12px;margin-top:4px}.rq-operator-workspace .measurement-value{font-size:44px!important;min-height:80px}.rq-operator-workspace .measurement-tolerances>div{background:#f5f7fa;border:1px solid #dce2eb;border-radius:6px;color:#45526a;box-shadow:none}.rq-operator-workspace .measurement-tolerances>div:nth-child(2){border-color:#9aaec8;background:#edf2f8}.rq-operator-workspace .measurement-tolerances>div>div:last-child{font-size:19px;color:#010616}.rq-operator-workspace .measurement-result>div{padding:12px;font-size:14px}.rq-operator-workspace .measurement-result svg{width:19px;height:19px}.rq-operator-workspace .measurement-presets button{min-height:36px}.rq-operator-workspace .quality-measurement-actions button{min-height:44px}}
+@media(max-width:767px){.rq-terminal-context{display:none}}
+
+@media(min-width:1024px){.rq-operator-workspace .quality-drawing{height:calc(100dvh - 190px);min-height:500px}.rq-operator-workspace .measurement-deck{max-height:calc(100dvh - 190px);min-height:500px;overflow:auto;border-radius:8px}.rq-operator-workspace .measurement-points{margin-top:16px}.rq-operator-workspace .measurement-deck-inner{height:auto}}
+
+/* Phone terminal: readable context, drawing, input, then reachable actions. */
+@media(max-width:767px){
+ .rq-operator-workspace .rq-terminal-context{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+ .rq-operator-workspace .quality-measurement-grid{display:flex;flex-direction:column;gap:12px}
+ .rq-operator-workspace .quality-drawing{height:200px;min-height:160px;width:100%}
+ .rq-operator-workspace .measurement-info{min-height:0;padding:16px}
+ .rq-operator-workspace .measurement-point-title h2{font-size:18px}
+ .rq-operator-workspace .measurement-tolerances{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+ .rq-operator-workspace .measurement-tolerances>div{display:block;padding:8px}
+ .rq-operator-workspace .measurement-tolerances>div:nth-child(2){order:0}
+ .rq-operator-workspace .measurement-tolerances>div>div:last-child{font-size:16px}
+ .rq-operator-workspace .measurement-value{font-size:36px!important;min-height:64px;padding:12px}
+ .rq-operator-workspace .measurement-tolerance-summary{font-size:12px}
+ .rq-operator-workspace .measurement-result>div{padding:12px;font-size:14px}
+ .rq-operator-workspace .measurement-points button,.rq-operator-workspace .measurement-ribbon button{min-width:44px;min-height:44px}
+ .rq-operator-workspace .quality-measurement-actions{position:sticky;bottom:0;z-index:10;background:white;padding:12px 8px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--rq-border)}
+ .rq-operator-workspace:has(.measurement-keypad) .quality-measurement-actions>div:first-child{display:flex}
+ .rq-operator-workspace .measurement-evidence label{min-height:44px}
+}
+@media(max-width:767px){.rq-operator-workspace .measurement-ribbon{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.rq-operator-workspace .measurement-ribbon>div:first-child{grid-column:1;grid-row:1}.rq-operator-workspace .measurement-ribbon>div:last-child{grid-column:2;grid-row:1}.rq-operator-workspace .measurement-samples{grid-column:1/-1;grid-row:2}.rq-operator-workspace .measurement-ribbon>div:first-child>div>span:last-child{max-width:none}}

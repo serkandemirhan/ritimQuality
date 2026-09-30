@@ -1,3 +1,5 @@
+import { PageHeader, Button, IconButton, Card, FormSection, Field, Input, Select, NumberInput, StatusBadge } from './ui';
+import { MediaImage } from './MediaImage';
 import { InspectionQR } from './InspectionQR';
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, ControlPlan, Characteristic, InspectionLog, SampleMeasurement, User, MeasurementValue, EvidenceAttachment, MeasurementSource } from '../types';
@@ -463,6 +465,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
   return (
     <div className="w-full quality-operator">
+      {!isSessionActive&&<PageHeader title="Ölçüm hazırlığı" description="Ürün, kontrol planı ve üretim bilgilerini doğrulayarak ölçümü başlatın." actions={<IconButton label={soundEnabled?'Sesli uyarıyı kapat':'Sesli uyarıyı aç'} onClick={()=>setSoundEnabled(!soundEnabled)}>{soundEnabled?<Volume2 size={17}/>:<VolumeX size={17}/>}</IconButton>}/>}
       {rulesError && <p role="alert" className="mb-3 text-sm text-red-700">İş kuralları yüklenemedi: {rulesError}</p>}
       {!isSessionActive && <InspectionQR products={products} onSelect={(id,wo)=>{setSelectedProductId(id);setOrderNumber(wo);}}/>}
       {!isSessionActive && draftAvailable && <div className="mb-4 rounded-xl bg-blue-50 p-4"><p className="font-bold">Yarım kalan bir kontrolünüz var.</p><button type="button" onClick={restoreDraft} className="mt-2 rounded-lg bg-blue-700 px-4 py-3 text-white">Kontrole devam et</button></div>}
@@ -472,205 +475,35 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
           MODE 1: SETUP SCREEN (When session is NOT active)
           ========================================================================= */}
       {!isSessionActive ? (
-        <div className="space-y-6 max-w-5xl mx-auto py-2">
-          {/* Main Welcome Hero */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/25 shrink-0">
-                  <Play className="w-7 h-7 fill-current ml-0.5" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-                    Operatör Ölçüm Terminali
-                  </h1>
-                  <p className="text-sm text-slate-500 mt-0.5">
-                    Teknik resimdeki kontrol noktalarını izleyerek ölçüm yapın. Yarım kalan kontrolünüz bu cihazda saklanır.
-                  </p>
-                </div>
-              </div>
-
-              {/* Sound Toggle */}
-              <button
-                type="button"
-                onClick={() => setSoundEnabled(!soundEnabled)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl border text-xs font-bold transition shadow-xs ${
-                  soundEnabled 
-                    ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                    : 'bg-slate-100 border-slate-200 text-slate-500'
-                }`}
-              >
-                {soundEnabled ? <Volume2 className="w-4 h-4 text-blue-600" /> : <VolumeX className="w-4 h-4" />}
-                <span className="sr-only">{soundEnabled ? 'Sesli Uyarı Açık' : 'Sessiz'}</span>
-              </button>
-            </div>
-
-            {/* Selection Form */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-6">
-              {/* Product */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Ölçülecek Parça / Ürün
-                </label>
-                <select
-                  id="select-operator-product"
-                  value={selectedProductId}
-                  onChange={(e) => setSelectedProductId(e.target.value)}
-                  className="h-11 w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
-                >
-                  <option value="">Ürün seçin</option>
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.code} - {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {selectedProductId&&<>
-              {/* Control Plan Version */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Kontrol Planı Revizyonu
-                </label>
-                <select
-                  id="select-operator-plan"
-                  value={selectedPlanId}
-                  onChange={(e) => {const plan=controlPlans.find(item=>item.id===e.target.value);setSelectedPlanId(e.target.value);if(plan)setSampleCount(plan.defaultSampleCount||5)}}
-                  className="h-11 w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
-                >
-                  <option value="">Plan seçin</option>
-                  {controlPlans
-                    .filter(cp => cp.productId === selectedProductId && (!rules?.requireActivePlan || (cp.isActive && cp.status === 'active')))
-                    .map(cp => (
-                      <option key={cp.id} value={cp.id}>
-                        {cp.version} {cp.isActive ? '(AKTİF GÜNCEL)' : `(${cp.status})`} - {cp.characteristics.length} Nokta
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              {/* Sample Count */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Ölçülecek Numune Adedi
-                </label>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {[1, 2, 3, 4, 5, 10].map(cnt => (
-                    <button
-                      key={cnt}
-                      type="button"
-                      onClick={() => setSampleCount(cnt)}
-                      aria-pressed={sampleCount === cnt}
-                      className={`h-11 min-w-8 flex-1 rounded-xl text-xs font-bold transition border ${
-                        sampleCount === cnt
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-200'
-                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      {cnt}
-                    </button>
-                  ))}
-                  <input aria-label="Özel numune adedi" type="number" min={1} max={100} value={sampleCount} onChange={e=>{const count=Math.min(100,Math.max(1,Math.trunc(Number(e.target.value))||1));setSampleCount(count)}} title="Özel numune adedi" className={`h-11 w-14 min-w-0 rounded-xl border px-1 text-center text-xs font-bold ${![1,2,3,4,5,10].includes(sampleCount)?'border-blue-600 bg-blue-50 text-blue-700':'border-slate-200 bg-slate-50 text-slate-700'}`}/>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Seri Numarası</label>
-                <input type="text" value={serialNumber} onChange={e=>setSerialNumber(e.target.value)} placeholder="Örn: SN00125" className="h-11 w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-sm font-mono text-slate-900"/>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Ölçüm Kaynağı</label>
-                <select value={source} onChange={e=>setSource(e.target.value as MeasurementSource)} className="h-11 w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-sm font-semibold text-slate-900"><option value="manual">Manuel</option><option value="gauge">Dijital Ölçüm Cihazı</option><option value="import">Dosya İçe Aktarımı</option></select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Ekipman Kimliği</label>
-                <input type="text" value={equipmentId} onChange={e=>setEquipmentId(e.target.value)} placeholder="Örn: KUMPAS-014" className="h-11 w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-sm font-mono text-slate-900"/>
-              </div>
-
-              <div><label htmlFor="inspection-work-order" className="mb-2 block text-xs font-bold text-slate-700">İş Emri No {rules?.requireOrderNumber ? '*' : '(İsteğe bağlı)'}</label><input id="inspection-work-order" type="text" required={rules?.requireOrderNumber} maxLength={120} value={orderNumber} onChange={event=>setOrderNumber(event.target.value)} className="h-11 w-full rounded-2xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm"/></div>
-              {/* Lot Number */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Parti / Şarj (Lot) No {rules?.requireLotNumber ? '*' : '(İsteğe bağlı)'}
-                </label>
-                <input
-                  type="text"
-                  value={lotNumber}
-                  onChange={(e) => setLotNumber(e.target.value)}
-                  aria-label="Parti numarası" required={rules?.requireLotNumber} maxLength={120} placeholder="Örn: LOT-2026-0815-B"
-                  className="h-11 w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs font-mono"
-                />
-              </div>
-
-              {/* Operator */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Operatör Adı
-                </label>
-                <input
-                  type="text"
-                  value={operatorName}
-                  onChange={(e) => setOperatorName(e.target.value)}
-                  className="h-11 w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
-                />
-              </div>
-
-              {/* Machine */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Tezgah / İstasyon No
-                </label>
-                <input
-                  type="text"
-                  value={machineNo}
-                  onChange={(e) => setMachineNo(e.target.value)}
-                  className="h-11 w-full bg-slate-50 border border-slate-300 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
-                />
-              </div>
-              </>}
-            </div>
-
-            {/* Blueprint Preview Card */}
-            {currentPlan && (
-              <div className="mt-6 p-4 rounded-2xl bg-slate-900 text-white flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400 font-bold shrink-0">
-                    {characteristics.length}
-                  </div>
-                  <div>
-                    <div className="font-bold text-sm text-white flex items-center gap-2">
-                      <span>{currentProduct?.name}</span>
-                      <span className="text-xs text-blue-400 font-mono">({currentPlan.version})</span>
-                    </div>
-                    <p className="text-xs text-slate-400">
-                      Bu kontrol planında toplam {characteristics.length} adet kritik ve standart ölçüm noktası tanımlıdır.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  id="btn-start-inspection"
-                  type="button"
-                  onClick={handleStartSession}
-                  disabled={!rules || characteristics.length === 0}
-                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-black py-3.5 px-8 rounded-2xl shadow-xl shadow-blue-500/25 flex items-center justify-center gap-2.5 transition active:scale-95 disabled:opacity-50 text-sm tracking-wide"
-                >
-                  <Play className="w-5 h-5 fill-white" />
-                  <span>ÖLÇÜME BAŞLA (Terminali Aç)</span>
-                </button>
-              </div>
-            )}
-          </div>
+        <div className="rq-preparation-grid mt-4">
+          <Card>
+            <FormSection title="Kontrol kapsamı" description="Ölçülecek ürünü ve kullanacağınız plan revizyonunu seçin.">
+              <Field label="Parça / ürün"><Select id="select-operator-product" value={selectedProductId} onChange={e=>setSelectedProductId(e.target.value)}><option value="">Ürün seçin</option>{products.map(p=><option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}</Select></Field>
+              {selectedProductId&&<Field label="Kontrol planı revizyonu"><Select id="select-operator-plan" value={selectedPlanId} onChange={e=>{const plan=controlPlans.find(item=>item.id===e.target.value);setSelectedPlanId(e.target.value);if(plan)setSampleCount(plan.defaultSampleCount||5);}}><option value="">Plan seçin</option>{controlPlans.filter(cp=>cp.productId===selectedProductId&&(!rules?.requireActivePlan||(cp.isActive&&cp.status==='active'))).map(cp=><option key={cp.id} value={cp.id}>{cp.version} · {cp.isActive?'Aktif':cp.status==='draft'?'Taslak':'Arşiv'} · {cp.characteristics.length} nokta</option>)}</Select></Field>}
+            </FormSection>
+            {selectedProductId&&<>
+              <FormSection title="Üretim ve izlenebilirlik" description="Zorunlu alanlar çalışma alanının ölçüm iş kurallarına göre belirlenir.">
+                <Field label={'İş emri no '+(rules?.requireOrderNumber?'*':'(İsteğe bağlı)')}><Input id="inspection-work-order" required={rules?.requireOrderNumber} maxLength={120} value={orderNumber} onChange={e=>setOrderNumber(e.target.value)} className="rq-technical"/></Field>
+                <Field label="Tezgah / istasyon no"><Input value={machineNo} onChange={e=>setMachineNo(e.target.value)} className="rq-technical"/></Field>
+                <Field label={'Parti / şarj (lot) no '+(rules?.requireLotNumber?'*':'(İsteğe bağlı)')}><Input aria-label="Parti numarası" required={rules?.requireLotNumber} maxLength={120} value={lotNumber} onChange={e=>setLotNumber(e.target.value)} placeholder="LOT-2026-0815-B" className="rq-technical"/></Field>
+                <Field label="Seri numarası"><Input value={serialNumber} onChange={e=>setSerialNumber(e.target.value)} placeholder="SN00125" className="rq-technical"/></Field>
+                <Field label="Operatör adı"><Input value={operatorName} onChange={e=>setOperatorName(e.target.value)}/></Field>
+              </FormSection>
+              <FormSection title="Ölçüm kaynağı">
+                <Field label="Kaynak"><Select value={source} onChange={e=>setSource(e.target.value as MeasurementSource)}><option value="manual">Manuel</option><option value="gauge">Dijital ölçüm cihazı</option><option value="import">Dosya içe aktarımı</option></Select></Field>
+                <Field label="Ekipman kimliği"><Input value={equipmentId} onChange={e=>setEquipmentId(e.target.value)} className="rq-technical"/></Field>
+              </FormSection>
+              <fieldset><legend className="rq-section-title mb-3">Ölçülecek numune adedi</legend><div className="rq-actions">{[1,2,3,4,5,10].map(count=><Button key={count} aria-pressed={sampleCount===count} onClick={()=>setSampleCount(count)}>{count}</Button>)}<NumberInput aria-label="Özel numune adedi" min={1} max={100} value={sampleCount} onChange={e=>setSampleCount(Math.min(100,Math.max(1,Math.trunc(Number(e.target.value))||1)))} className="!w-20"/></div></fieldset>
+            </>}
+          </Card>
+          <Card className="rq-preparation-summary"><h2 className="rq-section-title">Başlatılacak kontrol</h2>{currentProduct?<><p className="rq-helper rq-technical">{currentProduct.code}</p><h3 className="font-semibold mb-4">{currentProduct.name}</h3>{(currentPlan?.drawingImageUrl||currentProduct.defaultDrawingUrl)&&<MediaImage src={currentPlan?.drawingImageUrl||currentProduct.defaultDrawingUrl} alt={currentProduct.name+' teknik resmi'} className="h-44 w-full rounded-lg bg-slate-950 object-contain"/>}<dl className="rq-properties"><div><dt>Kontrol planı</dt><dd>{currentPlan?.version||'Seçilmedi'}</dd></div><div><dt>Ölçüm noktası</dt><dd>{characteristics.length}</dd></div><div><dt>Numune</dt><dd>{sampleCount}</dd></div><div><dt>Operatör</dt><dd>{operatorName}</dd></div>{orderNumber&&<div><dt>İş emri</dt><dd className="rq-technical">{orderNumber}</dd></div>}</dl>{currentPlan&&<div className="mt-4"><StatusBadge status={currentPlan.status}/></div>}</>:<p className="rq-helper">Kontrol özetini görmek için ürün seçin.</p>}<Button id="btn-start-inspection" variant="primary" disabled={!rules||!currentPlan||!characteristics.length} onClick={handleStartSession} className="mt-5 w-full"><Play size={16}/>Ölçüme başla</Button>{!rules&&!rulesError&&<p role="status" className="rq-helper">İş kuralları yükleniyor…</p>}</Card>
         </div>
       ) : (
         /* =========================================================================
             MODE 2: ZERO-SCROLL ERGONOMIC OPERATOR WORKSPACE (Tablet & Mobile Optimized)
             Fits 100% in viewport without any scrolling!
             ========================================================================= */
-        <div className="quality-session">
+        <div className="quality-session rq-operator-workspace">
           {/* Top Compact Master Ribbon (1 Row, No Clutter) */}
           <div className="measurement-ribbon bg-[#1E293B] text-white px-3 sm:px-4 py-2 rounded-2xl border border-slate-700 shadow-md flex items-center justify-between gap-2 shrink-0 select-none mb-2 sm:mb-3">
             {/* Left: Product & Version Badges */}
@@ -715,6 +548,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                         ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400/50'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800'
                     }`}
+                    aria-pressed={isSelected}
                     title={`Numune #${s.sampleIndex}`}
                   >
                     <span>#{s.sampleIndex}</span>
@@ -780,6 +614,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
             </div>
           </div>
 
+          <div className="rq-terminal-context" aria-label="Kontrol kimliği"><span><small>Ürün</small><strong>{currentProduct?.code}</strong></span><span><small>İş emri</small><strong>{orderNumber||'Belirtilmedi'}</strong></span><span><small>İstasyon</small><strong>{machineNo||'Belirtilmedi'}</strong></span><span><small>Operatör</small><strong>{operatorName}</strong></span><span><small>Numune</small><strong>{activeSampleIndex} / {sampleCount}</strong></span><span><small>Ölçüm ilerlemesi</small><progress value={totalChecked} max={Math.max(1,totalPossible)} aria-label="Tamamlanan ölçümler"/><strong>{totalChecked} / {totalPossible}</strong></span></div>
           {/* Main Grid: Zero-scroll Responsive Layout */}
           <div className="quality-measurement-grid">
             {/* =========================================================================
@@ -838,7 +673,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                     </div>
 
                     {/* Tolerance Visual Target Strip (LSL - Nominal - USL) */}
-                    <div className="measurement-tolerances grid grid-cols-3 gap-1 sm:gap-1.5 my-2">
+                    {(currentCharacteristic.type || 'numeric') === 'numeric' && <div className="measurement-tolerances grid grid-cols-3 gap-1 sm:gap-1.5 my-2">
                       <div className="bg-rose-50/70 p-1.5 rounded-xl border border-rose-200 text-center">
                         <div className="text-[9px] text-rose-700 uppercase font-bold tracking-wider">Alt (LSL)</div>
                         <div className="text-xs sm:text-sm font-bold text-rose-700 font-mono mt-0.5">
@@ -861,6 +696,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                       </div>
                     </div>
 
+                    }
                     {(currentCharacteristic.type || 'numeric') === 'numeric' && <p className="measurement-tolerance-summary">Tolerans: +{Number((currentCharacteristic.usl-currentCharacteristic.nominal).toFixed(6)).toLocaleString('tr-TR')} / {Number((currentCharacteristic.lsl-currentCharacteristic.nominal).toFixed(6)).toLocaleString('tr-TR')} {currentCharacteristic.unit}</p>}
                     {/* Primary Large Touch Measurement Input */}
                     <div className="space-y-1">
@@ -893,7 +729,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                               : currentValStatus === 'warning'
                               ? 'border-amber-500 text-amber-800 focus:ring-amber-100 bg-amber-50/30'
                               : currentValStatus === 'fail'
-                              ? 'border-rose-500 text-rose-700 focus:ring-rose-100 bg-rose-50/30 animate-shake'
+                              ? 'border-rose-500 text-rose-700 focus:ring-rose-100 bg-rose-50/30'
                               : 'border-slate-300 text-slate-900 focus:border-blue-500 focus:ring-blue-100'
                           }`}
                         />
@@ -959,12 +795,12 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
                       {/* Instant Real-Time Status & Deviation Ribbon */}
                       {currentVal !== null && currentVal !== undefined && (
-                        <div className="measurement-result pt-1">
+                        <div className="measurement-result pt-1" role="status" aria-live="polite">
                           {currentValStatus === 'pass' && (
                             <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold">
                               <span className="flex items-center gap-1.5">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                Uygun
+                                OK · Uygun
                               </span>
                               <span className="font-mono">{typeof currentVal==='number'?`Sapma: ${currentDeviation&&currentDeviation>0?'+':''}${currentDeviation} ${currentCharacteristic.unit}`:Array.isArray(currentVal)?currentVal.join(', '):String(currentVal)}</span>
                             </div>
@@ -982,7 +818,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                             <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-[11px] font-bold">
                               <span className="flex items-center gap-1.5">
                                 <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                                Tolerans dışı
+                                NOK · Tolerans dışı
                               </span>
                               <span className="font-mono">{typeof currentVal==='number'?`Sapma: ${currentDeviation&&currentDeviation>0?'+':''}${currentDeviation} ${currentCharacteristic.unit}`:Array.isArray(currentVal)?currentVal.join(', '):String(currentVal)}</span>
                             </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { SaasApi, type InspectionRules } from '../services/api';
+import {Button, Card, DataTable, Badge, Switch, Skeleton} from './ui';
 
 export function InspectionRulesSettings() {
   const [rules, setRules] = useState<InspectionRules | null>(null);
@@ -13,16 +14,16 @@ export function InspectionRulesSettings() {
     catch (error) { setMessage(error instanceof Error ? error.message : 'Kaydedilemedi.'); }
     finally { setBusy(false); }
   };
-  return <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+  return <Card>
     <h2 className="font-bold text-slate-900">Ölçüm iş kuralları</h2>
     <p className="mt-2 text-sm text-slate-500">Seçili kurallar çalışma alanındaki tüm kullanıcılar için zorunludur. Kapalı alanlar isteğe bağlıdır.</p>
     <p className="mt-2 text-xs text-slate-500">Aktif plan şartı kapalıyken taslak ve arşiv revizyonları da seçilebilir. Ölçüm noktaları için bir kontrol planı her zaman seçilmelidir.</p>
-    {rules ? <div className="mt-4 space-y-3">{([
-      ['requireActivePlan', 'Yalnızca aktif kontrol planıyla ölçüm yap'],
-      ['requireLotNumber', 'Parti / şarj (lot) numarası zorunlu'],
-      ['requireOrderNumber', 'İş emri numarası zorunlu'],
-    ] as const).map(([key, label]) => <label key={key} className="flex items-center gap-3 text-sm"><input type="checkbox" checked={rules[key]} disabled={busy} onChange={event => { setRules({...rules, [key]: event.target.checked}); setMessage(''); }} className="h-4 w-4 accent-blue-600"/>{label}</label>)}
-    <button type="button" disabled={busy} onClick={save} className="quality-primary">{busy ? 'Kaydediliyor…' : 'İş kurallarını kaydet'}</button></div> : !message && <p className="mt-4 text-sm">Kurallar yükleniyor…</p>}
+    {rules ? <div className="mt-4 space-y-4"><DataTable label="Ölçüm başlangıcı kuralları"><thead><tr><th>Kural</th><th>Koşul / sonuç</th><th>Durum</th></tr></thead><tbody>{([
+      ['requireActivePlan', 'Aktif kontrol planı', 'Ölçüm başlangıcında yalnızca aktif revizyon kullanılabilir.'],
+      ['requireLotNumber', 'Parti / şarj numarası', 'Parti / şarj (lot) numarası boş bırakılamaz.'],
+      ['requireOrderNumber', 'İş emri numarası', 'İş emri numarası boş bırakılamaz.'],
+    ] as const).map(([key, label, description]) => <tr key={key}><td><Switch label={label} checked={rules[key]} disabled={busy} onChange={event=>{setRules({...rules,[key]:event.target.checked});setMessage('');}}/></td><td>{description}</td><td><Badge tone={rules[key]?'success':'neutral'}>{rules[key]?'Zorunlu':'İsteğe bağlı'}</Badge></td></tr>)}</tbody></DataTable>
+    <Button variant="primary" loading={busy} onClick={save}>İş kurallarını kaydet</Button></div> : !message && <div role="status" className="mt-4"><span className="rq-helper">Kurallar yükleniyor…</span><Skeleton className="h-24"/></div>}
     {message && <p role="status" className="mt-3 text-sm">{message}</p>}
-  </section>;
+  </Card>;
 }

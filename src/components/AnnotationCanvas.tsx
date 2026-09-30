@@ -1,3 +1,4 @@
+import { Button } from './ui';
 import React, {useEffect, useRef, useState} from 'react';
 import {useMediaSource, isPdfMedia} from './MediaImage';
 import type {ImageAnnotation} from '../types';
@@ -42,16 +43,16 @@ export function AnnotationCanvas({imageUrl,pointNo,annotations,onChange}:{imageU
   const buttons:[Tool,string][]=[['select','Seç/Pan'],['pin','Pin'],['measurement_line','Ölçüm Çizgisi'],['area','Alan'],['note','Not'],['delete','Sil']];
 
   return <section className="overflow-hidden rounded-2xl bg-slate-950">
-    <div className="flex flex-wrap items-center gap-1 border-b border-slate-700 bg-slate-900 p-2">
-      {buttons.map(([id,label])=><button type="button" title={label} aria-pressed={tool===id} onClick={()=>{setTool(id);setFirst(null);}} className={`rounded-lg px-2 py-1.5 text-xs ${tool===id?'bg-blue-600 text-white':'text-slate-300 hover:bg-slate-800'}`} key={id}>{label}</button>)}
+    <div className="rq-dark-tools flex flex-wrap items-center gap-1 border-b border-slate-700 bg-slate-900 p-2">
+      {buttons.map(([id,label])=><Button type="button" title={label} aria-pressed={tool===id} onClick={()=>{setTool(id);setFirst(null);}} className={`rounded-lg px-2 py-1.5 text-xs ${tool===id?'bg-blue-600 text-white':'text-slate-300 hover:bg-slate-800'}`} key={id}>{label}</Button>)}
       <div className="relative">
-        <button type="button" aria-haspopup="menu" aria-expanded={colorOpen} onClick={()=>setColorOpen(value=>!value)} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-slate-200 hover:bg-slate-800"><span className="h-3.5 w-3.5 rounded-sm border border-white/70" style={{backgroundColor:color}}/>{colorName[color]||'Özel'} <span aria-hidden>▾</span></button>
-        {colorOpen&&<div role="menu" className="absolute left-0 top-full z-30 mt-1 min-w-36 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">{COLORS.map(value=><button role="menuitem" key={value} type="button" aria-label={`Anotasyon rengi ${colorName[value]}`} onClick={()=>applyColor(value)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-slate-700 hover:bg-slate-100"><span className="h-4 w-4 rounded-sm border border-slate-300" style={{backgroundColor:value}}/>{colorName[value]}</button>)}<label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-100"><input aria-label="Özel anotasyon rengi" type="color" value={color} onChange={event=>applyColor(event.target.value)} className="h-5 w-5 cursor-pointer border-0 bg-transparent p-0"/>Özel renk</label></div>}
+        <Button type="button" aria-haspopup="menu" aria-expanded={colorOpen} onClick={()=>setColorOpen(value=>!value)} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-slate-200 hover:bg-slate-800"><span className="h-3.5 w-3.5 rounded-sm border border-white/70" style={{backgroundColor:color}}/>{colorName[color]||'Özel'} <span aria-hidden>▾</span></Button>
+        {colorOpen&&<div role="menu" className="absolute left-0 top-full z-30 mt-1 min-w-36 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">{COLORS.map(value=><Button role="menuitem" key={value} type="button" aria-label={`Anotasyon rengi ${colorName[value]}`} onClick={()=>applyColor(value)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-slate-700 hover:bg-slate-100"><span className="h-4 w-4 rounded-sm border border-slate-300" style={{backgroundColor:value}}/>{colorName[value]}</Button>)}<label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-100"><input aria-label="Özel anotasyon rengi" type="color" value={color} onChange={event=>applyColor(event.target.value)} className="h-5 w-5 cursor-pointer border-0 bg-transparent p-0"/>Özel renk</label></div>}
       </div>
-      <button type="button" title="Uzaklaştır" onClick={()=>setZoom(value=>Math.max(.5,value-.2))} className="rounded-lg px-2 text-white">−</button>
-      <button type="button" title="Yakınlaştır" onClick={()=>setZoom(value=>Math.min(3,value+.2))} className="rounded-lg px-2 text-white">+</button>
-      <button type="button" title="Geri Al" disabled={!history.length} onClick={undo} className="rounded-lg px-2 text-white disabled:opacity-30">↶</button>
-      <button type="button" title="Yinele" disabled={!future.length} onClick={redo} className="rounded-lg px-2 text-white disabled:opacity-30">↷</button>
+      <Button type="button" title="Uzaklaştır" onClick={()=>setZoom(value=>Math.max(.5,value-.2))} className="rounded-lg px-2 text-white">−</Button>
+      <Button type="button" title="Yakınlaştır" onClick={()=>setZoom(value=>Math.min(3,value+.2))} className="rounded-lg px-2 text-white">+</Button>
+      <Button type="button" title="Geri Al" disabled={!history.length} onClick={undo} className="rounded-lg px-2 text-white disabled:opacity-30">↶</Button>
+      <Button type="button" title="Yinele" disabled={!future.length} onClick={redo} className="rounded-lg px-2 text-white disabled:opacity-30">↷</Button>
       {first&&<span className="ml-auto text-xs text-blue-300">Bitiş noktasını seçin</span>}
     </div>
     <div className={`${zoom>1?'overflow-auto':'overflow-hidden'} p-2`}>
@@ -77,7 +78,7 @@ export function AnnotationCanvas({imageUrl,pointNo,annotations,onChange}:{imageU
             return null;
           })}
         </svg>
-        {annotations.filter(item=>item.type==='pin'||item.type==='note').map(item=><button key={item.id} onClick={event=>choose(item.id,event)} onPointerDown={event=>beginDrag(item.id,event)} onPointerMove={event=>dragItem(item.id,event)} onPointerUp={endDrag} style={{left:`${item.x}%`,top:`${item.y}%`,backgroundColor:item.color||DEFAULT_COLOR,touchAction:'none'}} className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white px-2 py-1 text-xs font-bold text-white ${selected===item.id?'ring-4 ring-amber-300':''}`}>{item.type==='pin'?item.label:'📝'}</button>)}
+        {annotations.filter(item=>item.type==='pin'||item.type==='note').map(item=><Button key={item.id} onClick={event=>choose(item.id,event)} onPointerDown={event=>beginDrag(item.id,event)} onPointerMove={event=>dragItem(item.id,event)} onPointerUp={endDrag} style={{left:`${item.x}%`,top:`${item.y}%`,backgroundColor:item.color||DEFAULT_COLOR,touchAction:'none'}} className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white px-2 py-1 text-xs font-bold text-white ${selected===item.id?'ring-4 ring-amber-300':''}`}>{item.type==='pin'?item.label:'📝'}</Button>)}
       </div>
     </div>
   </section>;
