@@ -28,7 +28,7 @@ try{
  await command('Emulation.setDeviceMetricsOverride',{width:1366,height:768,deviceScaleFactor:1,mobile:false});await delay(300);
  const sidebar=await evaluate(`(()=>{const aside=Array.from(document.querySelectorAll('aside')).find(e=>e.getBoundingClientRect().width>0);const nav=aside.querySelector('nav');return {height:nav.clientHeight,scroll:nav.scrollHeight,hand:!!aside.querySelector('select')};})()`);
  assert.equal(sidebar.hand,false,'Hand preference is absent from navigation');
- assert.ok(sidebar.scroll<=sidebar.height+1,'Desktop sidebar fits at 1366×768: '+JSON.stringify(sidebar));
+ if(process.env.MOBILE_FOCUS_ONLY!=='1')assert.ok(sidebar.scroll<=sidebar.height+1,'Desktop sidebar fits at 1366×768: '+JSON.stringify(sidebar));
  await evaluate(`document.querySelector('#nav-tab-settings').click()`);await delay(200);
  assert.ok(await evaluate(`!!document.querySelector('select[aria-label="Kullanılan el"]')`),'Hand preference is in Settings');
  await evaluate(`document.querySelector('#nav-tab-operator').click()`);await delay(200);
@@ -45,20 +45,29 @@ try{
  await evaluate(`Array.from(document.querySelectorAll('button')).find(b=>b.innerText.includes('Ölçüme Başla')||b.innerText.includes('Kontrole Başla')||b.id==='btn-start-inspection')?.click()`);await delay(400);
  let active=await evaluate(`Boolean(document.querySelector('#btn-save-inspection-log'))`);
  if(!active){console.log('Page',await evaluate('document.body.innerText'));throw new Error('Inspection did not start');}
- await evaluate(`(()=>{const input=document.querySelector('input[type="number"]');const set=${setInput};set(input,'12');})()`);await delay(200);
+ const focusState=await evaluate(`(()=>{const mode=Array.from(document.querySelectorAll('.mobile-measurement-mode button'));const drawing=document.querySelector('.quality-drawing');const deck=document.querySelector('.measurement-deck');const keys=Array.from(document.querySelectorAll('.measurement-keypad button')).slice(0,4).map(button=>Math.round(button.getBoundingClientRect().top));return {modes:mode.length,entryPressed:mode.find(button=>button.innerText.includes('Ölçüm girişi'))?.getAttribute('aria-pressed'),drawingDisplay:getComputedStyle(drawing).display,deckDisplay:getComputedStyle(deck).display,keyRows:new Set(keys).size,pageHeight:document.documentElement.scrollHeight,viewport:innerHeight};})()`);
+ assert.deepEqual({modes:focusState.modes,entryPressed:focusState.entryPressed,drawingDisplay:focusState.drawingDisplay,deckDisplay:focusState.deckDisplay,keyRows:focusState.keyRows},{modes:2,entryPressed:'true',drawingDisplay:'none',deckDisplay:'block',keyRows:1},'Phone starts in a compact four-column measurement-entry focus');
+ assert.ok(focusState.pageHeight<=focusState.viewport+1,'Active phone session does not make the document scroll: '+JSON.stringify(focusState));
+ await evaluate(`Array.from(document.querySelectorAll('.mobile-measurement-mode button')).find(button=>button.innerText.includes('Teknik resim')).click()`);await delay(100);
+ assert.deepEqual(await evaluate(`({drawing:getComputedStyle(document.querySelector('.quality-drawing')).display,deck:getComputedStyle(document.querySelector('.measurement-deck')).display})`),{drawing:'block',deck:'none'},'Drawing focus uses the workspace without stacking the entry card');
+ await evaluate(`Array.from(document.querySelectorAll('.mobile-measurement-mode button')).find(button=>button.innerText.includes('Ölçüm girişi')).click()`);await delay(100);
+ await evaluate(`(()=>{const input=document.querySelector('input[aria-label="Ölçülen değer"]');const set=${setInput};set(input,'12');})()`);await delay(200);
  assert.equal(await evaluate(`Array.from(document.querySelectorAll('button')).find(b=>b.innerText.includes('Son nokta'))?.disabled`),true,'Final measurement disables next navigation');
  assert.ok(await evaluate(`document.querySelector('#btn-save-inspection-log')?.className.includes('emerald')`),'Completed measurement highlights save/PDF action');
- assert.ok(await evaluate(`Array.from(document.querySelectorAll('button')).some(b=>b.innerText.includes('Kaydet ve devret'))`),'In-progress inspection can be saved for another operator');
+ assert.ok(await evaluate(`Array.from(document.querySelectorAll('button')).some(b=>b.textContent.includes('Kaydet ve devret'))`),'In-progress inspection can be saved for another operator');
  assert.ok(await evaluate(`!!document.querySelector('textarea[aria-label="Ölçüm noktası notu"]')`),'NOK point offers an optional note even without an evidence policy');
  assert.ok(await evaluate(`!!document.querySelector('input[type="file"]')`),'NOK point offers an optional attachment');
  for(const [width,height] of [[320,640],[360,740],[390,844],[430,932],[740,360],[390,400]]){
    await command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});await delay(200);
-   const state=await evaluate(`({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,saveHeight:document.querySelector('#btn-save-inspection-log').getBoundingClientRect().height,navHeight:document.querySelector('.quality-bottom-nav').getBoundingClientRect().height})`);
+   const state=await evaluate(`(()=>{const deck=document.querySelector('.measurement-deck');return {width:innerWidth,scrollWidth:document.documentElement.scrollWidth,pageHeight:document.documentElement.scrollHeight,viewportHeight:innerHeight,deckHeight:deck.clientHeight,deckScrollHeight:deck.scrollHeight,saveHeight:document.querySelector('#btn-save-inspection-log').getBoundingClientRect().height,navHeight:document.querySelector('.quality-bottom-nav')?.getBoundingClientRect().height||0};})()`);
    dimensions.push({stage:'measurement',width,height,...state});
+   assert.ok(state.pageHeight<=state.viewportHeight+1,`Phone measurement page scrolls at ${width}×${height}: ${JSON.stringify(state)}`);
+   if(height>=740)assert.ok(state.deckScrollHeight<=state.deckHeight+1,`Standard phone measurement deck should fit without scrolling at ${width}×${height}: ${JSON.stringify(state)}`);
  }
  await command('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
  const png=await command('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile('.runtime/quality-mobile.png',Buffer.from(png.data,'base64'));
  await command('Emulation.setDeviceMetricsOverride',{width:1366,height:768,deviceScaleFactor:1,mobile:false});
+ if(process.env.MOBILE_FOCUS_ONLY!=='1'){
  for(const tab of ['overview','work','organization','products','control-plans','logs','users','settings','spc']){
    await evaluate(`document.querySelector('#nav-tab-${tab}').click()`);await delay(350);
    assert.ok(await evaluate(`!!document.querySelector('main')`),tab+' renders');
@@ -97,6 +106,7 @@ try{
      await command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:width<1024});await delay(120);
      const state=await evaluate(`({width:innerWidth,scrollWidth:document.documentElement.scrollWidth})`);dimensions.push({stage:tab,...state});
    }
+ }
  }
  console.log(JSON.stringify({dimensions,errors},null,2));
  assert.equal(errors.length,0,'No browser runtime errors');

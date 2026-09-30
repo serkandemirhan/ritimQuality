@@ -147,3 +147,51 @@ body:has(.quality-session) { padding-bottom:0; }
  .rq-operator-workspace .measurement-evidence label{min-height:44px}
 }
 @media(max-width:767px){.rq-operator-workspace .measurement-ribbon{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.rq-operator-workspace .measurement-ribbon>div:first-child{grid-column:1;grid-row:1}.rq-operator-workspace .measurement-ribbon>div:last-child{grid-column:2;grid-row:1}.rq-operator-workspace .measurement-samples{grid-column:1/-1;grid-row:2}.rq-operator-workspace .measurement-ribbon>div:first-child>div>span:last-child{max-width:none}}
+
+/* Phone measurement focus: switch between the drawing and the entry deck instead of stacking both. */
+.mobile-measurement-mode{display:none}
+@media(max-width:767px){
+ body:has(.rq-operator-workspace){overflow:hidden}
+ .rq-terminal-page{height:100dvh;max-height:100dvh;overflow:hidden;padding:4px}
+ .rq-operator-workspace{height:calc(100dvh - 8px);min-height:0;overflow:hidden;gap:4px}
+ .rq-operator-workspace .rq-terminal-context{display:none}
+ .rq-operator-workspace .measurement-ribbon{display:flex;flex:none;margin:0;padding:4px 6px;gap:4px;border-radius:8px}
+ .rq-operator-workspace .measurement-ribbon>div:first-child,.rq-operator-workspace .measurement-ribbon>div:last-child,.rq-operator-workspace .measurement-samples{grid-column:auto;grid-row:auto}
+ .rq-operator-workspace .measurement-ribbon>div:first-child{flex:1 1 72px}
+ .rq-operator-workspace .measurement-samples{flex:0 1 46%;max-width:46%}
+ .rq-operator-workspace .measurement-ribbon>div:last-child{flex:none}
+ .rq-operator-workspace .measurement-ribbon button{min-height:36px;min-width:36px}
+ .rq-operator-workspace .measurement-samples{padding:2px;border-radius:8px}
+ .rq-operator-workspace .measurement-samples button{min-height:36px;padding:4px 8px}
+ .mobile-measurement-mode{display:grid;grid-template-columns:1fr 1fr;flex:none;gap:3px;padding:3px;border:1px solid #dce2eb;border-radius:9px;background:#eef2f7}
+ .mobile-measurement-mode button{min-height:36px;border-radius:7px;color:#526176;font-size:12px;font-weight:700}
+ .mobile-measurement-mode button[aria-pressed="true"]{background:#fff;color:#155dfb;box-shadow:0 1px 3px rgb(15 23 42 / .12)}
+ .rq-operator-workspace .quality-measurement-grid{display:block;flex:1;min-height:0;overflow:hidden}
+ .rq-operator-workspace .quality-measurement-grid.mobile-mode-drawing .quality-drawing{display:block;width:100%;height:100%;min-height:0}
+ .rq-operator-workspace .quality-measurement-grid.mobile-mode-drawing .measurement-deck{display:none}
+ .rq-operator-workspace .quality-measurement-grid.mobile-mode-card .quality-drawing{display:none}
+ .rq-operator-workspace .quality-measurement-grid.mobile-mode-card .measurement-deck{display:block;height:100%;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0;border-radius:9px;scrollbar-width:thin}
+ .rq-operator-workspace .quality-measurement-grid.mobile-mode-card .measurement-deck-inner{display:flex;min-height:100%;height:auto;flex-direction:column;gap:6px;padding:8px}
+ .rq-operator-workspace .measurement-info{display:block;min-height:0;padding:8px}
+ .rq-operator-workspace .measurement-point-title{padding-bottom:5px}
+ .rq-operator-workspace .measurement-point-title h2{font-size:15px;line-height:1.2}
+ .rq-operator-workspace .measurement-tolerances{margin:5px 0;gap:3px}
+ .rq-operator-workspace .measurement-tolerances>div{padding:4px}
+ .rq-operator-workspace .measurement-tolerances>div>div:first-child{font-size:8px}
+ .rq-operator-workspace .measurement-tolerances>div>div:last-child{font-size:12px}
+ .rq-operator-workspace .measurement-tolerance-summary{display:none}
+ .rq-operator-workspace .measurement-value{min-height:50px;padding:5px 28px 5px 6px;font-size:28px!important}
+ .rq-operator-workspace .measurement-points{margin:0;padding:0 2px}
+ .rq-operator-workspace .measurement-points>div:first-child{display:none}
+ .rq-operator-workspace .measurement-points button{min-width:38px;min-height:36px;padding:4px 7px}
+ .rq-operator-workspace .measurement-keypad{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+ .rq-operator-workspace .measurement-keypad button{min-height:40px;font-size:19px;border-radius:7px}
+ .rq-operator-workspace .measurement-keypad .keypad-next{grid-column:span 3;font-size:12px}
+ .rq-operator-workspace:has(.measurement-keypad) .quality-measurement-actions>div:first-child{display:none}
+ .rq-operator-workspace:has(.measurement-keypad) #btn-save-inspection-log{display:none}
+ .rq-operator-workspace .quality-measurement-actions{position:sticky;bottom:0;margin-top:auto;padding:4px 0 max(2px,env(safe-area-inset-bottom));gap:3px;background:#fff}
+ .rq-operator-workspace .measurement-other summary{min-height:36px;padding:8px;text-align:center}
+ .rq-operator-workspace .measurement-evidence{grid-column:auto;grid-row:auto}
+ .rq-operator-workspace .measurement-evidence summary{min-height:38px;list-style:none}
+ .rq-operator-workspace .measurement-evidence summary::-webkit-details-marker{display:none}
+}

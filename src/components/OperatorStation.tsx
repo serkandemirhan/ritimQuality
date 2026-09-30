@@ -106,7 +106,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const [notes, setNotes] = useState<string>('');
   const [savedLog, setSavedLog] = useState<InspectionLog | null>(null);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  const [mobileLayoutMode, setMobileLayoutMode] = useState<'split' | 'drawing' | 'card'>('split');
+  const [mobileLayoutMode, setMobileLayoutMode] = useState<'drawing' | 'card'>('card');
 
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -615,8 +615,12 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
           </div>
 
           <div className="rq-terminal-context" aria-label="Kontrol kimliği"><span><small>Ürün</small><strong>{currentProduct?.code}</strong></span><span><small>İş emri</small><strong>{orderNumber||'Belirtilmedi'}</strong></span><span><small>İstasyon</small><strong>{machineNo||'Belirtilmedi'}</strong></span><span><small>Operatör</small><strong>{operatorName}</strong></span><span><small>Numune</small><strong>{activeSampleIndex} / {sampleCount}</strong></span><span><small>Ölçüm ilerlemesi</small><progress value={totalChecked} max={Math.max(1,totalPossible)} aria-label="Tamamlanan ölçümler"/><strong>{totalChecked} / {totalPossible}</strong></span></div>
+          <div className="mobile-measurement-mode" aria-label="Mobil ölçüm görünümü">
+            <button type="button" aria-pressed={mobileLayoutMode==='drawing'} onClick={()=>setMobileLayoutMode('drawing')}>Teknik resim</button>
+            <button type="button" aria-pressed={mobileLayoutMode==='card'} onClick={()=>setMobileLayoutMode('card')}>Ölçüm girişi</button>
+          </div>
           {/* Main Grid: Zero-scroll Responsive Layout */}
-          <div className="quality-measurement-grid">
+          <div className={`quality-measurement-grid mobile-mode-${mobileLayoutMode}`}>
             {/* =========================================================================
                 LEFT / TOP: Interactive Technical Blueprint Canvas
                 Occupies ~60% on desktop/tablet landscape, top ~52% on mobile
@@ -627,7 +631,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                 imageUrl={currentPlan.drawingImageUrl || currentProduct?.defaultDrawingUrl || ''}
                 characteristics={characteristics}
                 activePointNo={activePointNo}
-                onPointSelect={(pNo) => setActivePointNo(pNo)}
+                onPointSelect={(pNo) => {setActivePointNo(pNo);if(phoneInput)setMobileLayoutMode('card');}}
                 pointStatuses={activeSampleStatuses}
                 measuredValues={activeSampleValues}
                 showLabelsDefault={!phoneInput}
@@ -871,17 +875,19 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                   </div>
 
                   {phoneInput && (currentCharacteristic.type || 'numeric') === 'numeric' && <div className="measurement-keypad" aria-label="Sayısal tuş takımı">
-                    {['7','8','9','4','5','6','1','2','3',',','0','⌫'].map(key => <button key={key} type="button" disabled={!!submissionRef.current || !!savedLog} aria-label={key === '⌫' ? 'Son rakamı sil' : key === ',' ? 'Ondalık ayırıcı' : key} onClick={() => pressNumber(key)}>{key}</button>)}
-                    <button type="button" disabled={!!submissionRef.current || !!savedLog} onClick={() => pressNumber('±')} aria-label="İşareti değiştir">±</button>
+                    {['7','8','9','⌫','4','5','6','±','1','2','3',','].map(key => <button key={key} type="button" disabled={!!submissionRef.current || !!savedLog} aria-label={key === '⌫' ? 'Son rakamı sil' : key === ',' ? 'Ondalık ayırıcı' : key === '±' ? 'İşareti değiştir' : key} onClick={() => pressNumber(key)}>{key}</button>)}
+                    <button type="button" disabled={!!submissionRef.current || !!savedLog} onClick={() => pressNumber('0')} aria-label="0">0</button>
                     <button type="button" className="keypad-next" disabled={currentVal == null || !!savedLog || saving || mediaUploading || (isLastMeasurement && !isComplete)} onClick={isLastMeasurement ? handleSaveInspection : handleAdvanceNext}>{isLastMeasurement ? 'Ölçümü kaydet' : 'Onayla ve sonraki nokta →'}</button>
                   </div>}
                       {(currentValStatus==='fail'||(currentCharacteristic.evidencePolicy||'none')!=='none'||currentSampleObj?.evidence?.[currentCharacteristic.id]?.length||currentSampleObj?.pointNotes?.[currentCharacteristic.id])&&(
-                        <div className="measurement-evidence rounded-xl border border-slate-200 bg-slate-50 p-2.5">
-                          <div className="mb-2 flex items-center justify-between text-[11px] font-bold text-slate-600"><span>Fotoğraf ve ölçüm notu</span><span>{(!currentCharacteristic.evidencePolicy||['none','optional'].includes(currentCharacteristic.evidencePolicy))?'İsteğe bağlı':currentCharacteristic.evidencePolicy==='required_on_fail'?'NOK ise zorunlu':'Zorunlu'}</span></div>
+                        <details className={`measurement-evidence rounded-xl border bg-slate-50 ${currentValStatus==='fail'?'border-rose-300':'border-slate-200'}`}>
+                          <summary className="flex cursor-pointer items-center justify-between gap-2 p-2.5 text-[11px] font-bold text-slate-700"><span>Fotoğraf ve ölçüm notu</span><span>{(!currentCharacteristic.evidencePolicy||['none','optional'].includes(currentCharacteristic.evidencePolicy))?'İsteğe bağlı':currentCharacteristic.evidencePolicy==='required_on_fail'?'NOK ise zorunlu':'Zorunlu'}</span></summary>
+                          <div className="border-t border-slate-200 p-2.5">
                           <label className="flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-blue-300 bg-white px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50">{mediaUploading?'Yükleniyor…':'📷 🎥 📎 Kanıt Ekle'}<input type="file" accept="image/*,video/*,application/pdf" className="hidden" disabled={mediaUploading || saving || !!submissionRef.current} onChange={handleEvidenceUpload}/></label>
                           <label className="mt-3 block text-xs font-semibold text-slate-600">Bu noktaya not ekle (isteğe bağlı)<textarea aria-label="Ölçüm noktası notu" maxLength={2000} disabled={saving || !!submissionRef.current} value={currentSampleObj?.pointNotes?.[currentCharacteristic.id] || ''} onChange={event=>{const value=event.target.value;setSamples(previous=>previous.map(sample=>sample.sampleIndex===activeSampleIndex?{...sample,pointNotes:{...sample.pointNotes,[currentCharacteristic.id]:value}}:sample));}} placeholder="Örn. yüzeyde çizik, kenarda çapak…" className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm"/></label>
                           {(currentSampleObj?.evidence?.[currentCharacteristic.id]||[]).map(item=><div key={item.id} className="mt-1 truncate text-[10px] text-emerald-700">✓ {item.fileName}</div>)}
-                        </div>
+                          </div>
+                        </details>
                       )}
 
                   {/* Stepper Navigation & Next / Save Button */}
