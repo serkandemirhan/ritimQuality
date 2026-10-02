@@ -8,7 +8,8 @@ import {validateInspection,inspectionSignature} from '../dist-server/services/in
 const out=resolve('.runtime/mobile-measurement');await mkdir(out,{recursive:true});
 await build({entryPoints:['src/services/mobileMeasurement.ts'],bundle:true,format:'esm',platform:'browser',outfile:resolve(out,'core.js'),define:{'import.meta.env.VITE_API_URL':'"/api"'}});
 const chars=Array.from({length:50},(_,i)=>({id:`c${i+1}`,pointNo:i+1,name:`Ölçüm ${i+1}`,type:'numeric',nominal:18.5,lsl:18.4,usl:18.6,tolLower:-.1,tolUpper:.1,unit:'mm',tool:'Diğer Ölçüm Aleti',sampleSize:'5',frequency:'Parti',criticalClass:'minor',pin:{x:50,y:50},precision:3}));
-const product={id:'part',code:'TEST-250',name:'Mobil kabul parçası',defaultDrawingUrl:'',images:[]};
+const drawing='data:image/svg+xml;base64,'+Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="240"><rect width="640" height="240" fill="#fff"/><path d="M100 80H540V170H100Z M80 50H560 M80 40V60 M560 40V60" fill="none" stroke="#142438" stroke-width="3"/><text x="280" y="40" font-size="24">18.5 mm</text></svg>').toString('base64');
+const product={id:'part',code:'TEST-250',name:'Mobil kabul parçası',defaultDrawingUrl:drawing,images:[]};
 const plan={id:'plan',productId:'part',version:'v1',status:'active',isActive:true,defaultSampleCount:5,characteristics:chars,characteristicImageLinks:[]};
 const app=express();app.use(express.json({limit:'20mb'}));let posts=0;let rejected=0;const accepted=new Map();let mediaFailure=true;const mediaIds=new Set();
 app.get('/api/media/config',(_,res)=>res.json({provider:'local',maxBytes:8*1024*1024}));
@@ -47,8 +48,17 @@ await click('Sonraki eksik');assert.ok(await evaluate(`document.querySelector('d
 await cmd('Page.reload');await delay(1300);await evaluate(`document.querySelector('#nav-tab-operator').click()`);await delay(250);await click('Mobil kontrole devam et');await delay(300);assert.equal(await evaluate(`document.querySelector('#mobile-measured-value').value`),'18,','draft recovers after reload');
 await evaluate(`window.core=await import('/test-core.js')`);
 const dimensions=[];
-for(const width of [360,390,430]){await cmd('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:true});await delay(150);const size=await evaluate(`({width:document.documentElement.scrollWidth,targets:[...document.querySelectorAll('.mm-keypad button,.mm-actions button')].map(b=>({width:b.getBoundingClientRect().width,height:b.getBoundingClientRect().height}))})`);assert.ok(size.width<=width,JSON.stringify(size));assert.ok(size.targets.every(r=>r.width>=48&&r.height>=48));dimensions.push({width,...size});const shot=await cmd('Page.captureScreenshot',{format:'png'});await writeFile(resolve(out,`mobile-${width}.png`),Buffer.from(shot.data,'base64'));}
-const before=await evaluate(`[...document.querySelectorAll('.mm-keypad button')].map(b=>b.textContent).join()`);await evaluate(`(()=>{const e=document.querySelector('select[aria-label="El tercihi"]');e.value='left';e.dispatchEvent(new Event('change',{bubbles:true}));})()`);assert.equal(await evaluate(`[...document.querySelectorAll('.mm-keypad button')].map(b=>b.textContent).join()`),before);
+for(const [width,height] of [[320,568],[360,640],[390,844],[430,932]]){
+  await cmd('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});await delay(250);
+  const size=await evaluate(`(()=>{const bounds=e=>{const r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,width:r.width,height:r.height}};return {width:document.documentElement.scrollWidth,targets:[...document.querySelectorAll('.mm-keypad button,.mm-actions button')].map(bounds),keypad:bounds(document.querySelector('.mm-keypad')),actions:bounds(document.querySelector('.mm-actions')),drawingLoaded:document.querySelector('.mm-drawing img').naturalWidth>0}})()`);
+  assert.ok(size.width<=width,JSON.stringify(size));assert.ok(size.targets.every(r=>r.width>=48&&r.height>=48));
+  assert.ok(size.keypad.bottom<=size.actions.top,'Footer must not cover keypad: '+JSON.stringify(size));
+  assert.ok(size.targets.every(r=>r.top>=0&&r.bottom<=height),'All keys and save controls fit: '+JSON.stringify({height,...size}));
+  assert.ok(size.drawingLoaded,'Technical drawing loaded');dimensions.push({width,height,...size});
+  assert.ok(await evaluate(`(()=>{const image=document.querySelector('.mm-overview img').getBoundingClientRect();const area=document.querySelector('.mm-overview .mm-drawing-scroll').getBoundingClientRect();return image.top>=area.top-1&&image.bottom<=area.bottom+1&&image.height>20})()`),'Technical drawing fits without cropping');
+  const shot=await cmd('Page.captureScreenshot',{format:'png'});await writeFile(resolve(out,`mobile-${width}.png`),Buffer.from(shot.data,'base64'));
+}
+const before=await evaluate(`[...document.querySelectorAll('.mm-keypad button')].map(b=>b.textContent).join()`);await evaluate(`document.querySelector('[aria-label="Diğer işlemler"]').click()`);await delay(100);await evaluate(`(()=>{const e=document.querySelector('select[aria-label="El tercihi"]');e.value='left';e.dispatchEvent(new Event('change',{bubbles:true}));})()`);await click('✕');assert.equal(await evaluate(`[...document.querySelectorAll('.mm-keypad button')].map(b=>b.textContent).join()`),before);
 // Exercise durable attempts without 1,250 synthetic keypad clicks.
 await evaluate(`Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false});window.dispatchEvent(new Event('offline'));`);
 assert.equal(await evaluate(`await core.commitMobileCell('review:user',{sample:1,characteristic:'c2'},{...core.emptyDraft(),raw:'18.67'},true);(await core.readMobileSession('review:user')).attempts.length`),2);

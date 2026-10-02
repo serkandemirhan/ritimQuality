@@ -220,7 +220,7 @@ export default function App() {
         </Topbar>
 
 
-        <PendingInspections onSaved={loadData} />
+        {!measurementActive&&<PendingInspections onSaved={loadData} />}
         {/* Main Content Area */}
         <PageContainer id="main-content" tabIndex={-1} className={measurementActive?'rq-terminal-page':'rq-workspace'}>
         {!measurementActive&&!['products','control-plans','operator'].includes(activeTab)&&<PageHeader title={pageMeta[activeTab].title} description={pageMeta[activeTab].description} breadcrumb={<Breadcrumb items={[{label:'Ritim Quality'},{label:pageMeta[activeTab].title}]}/>}/>}
