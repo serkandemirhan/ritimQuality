@@ -10,6 +10,9 @@
 .mm-annotations{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .mm-preferences{font-size:13px;margin:4px 0}.mm-preferences summary{min-height:32px;cursor:pointer;padding:6px 0}.mm-characteristic{display:flex;gap:8px;align-items:center;margin:6px 0}.mm-characteristic h1{flex:1;font-size:18px;margin:0}.mm-characteristic>button{width:auto;max-width:125px;font-size:13px}.mm-input{margin-top:8px}
 .mm-tools-button{display:flex;align-items:center;justify-content:center;flex:none}
+.mm-value-row{position:relative}
+.mm-value-row .mm-feedback{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:76px;font-size:11px;line-height:1.2;text-align:right;pointer-events:none;margin:0;min-height:0}
+.mm-value-row input{padding-inline:88px}
 .mm-keypad{grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(4,50px)}
 .mm-keypad button[data-key="1"]{grid-area:3/1}
 .mm-keypad button[data-key="2"]{grid-area:3/2}

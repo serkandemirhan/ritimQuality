@@ -43,6 +43,7 @@ export const InspectionCertificateModal: React.FC<InspectionCertificateModalProp
         <div className="rq-report-actions rq-actions"><span className="rq-helper m-0">Yazdırma önizlemesi · {log.sessionCode}</span><Button id="btn-trigger-print" variant="primary" onClick={handlePrint}><Printer size={16}/>Yazdır / PDF Kaydet</Button><Button id="btn-close-certificate" onClick={handleClose}>Kapat</Button></div>
         {/* Printable A4 Certificate Body */}
         <div className="rq-report-paper">
+          {log.clientSyncStatus==='pending'&&<p className="rq-feedback rq-tone-warning" role="status">Yerel rapor · Gönderim bekliyor. Ölçümler cihazda kayıtlı; fotoğraf ve ölçüm gönderimi arka planda sürüyor.</p>}
           {/* Certificate Header Block */}
           <div className="border-2 border-slate-950 p-4 mb-4">
             <div className="flex items-center justify-between border-b-2 border-slate-950 pb-3 mb-3">

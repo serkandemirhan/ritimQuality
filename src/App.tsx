@@ -15,6 +15,7 @@ import { ControlPlanEditor } from './components/ControlPlanEditor';
 import { ProductManagement } from './components/ProductManagement';
 import { MeasurementLogs } from './components/MeasurementLogs';
 import { InspectionCertificateModal } from './components/InspectionCertificateModal';
+import {MobileInspectionUploads} from './components/MobileInspectionUploads';
 import { DataBackupModal } from './components/DataBackupModal';
 import { UserManager } from './components/UserManager';
 import { SubscriptionManager } from './components/SubscriptionManager';
@@ -82,6 +83,7 @@ export default function App() {
   // Handlers for state updates
   const handleInspectionSaved = (newLog: InspectionLog) => {
     setInspectionLogs(prev => [newLog, ...prev.filter(log=>log.id!==newLog.id)]);
+    setCertificateLog(previous=>previous?.id===newLog.id?newLog:previous);
   };
 
   const handleSaveControlPlan = (updatedPlan: ControlPlan) => {
@@ -186,7 +188,7 @@ export default function App() {
     subscription: { title: 'Abonelik', description: 'Paket kullanımını ve faturalandırmayı yönetin.' },
   };
 
-  if(offlineMobile)return <MobileMeasurementShell onSaved={()=>{}} onExit={()=>setOfflineMobile(false)}/>;
+  if(offlineMobile)return <><MobileInspectionUploads onConfirmed={log=>{handleInspectionSaved(log);setCertificateLog(previous=>previous?.id===log.id?log:previous);}}/>{certificateLog?<InspectionCertificateModal log={certificateLog} company={company} product={certificateProduct} controlPlan={certificatePlan} onClose={()=>{setCertificateLog(null);setOfflineMobile(false);}}/>:<MobileMeasurementShell onSaved={()=>{}} onCompleted={setCertificateLog} onExit={()=>setOfflineMobile(false)}/>}</>;
   if(!hydrated)return <main className="p-8"><p role="status">{syncError || 'Çalışma alanı yükleniyor…'}</p>{syncError&&<button type="button" className="mt-4 rounded-lg border p-3" onClick={()=>window.location.reload()}>Yeniden dene</button>}</main>;
   return (
     <AppShell style={{'--rq-sidebar-width':sidebarCollapsed?'72px':'240px'} as React.CSSProperties}>
@@ -221,6 +223,7 @@ export default function App() {
 
 
         {!measurementActive&&<PendingInspections onSaved={loadData} />}
+        <MobileInspectionUploads onConfirmed={log=>{handleInspectionSaved(log);setCertificateLog(previous=>previous?.id===log.id?log:previous);}}/>
         {/* Main Content Area */}
         <PageContainer id="main-content" tabIndex={-1} className={measurementActive?'rq-terminal-page':'rq-workspace'}>
         {!measurementActive&&!['products','control-plans','operator'].includes(activeTab)&&<PageHeader title={pageMeta[activeTab].title} description={pageMeta[activeTab].description} breadcrumb={<Breadcrumb items={[{label:'Ritim Quality'},{label:pageMeta[activeTab].title}]}/>}/>}

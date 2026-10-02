@@ -471,7 +471,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
     ? Number((currentVal - currentCharacteristic.nominal).toFixed(3))
     : null;
 
-  if(mobileResume)return <MobileMeasurementShell seed={mobileSeed.current} onSaved={onInspectionSaved} onOpenActions={onOpenActions} onExit={()=>{setMobileResume(false);mobileSeed.current=undefined;void readMobileSession(SaasApi.scope()).then(s=>setMobileAvailable(Boolean(s)));}}/>;
+  if(mobileResume)return <MobileMeasurementShell seed={mobileSeed.current} onCompleted={log=>{setMobileResume(false);mobileSeed.current=undefined;setMobileAvailable(false);setIsSessionActive(false);onOpenCertificate(log);}} onSaved={onInspectionSaved} onOpenActions={onOpenActions} onExit={()=>{setMobileResume(false);mobileSeed.current=undefined;void readMobileSession(SaasApi.scope()).then(s=>setMobileAvailable(Boolean(s)));}}/>;
 
   return (
     <div className="w-full quality-operator">

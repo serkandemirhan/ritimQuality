@@ -1,5 +1,6 @@
 import type { Characteristic, ControlPlan, EvidenceAttachment, InspectionLog, Product, SampleMeasurement } from '../types';
 import { SaasApi } from './api';
+import {StorageService} from './storage';
 import { evaluateMeasurement, evidenceErrors, orderedCells, type QualityResult } from '../../server/services/measurementCore';
 export { evaluateMeasurement, evidenceErrors, orderedCells };
 export interface Cell { sample: number; characteristic: string }
@@ -43,6 +44,28 @@ export async function readMobileSession(scope: string): Promise<MobileSession | 
     request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
   });
 }
+export async function readMobileUploads(scope:string):Promise<MobileSession[]> {
+  const database=await db();
+  return new Promise((resolve,reject)=>{const request=database.transaction('archives').objectStore('archives').getAll();request.onsuccess=()=>resolve((request.result as MobileSession[]).filter(s=>s.scope===scope&&!s.confirmed));request.onerror=()=>reject(request.error);});
+}
+export async function finishMobileSession(scope:string):Promise<InspectionLog> {
+  const database=await db();
+  return new Promise((resolve,reject)=>{
+    const tx=database.transaction(['sessions','archives'],'readwrite');const store=tx.objectStore('sessions');const request=store.get(scope);let log:InspectionLog;let error:unknown;
+    request.onsuccess=()=>{try{const s=request.result as MobileSession;if(!s||mobileSummary(s).missing.length)throw new Error('Ölçümü tamamlamak için eksik noktaları kaydedin.');log=s.confirmed||{...mobileLog(s,true),clientSyncStatus:'pending'};tx.objectStore('archives').put({...s,submissionRequested:true});store.delete(scope);}catch(e){error=e;tx.abort();}};
+    tx.oncomplete=()=>{window.dispatchEvent(new Event('quality-mobile-queue-changed'));resolve(log);};tx.onabort=tx.onerror=()=>reject(error||new Error('Gönderim kuyruğu cihazda saklanamadı. Ölçüm oturumu korundu.'));
+  });
+}
+async function changeStoredSession(scope:string,id:string,change:(s:MobileSession)=>MobileSession):Promise<MobileSession> {
+  const database=await db();
+  return new Promise((resolve,reject)=>{
+    const tx=database.transaction(['sessions','archives'],'readwrite');let updated:MobileSession;let error:unknown;
+    const update=(store:IDBObjectStore,s:MobileSession|undefined)=>{try{if(!s||s.scope!==scope||s.id!==id)throw new Error('Gönderilecek ölçüm bulunamadı.');updated=change(s);store.put(updated);}catch(e){error=e;tx.abort();}};
+    const active=tx.objectStore('sessions');const request=active.get(scope);
+    request.onsuccess=()=>{if(request.result?.id===id)update(active,request.result);else{const archive=tx.objectStore('archives');const found=archive.get(id);found.onsuccess=()=>update(archive,found.result);}};
+    tx.oncomplete=()=>resolve(updated);tx.onabort=tx.onerror=()=>reject(error||new Error('Gönderim durumu cihazda saklanamadı.'));
+  });
+}
 // Read-modify-write in one IDB transaction keeps drafts, media and attempt outbox consistent across tabs.
 export async function changeMobileSession(scope: string, change: (s: MobileSession | undefined) => MobileSession): Promise<MobileSession> {
   const database = await db();
@@ -84,50 +107,53 @@ export function mobileSummary(s: MobileSession) {
   const photos = Object.values(s.media).filter(m => s.attempts.some(a => a.photos.includes(m.id)) && !m.attachment).length;
   return {cells,missing,review,photos};
 }
-export function mobileLog(s: MobileSession): InspectionLog {
+export function mobileLog(s: MobileSession, localPreview=false): InspectionLog {
   const summary = mobileSummary(s);
-  if (summary.missing.length || summary.photos) throw new Error('Ölçüm veya kanıt gönderimi eksik.');
+  if (summary.missing.length || (!localPreview&&summary.photos)) throw new Error('Ölçüm veya kanıt gönderimi eksik.');
   const samples: SampleMeasurement[] = Array.from({length:s.count},(_,i) => {
     const sample: SampleMeasurement = {sampleIndex:i+1,values:{},statuses:{},evidence:{},pointNotes:{}};
     for (const c of s.plan.characteristics) {
       const a = latestAttempt(s,{sample:i+1,characteristic:c.id})!;
       sample.values[c.id] = a.value; sample.statuses[c.id] = a.result === 'pass' ? 'pass' : a.result === 'fail' ? 'fail' : 'warning';
       // All attempt evidence stays attached to the original cell, including earlier NOK attempts.
-      sample.evidence![c.id] = [...new Set(s.attempts.filter(a => a.sample === i+1 && a.characteristic === c.id).flatMap(a => a.photos))].map(id => s.media[id].attachment!);
+      sample.evidence![c.id] = [...new Set(s.attempts.filter(a => a.sample === i+1 && a.characteristic === c.id).flatMap(a => a.photos))].flatMap(id => s.media[id].attachment?[s.media[id].attachment!]:[]);
       sample.pointNotes![c.id] = a.comment;
     }
     return sample;
   });
-  return {id:s.id,sessionCode:`INS-${s.id}`,productId:s.product.id,productCode:s.product.code,productName:s.product.name,controlPlanId:s.plan.id,controlPlanVersion:s.plan.version,controlPlanSnapshot:s.plan,operatorName:s.operatorName,operatorUserId:s.operatorId,lotNumber:s.lotNumber,orderNumber:s.orderNumber,serialNumber:s.serialNumber,machineNo:s.instrumentId,equipmentId:s.instrumentId,source:s.source as InspectionLog['source'],sampleCount:s.count,samples,timestamp:s.createdAt,overallStatus:'warning',totalPointsChecked:summary.cells.length,failedPointsCount:0,warningPointsCount:0,
-    mobileMeasurement:{version:1,attempts:s.attempts.map(a => ({...a,photos:a.photos.map(id => s.media[id].attachment!.id)}))}};
+  return {id:s.id,sessionCode:`INS-${s.id}`,productId:s.product.id,productCode:s.product.code,productName:s.product.name,controlPlanId:s.plan.id,controlPlanVersion:s.plan.version,controlPlanSnapshot:s.plan,operatorName:s.operatorName,operatorUserId:s.operatorId,lotNumber:s.lotNumber,orderNumber:s.orderNumber,serialNumber:s.serialNumber,machineNo:s.instrumentId,equipmentId:s.instrumentId,source:s.source as InspectionLog['source'],sampleCount:s.count,samples,timestamp:s.createdAt,overallStatus:localPreview?(samples.some(sample=>Object.values(sample.statuses).includes('fail'))?'fail':summary.review?'warning':'pass'):'warning',totalPointsChecked:summary.cells.length,failedPointsCount:localPreview?samples.reduce((total,sample)=>total+Object.values(sample.statuses).filter(status=>status==='fail').length,0):0,warningPointsCount:localPreview?samples.reduce((total,sample)=>total+Object.values(sample.statuses).filter(status=>status==='warning').length,0):0,
+    mobileMeasurement:{version:1,attempts:s.attempts.map(a => ({...a,photos:a.photos.map(id => s.media[id].attachment?.id||id)}))}};
 }
 const running = new Map<string, Promise<MobileSession | undefined>>();
-export function syncMobileSession(scope: string) {
-  if (running.has(scope)) return running.get(scope)!;
+export async function syncMobileSession(scope: string, queued?:MobileSession) {
+  const initial=queued||await readMobileSession(scope);
+  if(!initial)return;
+  const key=`${scope}:${initial.id}`;
+  if (running.has(key)) return running.get(key)!;
   const task = (async () => {
-    let s = await readMobileSession(scope);
+    let s:MobileSession=initial;
     if (!s || s.confirmed || !navigator.onLine) return s;
     try {
       if (SaasApi.scope() !== scope) throw new Error('Oturum sahibi değişti; kendi hesabınızla giriş yapın.');
       for (const media of Object.values(s.media).filter(m => !m.attachment && s!.attempts.some(a => a.photos.includes(m.id)))) {
         try {
           const attachment = await SaasApi.uploadFile(media.file,media.id);
-          s = await changeMobileSession(scope, current => ({...current!,media:{...current!.media,[media.id]:{...current!.media[media.id],attachment,error:undefined}}}));
+            s = await changeStoredSession(scope,s.id, current => ({...current,media:{...current.media,[media.id]:{...current.media[media.id],attachment,error:undefined}}}));
         } catch (error) {
-          await changeMobileSession(scope,current => ({...current!,media:{...current!.media,[media.id]:{...current!.media[media.id],error:(error as Error).message}}}));
+          await changeStoredSession(scope,s.id,current => ({...current,media:{...current.media,[media.id]:{...current.media[media.id],error:(error as Error).message}}}));
           throw error;
         }
       }
       // Existing API accepts complete inspections; incomplete attempts remain in the durable local outbox.
       if (s.submissionRequested && !mobileSummary(s).missing.length) {
-        s = await changeMobileSession(scope,current => ({...current!,submission:current!.submission || mobileLog(current!)}));
-        const confirmed = await SaasApi.saveInspectionLog(s.submission!) as InspectionLog;
-        s = await changeMobileSession(scope,current => ({...current!,confirmed,syncError:undefined}));
+        s = await changeStoredSession(scope,s.id,current => ({...current,submission:current.submission || mobileLog(current)}));
+        const confirmed = await StorageService.saveInspectionLog(s.submission!);
+        s = await changeStoredSession(scope,s.id,current => ({...current,confirmed,syncError:undefined}));
       }
     } catch (error) {
-      s = await changeMobileSession(scope,current => ({...current!,syncError:(error as Error).message}));
+      s = await changeStoredSession(scope,s.id,current => ({...current,syncError:(error as Error).message}));
     }
     return s;
-  })().finally(() => running.delete(scope));
-  running.set(scope,task); return task;
+  })().finally(() => running.delete(key));
+  running.set(key,task); return task;
 }

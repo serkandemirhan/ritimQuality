@@ -63,6 +63,10 @@
 .rq-record-sync{display:inline-flex;align-items:center;gap:6px;color:#167452;font-family:var(--rq-font);font-size:12px}
 .rq-record-sync svg{flex:none}
 .rq-record-sync-pending{color:#94600e}
+.rq-mobile-upload-status{display:flex;align-items:center;gap:10px;margin:8px 12px;padding:8px 12px;border:1px solid #dce2ea;background:#f0f7f3;color:#167452;font-size:12px;min-width:0}
+.rq-mobile-upload-status>svg,.rq-mobile-upload-status>.rq-button{flex:none}
+.rq-mobile-upload-status>div{flex:1;min-width:0;overflow-wrap:anywhere}
+body:has(.mm-shell) .rq-mobile-upload-status{display:none}
 @media(min-width:768px){.rq-record-table .rq-record-sync>span{display:none}}
 @media(max-width:767px){
  .rq-records-workspace,.rq-records-list,.rq-record-filters,.rq-record-filter-fields>*{min-width:0;max-width:100%}

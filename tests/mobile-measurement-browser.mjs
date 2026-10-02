@@ -14,12 +14,14 @@ const product={id:'part',code:'TEST-250',name:'Mobil kabul parçası',defaultDra
 const plan={id:'plan',productId:'part',version:'v1',status:'active',isActive:true,defaultSampleCount:5,characteristics:chars,characteristicImageLinks:[]};
 const record={id:'synced-record',sessionCode:'INS-301a9771-dbe7-4ed0-935b-f56619113060',timestamp:new Date().toISOString(),productId:'part',productName:product.name,productCode:product.code,controlPlanId:'plan',controlPlanVersion:'v1',controlPlanSnapshot:plan,lotNumber:'LOT-2026-TEST-12345678901234567890',orderNumber:'ORDER-2026-TEST-12345678901234567890',operatorName:'Operatör',machineNo:'CNC-01',sampleCount:1,totalPointsChecked:1,failedPointsCount:0,overallStatus:'pass',samples:[{sampleIndex:1,values:{c1:18.5},statuses:{c1:'pass'}}]};
 const app=express();app.use(express.json({limit:'20mb'}));let posts=0;let rejected=0;const accepted=new Map();let mediaFailure=true;const mediaIds=new Set();
+let delayedId='';const heldUploads=[];
+app.get('/test-reset',(_,res)=>res.type('html').send('<!doctype html><title>Reset</title>'));
 app.get('/api/media/config',(_,res)=>res.json({provider:'local',maxBytes:8*1024*1024}));
 app.post('/api/media',(req,res)=>{if(mediaFailure){res.status(503).json({error:'Fotoğraf yükleme hatası'});return;}mediaIds.add(req.body.id);res.json({...req.body,url:'/api/media/'+req.body.id,createdAt:new Date().toISOString()});});
 app.get('/api/bootstrap',(_req,res)=>res.json({company:{id:'review',name:'Mobil Kabul',plan_id:'enterprise',subscription_status:'active'},currentUserId:'user',users:[{id:'user',name:'Operatör',role:'admin',status:'active',email:'test@example.test'}],products:[product],controlPlans:[plan],inspectionLogs:[record],usage:{control_plans:1,users:1,monthly_measurements:0}}));
 app.get('/api/inspection-rules',(_,res)=>res.json({requireActivePlan:true,requireLotNumber:false,requireOrderNumber:false}));
 app.get('/api/work',(_,res)=>res.json({tasks:[],cases:[],approvals:[],notifications:[]}));
-app.post('/api/inspection-logs',(req,res)=>{posts++;if(rejected){rejected--;res.status(409).json({error:'Revizyon uyuşmazlığı; yerel kayıt korundu.'});return;}try{const old=accepted.get(req.body.id);const signature=inspectionSignature(req.body);if(old&&old.signature!==signature)throw Error('Çakışma');const payload=old?.payload||validateInspection(req.body,plan,{id:'user',name:'Operatör'});accepted.set(req.body.id,{signature,payload});res.json(payload);}catch(e){res.status(409).json({error:e.message});}});
+app.post('/api/inspection-logs',async(req,res)=>{posts++;if(req.body.id===delayedId)await new Promise(resolve=>heldUploads.push(resolve));if(rejected){rejected--;res.status(409).json({error:'Revizyon uyuşmazlığı; yerel kayıt korundu.'});return;}try{const old=accepted.get(req.body.id);const signature=inspectionSignature(req.body);if(old&&old.signature!==signature)throw Error('Çakışma');const payload=old?.payload||validateInspection(req.body,plan,{id:'user',name:'Operatör'});accepted.set(req.body.id,{signature,payload});res.json(payload);}catch(e){res.status(409).json({error:e.message});}});
 app.get('/api/*',(_,res)=>res.json([]));app.get('/test-core.js',(_,res)=>res.sendFile(resolve(out,'core.js')));app.use(express.static('dist'));
 const server=app.listen(3356,'127.0.0.1');
 const edge=spawn(process.env.EDGE_PATH||'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',['--headless=new','--remote-debugging-port=9356','--user-data-dir='+resolve(out,'profile'),'--no-first-run','--disable-gpu','about:blank'],{windowsHide:true,stdio:'ignore'});
@@ -37,8 +39,10 @@ const token='review.'+Buffer.from(JSON.stringify({tenantId:'review',userId:'user
 const runId=crypto.randomUUID();
 await cmd('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('qualitrack_access_token',${JSON.stringify(token)});if(sessionStorage.getItem('browser-test-run')!==${JSON.stringify(runId)}){localStorage.removeItem('qualitrack_access_token:pending:review:user');sessionStorage.setItem('browser-test-run',${JSON.stringify(runId)});}`});
 await cmd('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
-await cmd('Page.navigate',{url:'http://127.0.0.1:3356'});await delay(1600);
+await cmd('Page.navigate',{url:'http://127.0.0.1:3356/test-reset'});await delay(300);
+await evaluate(`await Promise.all((await navigator.serviceWorker.getRegistrations()).map(r=>r.unregister()));await Promise.all((await caches.keys()).map(key=>caches.delete(key)))`);
 await evaluate(`await new Promise((resolve,reject)=>{const r=indexedDB.deleteDatabase('ritim-mobile-measurement');r.onsuccess=resolve;r.onerror=reject;})`);
+await cmd('Page.navigate',{url:'http://127.0.0.1:3356'});await delay(1600);
 await evaluate(`document.querySelector('#nav-tab-operator').click()`);await delay(250);
 await evaluate(`document.querySelector('.rq-scan-panel summary').click();window.originalGetUserMedia=navigator.mediaDevices.getUserMedia;window.originalBarcodeDetector=window.BarcodeDetector;`);
 for(const [mode,payload] of [['missing','TEST-250'],['rejects','http://127.0.0.1:3356/?product=part&wo=QR-ORDER']]){
@@ -66,7 +70,11 @@ await evaluate(`(()=>{const s=document.querySelector('#select-operator-product')
 assert.ok(await evaluate(`!!document.querySelector('.mm-shell')`),'Mobile shell opened');
 await evaluate(`window.core=await import('/test-core.js')`);
 await press(['1','8',',','5','2']);assert.equal(await evaluate(`(await core.readMobileSession('review:user')).attempts.length`),0,'typing is not a committed measurement');
+const beforeSaveLayout=await evaluate(`({scroll:window.scrollY,value:document.querySelector('#mobile-measured-value').getBoundingClientRect().top})`);
 await click('Kaydet ve ilerle');assert.equal(await evaluate(`(await core.readMobileSession('review:user')).attempts.length`),1);assert.equal(await evaluate(`document.querySelector('#mobile-measured-value').value`),'');
+assert.equal(await evaluate(`window.scrollY`),beforeSaveLayout.scroll,'Local save does not scroll the page');
+assert.equal(await evaluate(`document.querySelector('#mobile-measured-value').getBoundingClientRect().top`),beforeSaveLayout.value,'Local save feedback does not shift the value field');
+assert.ok(await evaluate(`document.querySelector('.mm-value-row .mm-feedback').textContent.includes('Cihazda kaydedildi')`),'Save feedback stays beside the measured value');
 await click('Kaydet ve ilerle');assert.equal(await evaluate(`(await core.readMobileSession('review:user')).attempts.length`),1,'empty value rejected');
 await press(['1','8',',']);await click('Kaydet ve ilerle');assert.equal(await evaluate(`(await core.readMobileSession('review:user')).active.characteristic`),'c2','partial decimal does not advance');
 await click('Sonraki eksik');assert.ok(await evaluate(`document.querySelector('dialog[open]').textContent.includes('Kaydedilmemiş')`));await click('Vazgeç');
@@ -109,7 +117,26 @@ mediaFailure=false;await evaluate(`await core.syncMobileSession('review:user')`)
 // The fixture plan differs intentionally: media are accepted while the measurement remains a visible revision conflict.
 assert.equal(await evaluate(`!!(await core.readMobileSession('review:user')).confirmed`),false);
 await evaluate(`await core.syncMobileSession('review:user')`);assert.equal(mediaIds.size,2,'media retry keeps stable IDs');
-await cmd('Page.reload');await delay(1300);await evaluate(`document.querySelector('#nav-tab-logs').click()`);await delay(250);
+assert.match(await evaluate(`window.originalPut=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(){throw new DOMException('Storage full','QuotaExceededError')};try{await core.finishMobileSession('review:user');'unexpected'}catch(e){e.message}finally{IDBObjectStore.prototype.put=window.originalPut}`),/Storage full/);
+assert.ok(await evaluate(`!!(await core.readMobileSession('review:user'))`),'Queue write failure preserves the active inspection');
+await evaluate(`Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false});window.dispatchEvent(new Event('offline'));window.localReport=await core.finishMobileSession('review:user')`);
+assert.equal(await evaluate(`await core.readMobileSession('review:user')`),undefined,'Finished pending inspection no longer blocks a new session');
+assert.ok(await evaluate(`(await core.readMobileUploads('review:user')).some(s=>Object.values(s.media).every(m=>m.file instanceof File))`),'Pending photos remain durable in the upload queue');
+delayedId=await evaluate(`await core.changeMobileSession('review:user',()=>({id:crypto.randomUUID(),scope:'review:user',plan:${JSON.stringify(plan)},product:${JSON.stringify(product)},count:1,operatorId:'user',operatorName:'Operatör',orderNumber:'',lotNumber:'',serialNumber:'',instrumentId:'gauge',source:'manual',active:{sample:1,characteristic:'c50'},order:'sample',drafts:{},attempts:[],media:{},createdAt:new Date().toISOString()}));for(const cell of core.mobileSummary(await core.readMobileSession('review:user')).cells.filter(c=>c.characteristic!=='c50'))await core.commitMobileCell('review:user',cell,{...core.emptyDraft(),raw:'18.5'},true);(await core.readMobileSession('review:user')).id`);
+await cmd('Page.reload');await delay(1300);await evaluate(`document.querySelector('#nav-tab-operator').click()`);await delay(250);await click('Mobil kontrole devam et');await delay(300);
+await evaluate(`window.core=await import('/test-core.js');Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false});window.dispatchEvent(new Event('offline'))`);await press(['1','8',',','5']);await click('Kaydet ve ilerle');await click('Ölçümü tamamla ve raporu aç');
+assert.ok(await evaluate(`!!document.querySelector('.rq-report-modal')&&!document.querySelector('.mm-shell')`),'Completing an inspection opens its report before upload confirmation');
+assert.ok(await evaluate(`document.querySelector('.rq-report-paper').textContent.includes('Yerel rapor')`),'Unsynced report is explicitly local');
+await evaluate(`Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>true});window.dispatchEvent(new Event('online'))`);
+await evaluate(`document.querySelector('#btn-close-certificate').click()`);await delay(150);await evaluate(`document.querySelector('#nav-tab-logs').click()`);await delay(150);
+assert.ok(await evaluate(`!document.querySelector('.mm-shell')&&!!document.querySelector('.rq-record-table')`),'Navigation remains available during upload');
+await cmd('Page.reload');await delay(1300);await evaluate(`window.core=await import('/test-core.js')`);
+assert.ok(await evaluate(`(await core.readMobileUploads('review:user')).some(s=>s.id===${JSON.stringify(delayedId)})`),'Pending submission survives reload');
+const completedId=delayedId;delayedId='';heldUploads.splice(0).forEach(resolve=>resolve());
+for(let i=0;i<60;i++){if(await evaluate(`!(await core.readMobileUploads('review:user')).some(s=>s.id===${JSON.stringify(completedId)})`))break;await delay(100);}
+assert.ok(await evaluate(`!(await core.readMobileUploads('review:user')).some(s=>s.id===${JSON.stringify(completedId)})`),'Background upload completes after leaving measurement and reloading');
+assert.ok(accepted.has(completedId),'Completed inspection reached the server');
+await evaluate(`document.querySelector('#nav-tab-logs').click()`);await delay(250);
 for(const width of [320,390,430,1280]){
   await cmd('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<768});await delay(200);
   assert.ok(await evaluate(`document.documentElement.scrollWidth<=${width}`),'Measurement records have no page overflow at '+width);

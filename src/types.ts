@@ -116,6 +116,7 @@ export interface SampleMeasurement {
 }
 
 export interface InspectionLog {
+  clientSyncStatus?: 'pending';
   mobileMeasurement?: unknown;
   draftId?: string;
   controlPlanSnapshot?: ControlPlan;
