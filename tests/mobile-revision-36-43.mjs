@@ -35,8 +35,10 @@ try {
   const product=await b.evaluate("fetch('/api/bootstrap').then(r=>r.json()).then(data=>data.products[0])");
   await b.fill('input[aria-label="QR bağlantısı veya parça kodu"]',product.code);await b.click('Ürünü aç');
   await b.assert("document.querySelector('.rq-scan-content [role=status]').textContent.includes('Ürün seçildi')",'Manual QR fallback selects real product');
-  await b.evaluate("window.BarcodeDetector=undefined");await b.click('Kamerayla tara');
-  await b.assert("document.querySelector('#qr-scan-error').textContent.includes('desteklenmiyor')&&!document.querySelector('.rq-is-scanning')",'Unsupported camera returns to manual entry');
+  await b.evaluate("window.BarcodeDetector=undefined;window.originalGetUserMedia=navigator.mediaDevices.getUserMedia;navigator.mediaDevices.getUserMedia=async()=>{throw new DOMException('Permission denied','NotAllowedError')}");await b.click('Kamerayla tara');
+  await b.waitFor("!!document.querySelector('#qr-scan-error')");
+  await b.assert("document.querySelector('#qr-scan-error').textContent.includes('Kamera izni verilmedi')&&!document.querySelector('.rq-is-scanning')",'Camera permission denial returns to manual entry');
+  await b.evaluate("navigator.mediaDevices.getUserMedia=window.originalGetUserMedia");
   await b.evaluate("document.querySelector('#btn-start-inspection').click()");await delay(300);
   await b.fill('input[aria-label="Ölçülen değer"]','99');
   await b.assert("document.querySelector('.measurement-result').textContent.includes('NOK')",'Mobile terminal shows NOK text');

@@ -32,14 +32,34 @@ export function InspectionQR({products,onSelect}:{products:Product[];onSelect:(i
     const start=async()=>{
       try{
         const Constructor=(window as unknown as {BarcodeDetector?:new(options:{formats:string[]})=>{detect:(source:HTMLVideoElement)=>Promise<{rawValue:string}[]>}}).BarcodeDetector;
-        if(!Constructor)throw new Error('Bu tarayıcıda uygulama içi QR tarama desteklenmiyor. Telefonun Kamera uygulamasıyla QR açabilir veya parça kodunu yazabilirsiniz.');
-        const detector=new Constructor({formats:['qr_code']});
+        let detector:InstanceType<NonNullable<typeof Constructor>>|undefined;
+        try{if(Constructor)detector=new Constructor({formats:['qr_code']});}catch{/* Use the image decoder when native QR detection is unavailable. */}
         if(!navigator.mediaDevices?.getUserMedia)throw new Error('Kamera için güvenli bağlantı (HTTPS) gerekli. Ürün kodunu elle girebilirsiniz.');
-        const media=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+        let decoder:typeof import('jsqr').default|undefined;
+        const canvas=document.createElement('canvas');
+        const context=canvas.getContext('2d',{willReadFrequently:true});
+        const decodeFrame=async(source:HTMLVideoElement)=>{
+          if(!decoder)decoder=(await import('jsqr')).default;
+          if(canceled||!context||source.readyState<2||!source.videoWidth||!source.videoHeight)return [];
+          const scale=Math.min(1,960/Math.max(source.videoWidth,source.videoHeight));
+          canvas.width=Math.max(1,Math.round(source.videoWidth*scale));canvas.height=Math.max(1,Math.round(source.videoHeight*scale));
+          context.drawImage(source,0,0,canvas.width,canvas.height);
+          const pixels=context.getImageData(0,0,canvas.width,canvas.height);
+          const code=decoder(pixels.data,pixels.width,pixels.height,{inversionAttempts:'attemptBoth'});
+          return code?[{rawValue:code.data}]:[];
+        };
+        if(!detector){decoder=(await import('jsqr')).default;if(!context)throw new Error('Kamera görüntüsü işlenemedi. Lütfen tarayıcıyı yeniden açın.');}
+        if(canceled)return;
+        const media=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
         if(canceled){media.getTracks().forEach(t=>t.stop());return;}stream.current=media;
         setTorchAvailable(!!(media.getVideoTracks()[0]?.getCapabilities?.() as MediaTrackCapabilities & {torch?:boolean})?.torch);
         video.current!.srcObject=media;await video.current!.play();
-        const scan=async()=>{if(canceled)return;try{const codes=await detector.detect(video.current!);if(canceled)return;if(codes[0]){select(codes[0].rawValue);return;}}catch{}if(!canceled)timer=setTimeout(scan,350);};await scan();
+        const scan=async()=>{if(canceled||!video.current)return;try{
+          let codes:{rawValue:string}[];
+          if(detector){try{codes=await detector.detect(video.current);}catch{detector=undefined;codes=await decodeFrame(video.current);}}
+          else codes=await decodeFrame(video.current);
+          if(canceled)return;if(codes[0]){select(codes[0].rawValue);return;}
+        }catch{}if(!canceled)timer=setTimeout(scan,350);};await scan();
       }catch(error){if(canceled)return;setError(error instanceof DOMException&&error.name==='NotAllowedError'?'Kamera izni verilmedi. Tarayıcıdan izin verebilir veya ürün kodunu elle girebilirsiniz.':error instanceof Error?error.message:'Kamera açılamadı.');stop();}
     };void start();
     return()=>{canceled=true;clearTimeout(timer);stream.current?.getTracks().forEach(t=>t.stop());stream.current=null;};

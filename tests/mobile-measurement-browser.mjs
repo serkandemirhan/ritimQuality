@@ -4,6 +4,7 @@ import {resolve} from 'node:path';
 import assert from 'node:assert/strict';
 import express from 'express';
 import {build} from 'esbuild';
+import QRCode from 'qrcode';
 import {validateInspection,inspectionSignature} from '../dist-server/services/inspectionValidation.js';
 const out=resolve('.runtime/mobile-measurement');await mkdir(out,{recursive:true});
 await build({entryPoints:['src/services/mobileMeasurement.ts'],bundle:true,format:'esm',platform:'browser',outfile:resolve(out,'core.js'),define:{'import.meta.env.VITE_API_URL':'"/api"'}});
@@ -39,6 +40,28 @@ await cmd('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScale
 await cmd('Page.navigate',{url:'http://127.0.0.1:3356'});await delay(1600);
 await evaluate(`await new Promise((resolve,reject)=>{const r=indexedDB.deleteDatabase('ritim-mobile-measurement');r.onsuccess=resolve;r.onerror=reject;})`);
 await evaluate(`document.querySelector('#nav-tab-operator').click()`);await delay(250);
+await evaluate(`document.querySelector('.rq-scan-panel summary').click();window.originalGetUserMedia=navigator.mediaDevices.getUserMedia;window.originalBarcodeDetector=window.BarcodeDetector;`);
+for(const [mode,payload] of [['missing','TEST-250'],['rejects','http://127.0.0.1:3356/?product=part&wo=QR-ORDER']]){
+  const qrImage=await QRCode.toDataURL(payload,{width:384,margin:4});
+  await evaluate(`(async()=>{
+    window.BarcodeDetector=${mode==='missing'?'undefined':"class {async detect(){throw new Error('Native QR unavailable')}}"};
+    const image=new Image();image.src=${JSON.stringify(qrImage)};await image.decode();
+    window.cameraCanvas=document.createElement('canvas');cameraCanvas.width=640;cameraCanvas.height=480;
+    const context=cameraCanvas.getContext('2d');const paint=()=>{context.fillStyle='white';context.fillRect(0,0,640,480);context.drawImage(image,128,48,384,384)};paint();
+    window.cameraFeed=cameraCanvas.captureStream(10);window.cameraTimer=setInterval(paint,100);
+    navigator.mediaDevices.getUserMedia=async options=>{window.cameraOptions=options;return cameraFeed};
+  })()`);
+  await click('Kamerayla tara');
+  for(let i=0;i<80;i++){if(await evaluate(`!document.querySelector('.rq-is-scanning')&&!!document.querySelector('.rq-scan-content [role="status"]')${mode==='rejects'?`&&document.querySelector('#inspection-work-order').value==='QR-ORDER'`:''}`))break;await delay(100);}
+  assert.ok(await evaluate(`!document.querySelector('.rq-is-scanning')&&document.querySelector('#select-operator-product').value==='part'&&!document.querySelector('#qr-scan-error')`),'Camera QR decodes with native detector '+mode+' '+JSON.stringify(await evaluate(`({url:location.href,error:document.querySelector('#qr-scan-error')?.textContent,scanning:!!document.querySelector('.rq-is-scanning'),video:document.querySelector('video')?.readyState,tracks:cameraFeed.getTracks().map(t=>t.readyState)})`)));
+  assert.ok(await evaluate(`cameraFeed.getTracks().every(t=>t.readyState==='ended')&&cameraOptions.video.facingMode.ideal==='environment'`),'Rear camera requested and released after scan');
+  if(mode==='rejects')assert.equal(await evaluate(`document.querySelector('#inspection-work-order').value`),'QR-ORDER','Camera QR preserves work order');
+  await evaluate(`clearInterval(cameraTimer)`);
+}
+await evaluate(`window.BarcodeDetector=undefined;navigator.mediaDevices.getUserMedia=async()=>{throw new DOMException('Permission denied','NotAllowedError')}`);
+await click('Kamerayla tara');await delay(300);
+assert.ok(await evaluate(`!document.querySelector('.rq-is-scanning')&&document.querySelector('#qr-scan-error').textContent.includes('Kamera izni verilmedi')`),'Camera permission denial has actionable error');
+await evaluate(`navigator.mediaDevices.getUserMedia=window.originalGetUserMedia;window.BarcodeDetector=window.originalBarcodeDetector;document.querySelector('.rq-scan-panel summary').click()`);
 await evaluate(`(()=>{const s=document.querySelector('#select-operator-product');s.value='part';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);await delay(250);await evaluate(`document.querySelector('#btn-start-inspection').click()`);await delay(500);
 assert.ok(await evaluate(`!!document.querySelector('.mm-shell')`),'Mobile shell opened');
 await evaluate(`window.core=await import('/test-core.js')`);
