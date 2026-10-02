@@ -11,10 +11,11 @@ const chars=Array.from({length:50},(_,i)=>({id:`c${i+1}`,pointNo:i+1,name:`Ölç
 const drawing='data:image/svg+xml;base64,'+Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="240"><rect width="640" height="240" fill="#fff"/><path d="M100 80H540V170H100Z M80 50H560 M80 40V60 M560 40V60" fill="none" stroke="#142438" stroke-width="3"/><text x="280" y="40" font-size="24">18.5 mm</text></svg>').toString('base64');
 const product={id:'part',code:'TEST-250',name:'Mobil kabul parçası',defaultDrawingUrl:drawing,images:[]};
 const plan={id:'plan',productId:'part',version:'v1',status:'active',isActive:true,defaultSampleCount:5,characteristics:chars,characteristicImageLinks:[]};
+const record={id:'synced-record',sessionCode:'INS-301a9771-dbe7-4ed0-935b-f56619113060',timestamp:new Date().toISOString(),productId:'part',productName:product.name,productCode:product.code,controlPlanId:'plan',controlPlanVersion:'v1',controlPlanSnapshot:plan,lotNumber:'LOT-2026-TEST-12345678901234567890',orderNumber:'ORDER-2026-TEST-12345678901234567890',operatorName:'Operatör',machineNo:'CNC-01',sampleCount:1,totalPointsChecked:1,failedPointsCount:0,overallStatus:'pass',samples:[{sampleIndex:1,values:{c1:18.5},statuses:{c1:'pass'}}]};
 const app=express();app.use(express.json({limit:'20mb'}));let posts=0;let rejected=0;const accepted=new Map();let mediaFailure=true;const mediaIds=new Set();
 app.get('/api/media/config',(_,res)=>res.json({provider:'local',maxBytes:8*1024*1024}));
 app.post('/api/media',(req,res)=>{if(mediaFailure){res.status(503).json({error:'Fotoğraf yükleme hatası'});return;}mediaIds.add(req.body.id);res.json({...req.body,url:'/api/media/'+req.body.id,createdAt:new Date().toISOString()});});
-app.get('/api/bootstrap',(_req,res)=>res.json({company:{id:'review',name:'Mobil Kabul',plan_id:'enterprise',subscription_status:'active'},currentUserId:'user',users:[{id:'user',name:'Operatör',role:'admin',status:'active',email:'test@example.test'}],products:[product],controlPlans:[plan],inspectionLogs:[],usage:{control_plans:1,users:1,monthly_measurements:0}}));
+app.get('/api/bootstrap',(_req,res)=>res.json({company:{id:'review',name:'Mobil Kabul',plan_id:'enterprise',subscription_status:'active'},currentUserId:'user',users:[{id:'user',name:'Operatör',role:'admin',status:'active',email:'test@example.test'}],products:[product],controlPlans:[plan],inspectionLogs:[record],usage:{control_plans:1,users:1,monthly_measurements:0}}));
 app.get('/api/inspection-rules',(_,res)=>res.json({requireActivePlan:true,requireLotNumber:false,requireOrderNumber:false}));
 app.get('/api/work',(_,res)=>res.json({tasks:[],cases:[],approvals:[],notifications:[]}));
 app.post('/api/inspection-logs',(req,res)=>{posts++;if(rejected){rejected--;res.status(409).json({error:'Revizyon uyuşmazlığı; yerel kayıt korundu.'});return;}try{const old=accepted.get(req.body.id);const signature=inspectionSignature(req.body);if(old&&old.signature!==signature)throw Error('Çakışma');const payload=old?.payload||validateInspection(req.body,plan,{id:'user',name:'Operatör'});accepted.set(req.body.id,{signature,payload});res.json(payload);}catch(e){res.status(409).json({error:e.message});}});
@@ -32,7 +33,8 @@ const click=async text=>{assert.ok(await evaluate(`(()=>{const b=[...document.qu
 const press=async keys=>{for(const key of keys){await evaluate(`document.querySelector('.mm-keypad button:nth-child(${['1','2','3','4','5','6','7','8','9',',','0','⌫'].indexOf(key)+1})').click()`);await delay(25);}};
 await cmd('Page.enable');await cmd('Runtime.enable');
 const token='review.'+Buffer.from(JSON.stringify({tenantId:'review',userId:'user',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')+'.preview';
-await cmd('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('qualitrack_access_token',${JSON.stringify(token)});`});
+const runId=crypto.randomUUID();
+await cmd('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('qualitrack_access_token',${JSON.stringify(token)});if(sessionStorage.getItem('browser-test-run')!==${JSON.stringify(runId)}){localStorage.removeItem('qualitrack_access_token:pending:review:user');sessionStorage.setItem('browser-test-run',${JSON.stringify(runId)});}`});
 await cmd('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
 await cmd('Page.navigate',{url:'http://127.0.0.1:3356'});await delay(1600);
 await evaluate(`await new Promise((resolve,reject)=>{const r=indexedDB.deleteDatabase('ritim-mobile-measurement');r.onsuccess=resolve;r.onerror=reject;})`);
@@ -84,6 +86,23 @@ mediaFailure=false;await evaluate(`await core.syncMobileSession('review:user')`)
 // The fixture plan differs intentionally: media are accepted while the measurement remains a visible revision conflict.
 assert.equal(await evaluate(`!!(await core.readMobileSession('review:user')).confirmed`),false);
 await evaluate(`await core.syncMobileSession('review:user')`);assert.equal(mediaIds.size,2,'media retry keeps stable IDs');
+await cmd('Page.reload');await delay(1300);await evaluate(`document.querySelector('#nav-tab-logs').click()`);await delay(250);
+for(const width of [320,390,430,1280]){
+  await cmd('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:width<768});await delay(200);
+  assert.ok(await evaluate(`document.documentElement.scrollWidth<=${width}`),'Measurement records have no page overflow at '+width);
+  assert.ok(await evaluate(`!!document.querySelector('.rq-record-table [aria-label="Senkronlandı"]')`),'Server-confirmed record has sync indicator');
+  if(width<768)assert.equal(await evaluate(`getComputedStyle(document.querySelector('.rq-record-table tbody tr')).display`),'grid');
+  else assert.equal(await evaluate(`getComputedStyle(document.querySelector('.rq-record-table tbody tr')).display`),'table-row');
+  await evaluate(`document.querySelector('.rq-record-table').scrollIntoView({block:'start'})`);await delay(100);
+  const shot=await cmd('Page.captureScreenshot',{format:'png'});await writeFile(resolve(out,`records-${width}.png`),Buffer.from(shot.data,'base64'));
+}
+await evaluate(`window.originalPending=localStorage.getItem('qualitrack_access_token:pending:review:user');localStorage.setItem('qualitrack_access_token:pending:review:user',JSON.stringify([{log:${JSON.stringify(record)},error:'Test bağlantı hatası'}]));window.dispatchEvent(new Event('quality-pending-changed'))`);await delay(100);
+assert.ok(await evaluate(`!!document.querySelector('.rq-record-table [aria-label="Gönderim başarısız"]')`),'Failed upload is not labeled synchronized');
+await evaluate(`localStorage.setItem('qualitrack_access_token:pending:review:user',window.originalPending||'[]');window.dispatchEvent(new Event('quality-pending-changed'))`);await delay(100);
+await cmd('Emulation.setDeviceMetricsOverride',{width:320,height:844,deviceScaleFactor:1,mobile:true});
+await evaluate(`document.querySelector('[aria-label="Ölçüm değerlerini gör"]').click()`);await delay(250);
+assert.ok(await evaluate(`(()=>{const table=document.querySelector('.rq-record-detail-table');const region=table.parentElement;return region.scrollWidth<=region.clientWidth&&getComputedStyle(table.querySelector('tbody tr')).display==='grid'})()`),'Mobile measurement detail has no horizontal table scroll');
+const detailShot=await cmd('Page.captureScreenshot',{format:'png'});await writeFile(resolve(out,'records-detail-320.png'),Buffer.from(detailShot.data,'base64'));
 assert.deepEqual(errors,[],'No browser runtime errors');await writeFile(resolve(out,'metrics.json'),JSON.stringify(dimensions,null,2));
 console.log('PASS: explicit save, blank/partial validation, navigation guard, reload recovery, 360/390/430px, 48px targets, handedness, offline 250 cells, preserved NOK retake, conflict/retry, review, required photos/comment, quota rollback and media failure/retry.');
 }finally{socket?.close();edge.kill();server.close();}

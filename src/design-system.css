@@ -60,6 +60,26 @@
 .rq-spc-filters{display:grid;grid-template-columns:1.5fr 1fr 1.5fr 1fr 1fr;gap:16px}.rq-chart-heading{display:flex;justify-content:space-between;align-items:start;gap:20px;flex-wrap:wrap}.rq-spc-main-chart{height:350px;min-width:0;margin:16px 0}.rq-chart-heading .rq-tolerance-band{min-width:280px}.rq-analytics-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px}.rq-spc-workspace .rq-metrics-row{grid-template-columns:repeat(5,minmax(0,1fr))}.rq-spc-workspace .rq-kpi-value{font-size:28px}.rq-table tr[aria-selected=true]{background:#edf3fa}@media(max-width:1200px){.rq-spc-filters{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:767px){.rq-spc-filters,.rq-analytics-grid{grid-template-columns:minmax(0,1fr)}.rq-spc-workspace .rq-metrics-row{grid-template-columns:repeat(2,minmax(0,1fr))}.rq-spc-main-chart{height:280px}}
 
 .rq-record-filters{display:grid;gap:12px}.rq-record-filter-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}.rq-record-filter-fields>details{grid-column:1/-1}.rq-record-table{min-width:960px}.rq-record-table td:first-child{white-space:nowrap}.rq-record-table td:first-child .rq-button{padding:0;min-height:26px}.rq-record-table td:nth-child(2){min-width:160px}@media(max-width:767px){.rq-record-filter-fields{grid-template-columns:minmax(0,1fr)}}
+.rq-record-sync{display:inline-flex;align-items:center;gap:6px;color:#167452;font-family:var(--rq-font);font-size:12px}
+.rq-record-sync svg{flex:none}
+.rq-record-sync-pending{color:#94600e}
+@media(min-width:768px){.rq-record-table .rq-record-sync>span{display:none}}
+@media(max-width:767px){
+ .rq-records-workspace,.rq-records-list,.rq-record-filters,.rq-record-filter-fields>*{min-width:0;max-width:100%}
+ .rq-records-workspace .rq-metrics-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .rq-records-workspace .rq-search{min-width:0;max-width:none}
+ .rq-records-workspace select{width:100%;min-width:0}
+ .rq-records-workspace .rq-table-scroll:has(.rq-record-table),.rq-table-scroll:has(.rq-record-detail-table){overflow:visible;border:0;border-radius:0;background:transparent}
+ .rq-record-table.rq-mobile-cards{min-width:0}
+ .rq-record-table.rq-mobile-cards tr,.rq-record-detail-table.rq-mobile-cards tr{border-radius:8px;padding:8px}
+ .rq-record-table.rq-mobile-cards td,.rq-record-detail-table.rq-mobile-cards td{min-width:0;padding:6px;white-space:normal}
+ .rq-record-table.rq-mobile-cards td:first-child .rq-button{min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left;justify-content:flex-start}
+ .rq-record-table.rq-mobile-cards td:nth-child(2){grid-column:1/-1}
+ .rq-record-table .rq-record-actions{justify-content:flex-start;flex-wrap:wrap}
+ .rq-record-table .rq-record-actions .rq-button{width:44px;min-height:44px;padding:8px}
+ .rq-record-detail-table .rq-button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+ .rq-records-workspace .rq-record-source-summary>div{gap:8px}
+}
 
 /* Mobile workflows share the desktop controls and existing actions. */
 .rq-mobile-navigation{width:min(340px,100vw);height:100dvh;max-height:100dvh;margin:0;border-radius:0;background:var(--rq-shell)}
