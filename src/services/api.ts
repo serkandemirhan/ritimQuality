@@ -84,7 +84,10 @@ export const SaasApi = {
   deleteProduct: (id: string) => request(`/products/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   saveControlPlan: (value: { id: string }) => request(`/control-plans/${encodeURIComponent(value.id)}`, { method: 'PUT', body: JSON.stringify(value) }),
   deleteControlPlan: (id: string) => request(`/control-plans/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  saveInspectionLog: (value: { id: string }) => pending.save(value, () => request('/inspection-logs', { method: 'POST', body: JSON.stringify(value) })),
+  saveInspectionLog: (value: { id: string; mobileMeasurement?: unknown; draftId?: string }) => {
+    const payload = value.mobileMeasurement && value.draftId ? { ...value, draftId: undefined } : value;
+    return pending.save(payload, () => request('/inspection-logs', { method: 'POST', body: JSON.stringify(payload) }));
+  },
   uploadEvidence: (value: { id?:string; fileName: string; mimeType: string; kind: 'photo' | 'video' | 'file'; dataUrl: string }) =>
     request<{ id: string; fileName: string; mimeType: string; kind: 'photo' | 'video' | 'file'; url: string; createdAt: string }>('/media', { method: 'POST', body: JSON.stringify(value) }),
   uploadFile: async (file: File, id?:string) => {
@@ -98,8 +101,7 @@ export const SaasApi = {
     const complete=()=>request<{id:string;fileName:string;mimeType:string;kind:'photo'|'video'|'file';url:string;createdAt:string}>(`/media/uploads/${encodeURIComponent(upload.id)}/complete`,{method:'POST'});
     if(upload.ready)return complete();
     // The bytes go directly to Supabase, avoiding Vercel's request-size limit.
-    const body = new FormData();body.append('cacheControl','3600');body.append('',file);
-    const result=await fetch(upload.uploadUrl!,{method:'PUT',headers:{'x-upsert':'false'},body});
+    const result=await fetch(upload.uploadUrl!,{method:'PUT',headers:{'content-type':file.type,'x-upsert':'false'},body:file});
     if(!result.ok){try{return await complete();}catch{throw new Error('Dosya depolamaya yüklenemedi. Yeniden deneyin.');}}
     return complete();
   },

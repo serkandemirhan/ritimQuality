@@ -175,10 +175,19 @@ saasRouter.post('/inspection-logs', requireRole('admin', 'quality_engineer', 'op
       const attachments = (payload.samples as any[]).flatMap(sample => Object.values(sample.evidence || {}).flat()) as {id:string}[];
       const mediaIds=attachments.map(item=>item.id);
       const draftId=typeof payload.draftId==='string'?z.string().uuid().parse(payload.draftId):null;
-      if(draftId&&!(await client.query('SELECT 1 FROM inspection_drafts WHERE tenant_id=$1 AND id=$2 AND claimed_by=$3',[tenantId,draftId,userId])).rowCount)conflict('Taslak bu kullanıcı tarafından devralınmamış.');
+      let serverDraftId:string|null=null;
+      if(draftId){
+        const draft=(await client.query('SELECT claimed_by FROM inspection_drafts WHERE tenant_id=$1 AND id=$2 FOR SHARE',[tenantId,draftId])).rows[0];
+        if(draft){
+          if(draft.claimed_by!==userId)conflict('Taslak bu kullanıcı tarafından devralınmamış.');
+          serverDraftId=draftId;
+        } else {
+          delete (payload as Record<string, unknown>).draftId;
+        }
+      }
       if(new Set(mediaIds).size!==mediaIds.length) conflict('Bir kanıt birden fazla kontrol noktasına bağlanamaz.');
       if(mediaIds.length) {
-        const owned=await client.query("SELECT id,mime_type FROM media_evidence WHERE tenant_id=$1 AND (uploaded_by=$2 OR draft_id=$4) AND inspection_id IS NULL AND upload_status='ready' AND id=ANY($3::uuid[]) FOR UPDATE",[tenantId,userId,mediaIds,draftId]);
+        const owned=await client.query("SELECT id,mime_type FROM media_evidence WHERE tenant_id=$1 AND (uploaded_by=$2 OR draft_id=$4) AND inspection_id IS NULL AND upload_status='ready' AND id=ANY($3::uuid[]) FOR UPDATE",[tenantId,userId,mediaIds,serverDraftId]);
         if(owned.rowCount!==mediaIds.length) conflict('Kanıt dosyası geçersiz veya başka kayda bağlı.');
         const mime=new Map(owned.rows.map(row=>[row.id,row.mime_type]));
         for(const sample of payload.samples as any[])for(const items of Object.values(sample.evidence||{}))for(const item of items as {id:string;mimeType?:string}[]){
@@ -199,7 +208,7 @@ saasRouter.post('/inspection-logs', requireRole('admin', 'quality_engineer', 'op
         await client.query('UPDATE media_evidence SET inspection_id=$1,draft_id=NULL,sample_index=$2,characteristic_id=$3 WHERE tenant_id=$4 AND id=ANY($5::uuid[])',[id,sample.sampleIndex,characteristicId,tenantId,(items as {id:string}[]).map(item=>item.id)]);
       }
       await createInspectionWorkflow(client,tenantId,userId,payload);
-      if(typeof payload.draftId==='string')await client.query('DELETE FROM inspection_drafts WHERE tenant_id=$1 AND id=$2 AND claimed_by=$3',[tenantId,payload.draftId,userId]);
+      if(serverDraftId)await client.query('DELETE FROM inspection_drafts WHERE tenant_id=$1 AND id=$2 AND claimed_by=$3',[tenantId,serverDraftId,userId]);
       await audit(client, { tenantId, userId, action: 'inspection.created', entityType: 'inspection_log', entityId: id, after: payload, ip: req.ip });
     });
     res.status(201).json(payload);

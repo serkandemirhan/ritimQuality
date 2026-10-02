@@ -284,9 +284,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
       });
     });
 
-    if (status === 'fail') {
-      playAlertSound('fail');
-    }
+    // Numeric keypad input is still being composed here; alert only after explicit confirmation/save.
   };
 
   const setQualitativeValue = (char: Characteristic, value: MeasurementValue) => {
