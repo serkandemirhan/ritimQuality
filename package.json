@@ -17,7 +17,9 @@
     "supabase:setup": "node --env-file=.env.cloud --import tsx server/db/setupSupabase.ts",
     "test:cloud": "tsx tests/inspection-validation.test.ts && node tests/cloud-runtime.test.mjs",
     "demo:provision": "tsx tools/sales-demo.ts",
-    "test:revisions": "tsx tests/sales-revisions.test.ts"
+    "test:revisions": "tsx tests/sales-revisions.test.ts",
+    "test:mobile-measurement": "tsx tests/mobile-measurement.test.ts",
+    "test:mobile-measurement:browser": "node tests/mobile-measurement-browser.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

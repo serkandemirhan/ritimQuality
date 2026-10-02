@@ -181,6 +181,9 @@ saasRouter.post('/inspection-logs', requireRole('admin', 'quality_engineer', 'op
         const owned=await client.query("SELECT id,mime_type FROM media_evidence WHERE tenant_id=$1 AND (uploaded_by=$2 OR draft_id=$4) AND inspection_id IS NULL AND upload_status='ready' AND id=ANY($3::uuid[]) FOR UPDATE",[tenantId,userId,mediaIds,draftId]);
         if(owned.rowCount!==mediaIds.length) conflict('Kanıt dosyası geçersiz veya başka kayda bağlı.');
         const mime=new Map(owned.rows.map(row=>[row.id,row.mime_type]));
+        for(const sample of payload.samples as any[])for(const items of Object.values(sample.evidence||{}))for(const item of items as {id:string;mimeType?:string}[]){
+          if((payload.mobileMeasurement||(plan as any).characteristics.some((c:any)=>c.policy))&&item.mimeType!==mime.get(item.id))conflict('Kanıt dosyasının gerçek türü gönderilen bilgiyle eşleşmiyor.');
+        }
         const policies=new Map(((plan as any).characteristics||[]).map((item:any)=>[item.id,item.evidencePolicy]));
         for(const sample of payload.samples as any[])for(const [characteristicId,items] of Object.entries(sample.evidence||{})){
           const types=(items as {id:string}[]).map(item=>mime.get(item.id)||'');const policy=policies.get(characteristicId);

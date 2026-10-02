@@ -34,6 +34,8 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { MobileMeasurementShell } from './MobileMeasurementShell';
+import { evaluateMeasurement,readMobileSession, type MobileSession } from '../services/mobileMeasurement';
 
 interface OperatorStationProps {
   initialProductId?: string;
@@ -95,8 +97,12 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   
   // Active Inspection State
   const [isSessionActive, setIsSessionActive] = useState<boolean>(false);
-  useEffect(() => { onSessionChange?.(isSessionActive); return () => onSessionChange?.(false); }, [isSessionActive, onSessionChange]);
   const [phoneInput, setPhoneInput] = useState(() => window.matchMedia('(max-width: 767px)').matches);
+  const [mobileResume,setMobileResume]=useState(false);
+  useEffect(() => { onSessionChange?.(isSessionActive||mobileResume); return () => onSessionChange?.(false); }, [isSessionActive,mobileResume,onSessionChange]);
+  const [mobileAvailable,setMobileAvailable]=useState(false);
+  const mobileSeed=useRef<MobileSession>();
+  useEffect(()=>{void readMobileSession(SaasApi.scope()).then(s=>setMobileAvailable(Boolean(s))).catch(()=>{});},[]);
   useEffect(() => { const media = window.matchMedia('(max-width: 767px)'); const change = () => setPhoneInput(media.matches); media.addEventListener('change', change); return () => media.removeEventListener('change', change); }, []);
   const [numericText, setNumericText] = useState('');
   const [replaceNumeric, setReplaceNumeric] = useState(true);
@@ -183,6 +189,12 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
     if (rules.requireActivePlan && (!currentPlan.isActive || currentPlan.status !== 'active')) { alert('Aktif bir kontrol planı seçin.'); return; }
     if (rules.requireLotNumber && !lotNumber.trim()) { alert('Parti / şarj numarası zorunludur.'); return; }
     if (rules.requireOrderNumber && !orderNumber.trim()) { alert('İş emri numarası zorunludur.'); return; }
+
+    if(phoneInput) {
+      if(sampleCount>5||characteristics.length>50){alert('Mobil ölçüm 1–5 numune ve en fazla 50 karakteristik destekler.');return;}
+      mobileSeed.current={id:crypto.randomUUID(),scope:SaasApi.scope(),plan:structuredClone(currentPlan),product:structuredClone(currentProduct!),count:sampleCount,operatorId:currentUser!.id,operatorName:currentUser!.name,orderNumber,lotNumber,serialNumber,instrumentId:equipmentId,source,active:{sample:1,characteristic:characteristics[0].id},order:'sample',drafts:{},attempts:[],media:{},createdAt:new Date().toISOString()};
+      setMobileResume(true);return;
+    }
 
     setDraftId(crypto.randomUUID());
     // Initialize blank sample matrix
@@ -279,10 +291,8 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
   const setQualitativeValue = (char: Characteristic, value: MeasurementValue) => {
     if(submissionRef.current)return;
-    const rejected=char.rejectedOptions||[];
-    const status: 'pass'|'fail' = char.type==='ok_nok'||char.type==='visual'
-      ? (value===true||value==='OK'?'pass':'fail')
-      : (Array.isArray(value)?value.some(item=>rejected.includes(item)):rejected.includes(String(value)))?'fail':'pass';
+    let status: 'pass'|'fail'|'warning'|'empty'='empty';
+    try{const result=evaluateMeasurement(char,value===true?'OK':value===false?'NOK':value as string|string[]).result;status=result==='pass'?'pass':result==='fail'?'fail':'warning';}catch{/* Incomplete text stays empty. */}
     setSamples(previous=>previous.map(sample=>sample.sampleIndex===activeSampleIndex?{...sample,values:{...sample.values,[char.id]:value},statuses:{...sample.statuses,[char.id]:status}}:sample));
     if(status==='fail') playAlertSound('fail');
   };
@@ -463,11 +473,14 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
     ? Number((currentVal - currentCharacteristic.nominal).toFixed(3))
     : null;
 
+  if(mobileResume)return <MobileMeasurementShell seed={mobileSeed.current} onSaved={onInspectionSaved} onOpenActions={onOpenActions} onExit={()=>{setMobileResume(false);mobileSeed.current=undefined;void readMobileSession(SaasApi.scope()).then(s=>setMobileAvailable(Boolean(s)));}}/>;
+
   return (
     <div className="w-full quality-operator">
       {!isSessionActive&&<PageHeader title="Ölçüm hazırlığı" description="Ürün, kontrol planı ve üretim bilgilerini doğrulayarak ölçümü başlatın." actions={<IconButton label={soundEnabled?'Sesli uyarıyı kapat':'Sesli uyarıyı aç'} onClick={()=>setSoundEnabled(!soundEnabled)}>{soundEnabled?<Volume2 size={17}/>:<VolumeX size={17}/>}</IconButton>}/>}
       {rulesError && <p role="alert" className="mb-3 text-sm text-red-700">İş kuralları yüklenemedi: {rulesError}</p>}
       {!isSessionActive && <InspectionQR products={products} onSelect={(id,wo)=>{setSelectedProductId(id);setOrderNumber(wo);}}/>}
+      {!isSessionActive&&mobileAvailable&&<div className="mb-4 rounded-xl bg-blue-50 p-4"><p>Bu cihazda saklanan mobil kontrol var.</p><Button onClick={()=>setMobileResume(true)}>Mobil kontrole devam et</Button></div>}
       {!isSessionActive && draftAvailable && <div className="mb-4 rounded-xl bg-blue-50 p-4"><p className="font-bold">Yarım kalan bir kontrolünüz var.</p><button type="button" onClick={restoreDraft} className="mt-2 rounded-lg bg-blue-700 px-4 py-3 text-white">Kontrole devam et</button></div>}
       {!isSessionActive&&serverDrafts.length>0&&<section className="mb-4 rounded-xl bg-amber-50 p-4"><h2 className="font-bold">Devam edilebilecek kontroller</h2><div className="mt-2 grid gap-2">{serverDrafts.map(item=><div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-3 text-sm"><span>{products.find(p=>p.id===(item.payload.productId||item.payload.selectedProductId))?.name||'Ürün'} · {item.payload.orderNumber||'İş emri yok'} · {item.created_by_name}{item.claimed_by_name&&` · ${item.claimed_by_name} kullanıyor`}</span><button disabled={draftBusy||Boolean(item.claimed_by&&item.claimed_by!==currentUser.id)} className="quality-primary" onClick={()=>void claimDraft(item)}>{item.claimed_by===currentUser.id?'Devam et':'Devral'}</button></div>)}</div></section>}
       {isSessionActive && submissionRef.current && !savedLog && <p role="status" className="my-2 rounded-lg bg-amber-50 p-3 text-sm">Bu ölçüm gönderim için kilitlendi. Kaydet düğmesi aynı kaydın gönderimini tekrar dener.</p>}
@@ -783,16 +796,17 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                       </div>
                       </> : (
                         <div className="grid grid-cols-2 gap-2">
-                          {currentCharacteristic.type==='ok_nok'||currentCharacteristic.type==='visual' ? <>
+                          {currentCharacteristic.type==='text'?<textarea aria-label="Metin sonucu" maxLength={currentCharacteristic.policy?.maxTextLength||2000} value={typeof currentVal==='string'?currentVal:''} onChange={e=>setQualitativeValue(currentCharacteristic,e.target.value)}/>:currentCharacteristic.type==='ok_nok'||currentCharacteristic.type==='visual' ? <>
                             <button type="button" onClick={()=>setQualitativeValue(currentCharacteristic,true)} className={`rounded-2xl border px-4 py-4 font-black ${currentVal===true?'border-emerald-600 bg-emerald-600 text-white':'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>✓ OK</button>
                             <button type="button" onClick={()=>setQualitativeValue(currentCharacteristic,false)} className={`rounded-2xl border px-4 py-4 font-black ${currentVal===false?'border-rose-600 bg-rose-600 text-white':'border-rose-200 bg-rose-50 text-rose-800'}`}>✕ NOK</button>
-                          </> : (currentCharacteristic.options||[]).map(option=>{
+                            {currentCharacteristic.type==='visual'&&<button type="button" onClick={()=>setQualitativeValue(currentCharacteristic,'SUSPECT')}>⚠ Şüpheli</button>}
+                          </> : (currentCharacteristic.type==='boolean'?['yes','no']:currentCharacteristic.options||[]).map(option=>{
                             const selected=Array.isArray(currentVal)?currentVal.includes(option):currentVal===option;
                             return <button key={option} type="button" onClick={()=>{
                               if(currentCharacteristic.type==='multi_select'){
                                 const values=Array.isArray(currentVal)?currentVal:[]; setQualitativeValue(currentCharacteristic,selected?values.filter(item=>item!==option):[...values,option]);
                               }else setQualitativeValue(currentCharacteristic,option);
-                            }} className={`rounded-xl border px-3 py-3 font-bold ${selected?'border-blue-600 bg-blue-600 text-white':'border-slate-200 bg-slate-50 text-slate-800'}`}>{currentCharacteristic.type==='multi_select'&&(selected?'☑ ':'☐ ')}{option}</button>;
+                            }} className={`rounded-xl border px-3 py-3 font-bold ${selected?'border-blue-600 bg-blue-600 text-white':'border-slate-200 bg-slate-50 text-slate-800'}`}>{currentCharacteristic.type==='multi_select'&&(selected?'☑ ':'☐ ')}{currentCharacteristic.type==='boolean'?(option==='yes'?'Evet':'Hayır'):option}</button>;
                           })}
                         </div>
                       )}

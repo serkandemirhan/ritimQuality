@@ -1,5 +1,5 @@
 export type CriticalClass = 'critical' | 'major' | 'minor';
-export type CharacteristicType = 'numeric' | 'ok_nok' | 'visual' | 'single_select' | 'multi_select';
+export type CharacteristicType = 'numeric' | 'ok_nok' | 'visual' | 'single_select' | 'multi_select' | 'boolean' | 'text';
 export type EvidencePolicy = 'none' | 'optional' | 'required_on_fail' | 'always_required' | 'photo_required' | 'media_required' | 'document_required';
 export type MeasurementSource = 'manual' | 'gauge' | 'import' | 'cmm';
 
@@ -50,6 +50,16 @@ export interface Characteristic {
   options?: string[];
   rejectedOptions?: string[];
   evidencePolicy?: EvidencePolicy;
+  precision?: number;
+  allowNegative?: boolean;
+  resolution?: number;
+  optionResults?: Record<string, 'pass' | 'fail' | 'review'>;
+  policy?: {
+    requireComment?: boolean; minPhotos?: number; maxPhotos?: number; requireReason?: boolean;
+    reasons?: string[]; requireReview?: boolean; requireSupervisorApproval?: boolean;
+    drawingRequired?: boolean; requireInstrument?: boolean; allowNA?: boolean;
+    liveCaptureRequired?: boolean; maxTextLength?: number;
+  };
 }
 
 export interface ControlPlan {
@@ -106,6 +116,7 @@ export interface SampleMeasurement {
 }
 
 export interface InspectionLog {
+  mobileMeasurement?: unknown;
   draftId?: string;
   controlPlanSnapshot?: ControlPlan;
   operatorUserId?: string;

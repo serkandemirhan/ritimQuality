@@ -1,14 +1,14 @@
 import React, {useEffect,useState} from 'react';
 import { SaasApi } from '../services/api';
 
-export function useMediaSource(source: string | undefined) {
+export function useMediaSource(source: string | undefined, retry = 0) {
   const [resolved,setResolved]=useState('');
   useEffect(()=>{
     if(!source?.startsWith('media:'))return;
     let active=true;let url='';setResolved('');
     SaasApi.mediaUrl(source.slice(6).split('#')[0]).then(value=>{url=value;if(active)setResolved(value);else if(value.startsWith('blob:'))URL.revokeObjectURL(value);}).catch(()=>{if(active)setResolved('');});
     return()=>{active=false;if(url.startsWith('blob:'))URL.revokeObjectURL(url);};
-  },[source]);
+  },[source,retry]);
   return source?.startsWith('media:') ? resolved : source;
 }
 export function MediaImage({src,...props}:React.ImgHTMLAttributes<HTMLImageElement>) {

@@ -12,18 +12,26 @@ cloudMediaRouter.get('/media/config', (_req, res) => res.json({ provider: usesSu
 cloudMediaRouter.post('/media/uploads', requireRole('admin', 'quality_engineer', 'operator'), async (req, res, next) => {
   try {
     if (!usesSupabaseStorage()) { res.status(409).json({ error: 'Doğrudan yükleme bu ortamda etkin değil.' }); return; }
-    const input = z.object({ fileName: z.string().trim().min(1).max(180), mimeType: z.enum(MEDIA_MIME_TYPES), size: z.number().int().positive().max(MAX_MEDIA_BYTES) }).parse(req.body);
+    const input = z.object({ id:z.string().uuid().optional(),fileName: z.string().trim().min(1).max(180), mimeType: z.enum(MEDIA_MIME_TYPES), size: z.number().int().positive().max(MAX_MEDIA_BYTES) }).parse(req.body);
     const { tenantId, userId } = req.auth!;
-    const id = randomUUID(); const path = mediaObjectPath(tenantId, id);
+    const id = input.id||randomUUID(); const path = mediaObjectPath(tenantId, id);let ready=false;
     const kind = input.mimeType.startsWith('image/') ? 'photo' : input.mimeType.startsWith('video/') ? 'video' : 'file';
     await withTenant(tenantId, async client => {
       await assertSubscription(client, tenantId);
       await client.query('SELECT id FROM users WHERE tenant_id=$1 AND id=$2 FOR UPDATE', [tenantId, userId]);
+      const existing=(await client.query('SELECT * FROM media_evidence WHERE tenant_id=$1 AND id=$2 FOR UPDATE',[tenantId,id])).rows[0];
+      if(existing){
+        if(existing.uploaded_by!==userId||existing.file_name!==input.fileName||existing.mime_type!==input.mimeType||Number(existing.size_bytes)!==input.size)throw Object.assign(new Error('Medya kimliği farklı dosya için kullanılmış.'),{status:409});
+        ready=existing.upload_status==='ready';
+        if(!ready)await client.query("UPDATE media_evidence SET upload_expires_at=now()+interval '2 hours' WHERE tenant_id=$1 AND id=$2",[tenantId,id]);
+        return;
+      }
       const pending = await client.query("SELECT count(*)::int count FROM media_evidence WHERE tenant_id=$1 AND uploaded_by=$2 AND upload_status='pending' AND upload_expires_at>now()", [tenantId, userId]);
       if (pending.rows[0].count >= 30) throw Object.assign(new Error('Çok fazla tamamlanmamış yükleme var. Mevcut yüklemeleri tamamlayın.'), { status: 429 });
       await client.query(`INSERT INTO media_evidence(id,tenant_id,file_name,mime_type,kind,storage_path,size_bytes,uploaded_by,storage_provider,upload_status,upload_expires_at)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,'supabase','pending',now()+interval '2 hours')`, [id, tenantId, input.fileName, input.mimeType, kind, path, input.size, userId]);
     });
+    if(ready){res.json({id,ready:true});return;}
     const signed = await supabaseStorage().createSignedUploadUrl(path, { upsert: false });
     if (signed.error) throw signed.error;
     res.status(201).json({ id, uploadUrl: signed.data.signedUrl });

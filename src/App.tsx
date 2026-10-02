@@ -19,13 +19,16 @@ import { DataBackupModal } from './components/DataBackupModal';
 import { UserManager } from './components/UserManager';
 import { SubscriptionManager } from './components/SubscriptionManager';
 import { SaasApi } from './services/api';
+import {readMobileSession} from './services/mobileMeasurement';
+import {MobileMeasurementShell} from './components/MobileMeasurementShell';
 
 const Overview=lazy(()=>import('./components/Overview').then(module=>({default:module.Overview})));
 const SPCReports=lazy(()=>import('./components/SPCReports').then(module=>({default:module.SPCReports})));
 const AnalyticsLoading=()=> <div role="status" aria-label="Analiz yükleniyor"><Skeleton className="h-24 mb-5"/><Skeleton className="h-96"/></div>;
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<NavTab>(new URLSearchParams(window.location.search).get('view')==='work'?'work':new URLSearchParams(window.location.search).has('product')?'operator':StorageService.getCurrentUser().role==='operator'?'operator':'overview');
+  const [activeTab, setActiveTabImmediate] = useState<NavTab>(new URLSearchParams(window.location.search).get('view')==='work'?'work':new URLSearchParams(window.location.search).has('product')?'operator':StorageService.getCurrentUser().role==='operator'?'operator':'overview');
+  const setActiveTab: React.Dispatch<React.SetStateAction<NavTab>> = next => { const proceed=()=>setActiveTabImmediate(next); const event=new CustomEvent('ritim-measurement-navigate',{cancelable:true,detail:proceed}); if(window.dispatchEvent(event))proceed(); };
   const [recordId,setRecordId]=useState('');
   const openRecord=(id:string)=>{setRecordId(id);setActiveTab('logs');};
   const [planProductId,setPlanProductId] = useState('');
@@ -42,6 +45,7 @@ export default function App() {
   const [company, setCompany] = useState<TenantCompany>(StorageService.getCompany());
   const [syncError, setSyncError] = useState('');
   const [hydrated,setHydrated] = useState(false);
+  const [offlineMobile,setOfflineMobile]=useState(false);
   
   // Modals
   const [certificateLog, setCertificateLog] = useState<InspectionLog | null>(null);
@@ -64,7 +68,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    StorageService.hydrateFromApi().then(()=>{loadData();const query=new URLSearchParams(window.location.search);const role=StorageService.getCurrentUser().role;setActiveTab(query.get('view')==='work'?'work':query.has('product')&&role!=='auditor'?'operator':role==='operator'?'operator':'overview');setHydrated(true);}).catch(StorageService.reportSyncError);
+    StorageService.hydrateFromApi().then(()=>{loadData();const query=new URLSearchParams(window.location.search);const role=StorageService.getCurrentUser().role;setActiveTab(query.get('view')==='work'?'work':query.has('product')&&role!=='auditor'?'operator':role==='operator'?'operator':'overview');setHydrated(true);}).catch(async error=>{StorageService.reportSyncError(error);if(!navigator.onLine&&SaasApi.hasSession()){try{if(await readMobileSession(SaasApi.scope()))setOfflineMobile(true);}catch{/* Keep the startup error visible. */}}});
     const onSyncError = (event: Event) => setSyncError((event as CustomEvent<string>).detail);
     window.addEventListener('qualitrack-sync-error', onSyncError);
     return () => window.removeEventListener('qualitrack-sync-error', onSyncError);
@@ -182,6 +186,7 @@ export default function App() {
     subscription: { title: 'Abonelik', description: 'Paket kullanımını ve faturalandırmayı yönetin.' },
   };
 
+  if(offlineMobile)return <MobileMeasurementShell onSaved={()=>{}} onExit={()=>setOfflineMobile(false)}/>;
   if(!hydrated)return <main className="p-8"><p role="status">{syncError || 'Çalışma alanı yükleniyor…'}</p>{syncError&&<button type="button" className="mt-4 rounded-lg border p-3" onClick={()=>window.location.reload()}>Yeniden dene</button>}</main>;
   return (
     <AppShell style={{'--rq-sidebar-width':sidebarCollapsed?'72px':'240px'} as React.CSSProperties}>

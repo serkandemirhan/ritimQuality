@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { withTenant } from '../db/pool.js';
@@ -13,17 +13,22 @@ const mediaRoot = resolve(process.env.MEDIA_ROOT || '.data/media');
 mediaRouter.post('/media', requireRole('admin','quality_engineer','operator'), async (req,res,next) => {
   try {
     if (usesSupabaseStorage()) { res.status(409).json({error:'Dosyaları doğrudan yükleme akışıyla gönderin.'}); return; }
-    const input=z.object({fileName:z.string().min(1).max(180),mimeType:z.string().min(1).max(120),kind:z.enum(['photo','video','file']),dataUrl:z.string().min(10)}).parse(req.body);
+    const input=z.object({id:z.string().uuid().optional(),fileName:z.string().min(1).max(180),mimeType:z.string().min(1).max(120),kind:z.enum(['photo','video','file']),dataUrl:z.string().min(10)}).parse(req.body);
     const match=input.dataUrl.match(/^data:([^;]+);base64,([A-Za-z0-9+/=\r\n]+)$/);
     if(!match||match[1]!==input.mimeType){res.status(400).json({error:'Geçersiz medya içeriği.'});return;}
     const data=Buffer.from(match[2],'base64');
     if(!data.length||data.length>8*1024*1024){res.status(413).json({error:'Dosya boyutu 8 MB sınırını aşıyor.'});return;}
     const extension=input.mimeType==='image/jpeg'?'.jpg':input.mimeType==='image/png'?'.png':input.mimeType==='image/webp'?'.webp':input.mimeType==='video/mp4'?'.mp4':input.mimeType==='application/pdf'?'.pdf':'.bin';
-    const id=randomUUID(); const storageName=`${id}${extension}`;
+    const id=input.id||randomUUID(); const storageName=`${req.auth!.tenantId}-${id}${extension}`;
     await mkdir(mediaRoot,{recursive:true});
-    await writeFile(resolve(mediaRoot,storageName),data,{flag:'wx'});
     const createdAt=new Date().toISOString();
-    await withTenant(req.auth!.tenantId, client=>client.query(`INSERT INTO media_evidence(id,tenant_id,file_name,mime_type,kind,storage_path,size_bytes,uploaded_by) VALUES($1,current_setting('app.tenant_id')::uuid,$2,$3,$4,$5,$6,$7)`,[id,input.fileName,input.mimeType,input.kind,storageName,data.length,req.auth!.userId]).then(()=>undefined));
+    await withTenant(req.auth!.tenantId, async client=>{
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[req.auth!.tenantId+':media:'+id]);
+      const old=(await client.query('SELECT * FROM media_evidence WHERE tenant_id=$1 AND id=$2',[req.auth!.tenantId,id])).rows[0];
+      if(old){if(old.uploaded_by!==req.auth!.userId||old.mime_type!==input.mimeType||old.file_name!==input.fileName||!(await readFile(resolve(mediaRoot,old.storage_path))).equals(data))throw Object.assign(new Error('Medya kimliği farklı dosya için kullanılmış.'),{status:409});return;}
+      try{await writeFile(resolve(mediaRoot,storageName),data,{flag:'wx'});}catch(error){if((error as NodeJS.ErrnoException).code!=='EEXIST'||!(await readFile(resolve(mediaRoot,storageName))).equals(data))throw error;}
+      await client.query(`INSERT INTO media_evidence(id,tenant_id,file_name,mime_type,kind,storage_path,size_bytes,uploaded_by) VALUES($1,current_setting('app.tenant_id')::uuid,$2,$3,$4,$5,$6,$7)`,[id,input.fileName,input.mimeType,input.kind,storageName,data.length,req.auth!.userId]);
+    });
     res.status(201).json({id,fileName:input.fileName,mimeType:input.mimeType,kind:input.kind,url:`/api/media/${id}`,createdAt});
   } catch(error){next(error);}
 });

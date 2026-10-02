@@ -85,21 +85,23 @@ export const SaasApi = {
   saveControlPlan: (value: { id: string }) => request(`/control-plans/${encodeURIComponent(value.id)}`, { method: 'PUT', body: JSON.stringify(value) }),
   deleteControlPlan: (id: string) => request(`/control-plans/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   saveInspectionLog: (value: { id: string }) => pending.save(value, () => request('/inspection-logs', { method: 'POST', body: JSON.stringify(value) })),
-  uploadEvidence: (value: { fileName: string; mimeType: string; kind: 'photo' | 'video' | 'file'; dataUrl: string }) =>
+  uploadEvidence: (value: { id?:string; fileName: string; mimeType: string; kind: 'photo' | 'video' | 'file'; dataUrl: string }) =>
     request<{ id: string; fileName: string; mimeType: string; kind: 'photo' | 'video' | 'file'; url: string; createdAt: string }>('/media', { method: 'POST', body: JSON.stringify(value) }),
-  uploadFile: async (file: File) => {
+  uploadFile: async (file: File, id?:string) => {
     const config = await request<{provider:'local'|'supabase';maxBytes:number}>('/media/config');
     if (!file.size || file.size > config.maxBytes) throw new Error(`Dosya en fazla ${config.maxBytes / 1024 / 1024} MB olabilir.`);
     if (config.provider === 'local') {
       const dataUrl=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file);});
-      return SaasApi.uploadEvidence({fileName:file.name,mimeType:file.type,kind:file.type.startsWith('image/')?'photo':file.type.startsWith('video/')?'video':'file',dataUrl});
+      return SaasApi.uploadEvidence({id,fileName:file.name,mimeType:file.type,kind:file.type.startsWith('image/')?'photo':file.type.startsWith('video/')?'video':'file',dataUrl});
     }
-    const upload = await request<{id:string;uploadUrl:string}>('/media/uploads',{method:'POST',body:JSON.stringify({fileName:file.name,mimeType:file.type,size:file.size})});
+    const upload = await request<{id:string;uploadUrl?:string;ready?:boolean}>('/media/uploads',{method:'POST',body:JSON.stringify({id,fileName:file.name,mimeType:file.type,size:file.size})});
+    const complete=()=>request<{id:string;fileName:string;mimeType:string;kind:'photo'|'video'|'file';url:string;createdAt:string}>(`/media/uploads/${encodeURIComponent(upload.id)}/complete`,{method:'POST'});
+    if(upload.ready)return complete();
     // The bytes go directly to Supabase, avoiding Vercel's request-size limit.
     const body = new FormData();body.append('cacheControl','3600');body.append('',file);
-    const result=await fetch(upload.uploadUrl,{method:'PUT',headers:{'x-upsert':'false'},body});
-    if(!result.ok)throw new Error('Dosya depolamaya yüklenemedi. Yeniden deneyin.');
-    return request<{id:string;fileName:string;mimeType:string;kind:'photo'|'video'|'file';url:string;createdAt:string}>(`/media/uploads/${encodeURIComponent(upload.id)}/complete`,{method:'POST'});
+    const result=await fetch(upload.uploadUrl!,{method:'PUT',headers:{'x-upsert':'false'},body});
+    if(!result.ok){try{return await complete();}catch{throw new Error('Dosya depolamaya yüklenemedi. Yeniden deneyin.');}}
+    return complete();
   },
   mediaUrl: async (id: string) => {
     const token=localStorage.getItem(TOKEN_KEY);

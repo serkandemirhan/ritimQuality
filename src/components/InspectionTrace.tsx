@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import type {InspectionLog} from '../types';
 import {SaasApi} from '../services/api';
 import {Card, TraceTimeline, Skeleton} from './ui';
+import type {MobileAttempt} from '../services/mobileMeasurement';
 
 type Relations = {
   cases: {id:string; inspection_id:string; title:string; state:string}[];
@@ -27,5 +28,6 @@ export function InspectionTrace({log}:{log:InspectionLog}) {
     ...(relations?.cases||[]).filter(item=>item.inspection_id===log.id).map(item=>({id:'case:'+item.id,title:'Uygunsuzluk · '+(states[item.state]||item.state),detail:item.title})),
     ...(relations?.approvals||[]).filter(item=>item.inspection_id===log.id).map((item,index)=>({id:'approval:'+index,title:'Onay · '+(states[item.status]||item.status),detail:item.reason||'Gerekçe belirtilmedi'})),
   ].filter(item=>!!item.detail);
-  return <Card><h3 className="rq-section-title">İzlenebilirlik</h3><p className="rq-helper">Bu kontrol kaydına bağlı kimlikler ve kalite aksiyonları.</p><TraceTimeline items={items}/>{!relations&&!error&&<Skeleton className="h-10"/>}{error&&<p role="status" className="rq-helper">{error}</p>}</Card>;
+  const attempts=(log.mobileMeasurement as {attempts?:MobileAttempt[]}|undefined)?.attempts||[];
+  return <Card><h3 className="rq-section-title">İzlenebilirlik</h3><p className="rq-helper">Bu kontrol kaydına bağlı kimlikler ve kalite aksiyonları.</p><TraceTimeline items={items}/>{!relations&&!error&&<Skeleton className="h-10"/>}{error&&<p role="status" className="rq-helper">{error}</p>}{attempts.length>0&&<details className="mt-4"><summary>Mobil ölçüm denemeleri ({attempts.length})</summary><p>İlk uygunsuzluklar ve kanıtlar korunur. Son uygun ölçüm, uygunsuzluğu otomatik kapatmaz.</p>{attempts.map(a=><article key={a.id} className="border-t py-3"><strong>S{a.sample} · {log.controlPlanSnapshot?.characteristics.find(c=>c.id===a.characteristic)?.name||a.characteristic} · {String(a.value)} · {a.result==='pass'?'Uygun':a.result==='fail'?'Uygunsuz':a.result==='na'?'Uygulanamaz':'İnceleme'}</strong><p>{a.operatorId} · {new Date(a.measuredAt).toLocaleString('tr-TR')} · {a.source} · {a.instrumentId}</p><p>Ham giriş: {String(a.raw)} · {a.mode==='delta'?'Sapma':'Mutlak değer'} · {a.comment} {a.reason}</p>{a.previousAttemptId&&<p>Önceki deneme: {a.previousAttemptId} · Tekrar sebebi: {a.retryReason}</p>}{a.photos.map(id=><button key={id} className="rq-button m-1" onClick={()=>void SaasApi.openEvidence(id)}>Kanıtı aç</button>)}</article>)}</details>}</Card>;
 }
