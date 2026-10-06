@@ -1,16 +1,22 @@
 import React, { useEffect, useState } from 'react';
+import { AlertTriangle, CloudUpload, RefreshCw } from 'lucide-react';
 import { SaasApi } from '../services/api';
 import { StorageService } from '../services/storage';
+import { Button } from './ui';
 
 export function PendingInspections({onSaved}: {onSaved: () => void}) {
   const [items,setItems]=useState(SaasApi.pendingInspections);
   const [busy,setBusy]=useState(false);
-  useEffect(()=>{ const refresh=()=>setItems(SaasApi.pendingInspections()); window.addEventListener('quality-pending-changed',refresh);return()=>window.removeEventListener('quality-pending-changed',refresh);},[]);
+  useEffect(()=>{const refresh=()=>setItems(SaasApi.pendingInspections());window.addEventListener('quality-pending-changed',refresh);return()=>window.removeEventListener('quality-pending-changed',refresh);},[]);
   if(!items.length)return null;
-  return <section className="m-3 rounded-xl border border-amber-300 bg-amber-50 p-4" role="status">
-    <p className="font-bold">{items.length} ölçüm sunucu onayı bekliyor</p>
-    <p className="text-sm">Kayıtlar bu cihazda korunuyor. Gönderim tamamlanana kadar cihaz verilerini temizlemeyin.</p>
-    {items.map(item=><p key={item.log.id} className="mt-2 text-sm">{item.log.sessionCode} · {item.error || 'Gönderiliyor…'}</p>)}
-    <button disabled={busy} className="mt-3 rounded-lg bg-amber-900 px-4 py-3 text-white disabled:opacity-50" onClick={async()=>{setBusy(true);try{for(const item of items)await StorageService.saveInspectionLog(item.log);onSaved();}catch(error){StorageService.reportSyncError(error);}finally{setBusy(false);}}}>{busy?'Gönderiliyor…':'Gönderimi tekrar dene'}</button>
+  const failed=items.some(item=>item.error);
+  const latest=items[0];
+  return <section className="rq-sync-strip" role="status" aria-live="polite">
+    <div className="rq-sync-strip-icon">{failed?<AlertTriangle size={18}/>:<CloudUpload size={18}/>}</div>
+    <div className="rq-sync-strip-copy">
+      <strong>{items.length} ölçüm sunucu onayı bekliyor</strong>
+      <span>{latest.log.sessionCode} · {latest.error || 'Kayıt cihazda korunuyor; gönderim kuyruğu izleniyor.'}</span>
+    </div>
+    <Button loading={busy} variant="primary" onClick={async()=>{setBusy(true);try{for(const item of items)await StorageService.saveInspectionLog(item.log);onSaved();}catch(error){StorageService.reportSyncError(error);}finally{setBusy(false);}}}><RefreshCw size={15}/>Tekrar dene</Button>
   </section>;
 }

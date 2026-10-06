@@ -226,7 +226,7 @@ export default function App() {
         <MobileInspectionUploads onConfirmed={log=>{handleInspectionSaved(log);setCertificateLog(previous=>previous?.id===log.id?log:previous);}}/>
         {/* Main Content Area */}
         <PageContainer id="main-content" tabIndex={-1} className={measurementActive?'rq-terminal-page':'rq-workspace'}>
-        {!measurementActive&&!['products','control-plans','operator'].includes(activeTab)&&<PageHeader title={pageMeta[activeTab].title} description={pageMeta[activeTab].description} breadcrumb={<Breadcrumb items={[{label:'Ritim Quality'},{label:pageMeta[activeTab].title}]}/>}/>}
+        {!measurementActive&&!['overview','products','control-plans','operator'].includes(activeTab)&&<PageHeader title={pageMeta[activeTab].title} description={pageMeta[activeTab].description} breadcrumb={<Breadcrumb items={[{label:'Ritim Quality'},{label:pageMeta[activeTab].title}]}/>}/>}
         {activeTab === 'overview' && currentUser.role === 'admin' && <Onboarding products={products} plans={controlPlans} users={users} logs={inspectionLogs} onNavigate={setActiveTab}/>}
         {activeTab==='overview'&&<Suspense fallback={<AnalyticsLoading/>}><Overview canInspect={currentUser.role!=='auditor'} logs={inspectionLogs} onNavigate={setActiveTab} onOpenLog={log=>openRecord(log.id)}/></Suspense>}
         {activeTab==='organization'&&currentUser.role==='admin'&&<WorkCenter section="organization" onSectionChange={()=>{}} users={users} products={products} currentUser={currentUser} onInspect={handleSelectProductForInspection}/>}

@@ -9,6 +9,7 @@
     "dev:all": "concurrently \"npm run dev:api\" \"npm run dev\"",
     "db:migrate": "tsx server/db/migrate.ts",
     "db:seed": "tsx server/db/seed.ts",
+    "db:seed:ops": "tsx tools/seed-operational-demo.ts",
     "build": "vite build",
     "build:api": "tsc -p server/tsconfig.json",
     "preview": "vite preview",
