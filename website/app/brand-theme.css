@@ -1,0 +1,7 @@
+/* Shared by the application and website; PDF uses the same palette and font. */
+:root{
+  --ritim-ink:#172b36;--ritim-shell:#152f38;--ritim-muted:#60737b;
+  --ritim-accent:#c64c35;--ritim-green:#287562;--ritim-border:#dce5e5;
+  --ritim-paper:#ffffff;--ritim-soft:#f3f6f5;
+  --ritim-font:"Segoe UI",Arial,system-ui,sans-serif;
+}

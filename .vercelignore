@@ -11,4 +11,12 @@ tests
 tools
 assets
 coverage
+reports
 *.log
+
+website/node_modules
+website/.next
+website/test-results
+website/playwright-report
+website/*.tsbuildinfo
+eng.traineddata

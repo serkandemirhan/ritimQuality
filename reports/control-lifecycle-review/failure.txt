@@ -1,0 +1,102 @@
+TimeoutError: locator.selectOption: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[name=planId]')[22m
+[2m    - locator resolved to <select required="" name="planId" class="rq-input mt-1">…</select>[22m
+[2m  - attempting select option action[22m
+[2m    2 × waiting for element to be visible and enabled[22m
+[2m      - did not find some options[22m
+[2m    - retrying select option action[22m
+[2m    - waiting 20ms[22m
+[2m    2 × waiting for element to be visible and enabled[22m
+[2m      - did not find some options[22m
+[2m    - retrying select option action[22m
+[2m      - waiting 100ms[22m
+[2m    56 × waiting for element to be visible and enabled[22m
+[2m       - did not find some options[22m
+[2m     - retrying select option action[22m
+[2m       - waiting 500ms[22m
+
+İçeriğe geç
+Ritim Quality
+AKIŞ TESTİ — DENEME
+OPERASYON
+Genel Bakış
+Uygunsuzluklar
+Onaylar
+Aksiyonlar
+Kontrol başlat
+CANLI
+KALİTE
+Kontrol Planları
+Parçalar
+4
+Kontrol kayıtları
+15
+ANALİTİK
+SPC Analizi
+YÖNETİM
+Organizasyon
+Ayarlar
+Kullanıcılar & Roller
+Abonelik
+PRO
+Kişisel ayarlar
+Akış Testi — Deneme
+9
+DY
+Ritim Quality
+Aksiyonlar
+Aksiyonlar
+
+Atanan görevler ve planlanan kontroller.
+
+Açık uygunsuzluk
+
+0
+
+Bekleyen onay
+
+2
+
+Geciken görev
+
+0
+
+Uygunsuzluklar
+Görevler
+Onaylar
+Açık
+Tamamlanan
+
+Açık görev bulunmuyor.
+
+Yeni görev ata
+Görev türü
+Kontrol isteği
+Düzeltici görev
+Görev
+Sorumlu
+Seçin
+Deniz Yönetici
+Ece Operatör
+Öncelik
+Düşük
+Normal
+Yüksek
+Kritik
+Parça
+Genel görev
+PDF-1794131440081
+PDF-1794131261844
+PDF-1794131123606
+AKIS-001
+Kontrol planı
+Aktif plan seçin
+approval-1794134518830 · 3 nokta
+İş emri
+Parti
+Numune sayısı
+Termin
+Görev ata
+Ritim Quality · v1.0 · Ritim Cloud
+Revizyon kontrollü kalite kayıtları

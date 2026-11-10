@@ -1,0 +1,37 @@
+{
+  "at": "2026-11-08T14:34:33.827Z",
+  "checks": [
+    {
+      "label": "Kimliksiz erişim ve operatörün yönetici yazma işlemleri reddediliyor.",
+      "status": "passed"
+    },
+    {
+      "label": "İkinci firma ürün, plan, ölçüm ve özel teknik resim dosyasına erişemiyor.",
+      "status": "passed"
+    },
+    {
+      "label": "Aynı plan revizyonu ikinci kez oluşturulamıyor.",
+      "status": "passed"
+    },
+    {
+      "label": "Ölçüm kaydı olmadan kontrol isteği tamamlanamıyor.",
+      "status": "passed"
+    },
+    {
+      "label": "Atanmayan kullanıcı, yanlış parti ve başka firmanın planıyla kayıt reddediliyor.",
+      "status": "passed"
+    },
+    {
+      "label": "Eşzamanlı çift gönderim tek kontrol oluşturuyor; sahte uygun sonucu sunucuda uygunsuz hesaplanıyor.",
+      "status": "passed"
+    },
+    {
+      "label": "Uygunsuz sonuç yönetici onayına düşüyor; görev tamamlanıyor, bildirimler çoğalmıyor.",
+      "status": "passed"
+    },
+    {
+      "label": "Reddetme operatöre bildiriliyor, yeniden kontrol görevi oluşturuluyor; ikinci karar reddediliyor.",
+      "status": "passed"
+    }
+  ]
+}

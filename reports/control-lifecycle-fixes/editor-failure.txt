@@ -1,0 +1,107 @@
+Error: expect(received).toBeCloseTo(expected, precision)
+
+Expected: 32
+Received: 50
+
+Expected precision:    0
+Expected difference: < 0.5
+Received difference:   18
+İçeriğe geç
+İşlem başarıyla kaydedildi.
+Akış Testi — Deneme
+3
+DY
+Genel Bakış
+Kontrol başlat
+İşler
+Diğer
+Kontrol planları
+PDF-1794131261844
+PDF koordinat doğrulama
+
+Kontrol noktaları, teknik resimler ve revizyon yönetimi.
+
+Yeni plan
+PDF’den plan oluştur
+Yeni revizyon
+Değişiklikleri kaydet
+PDF-1794131261844 · v1.2
+Taslak
+Kaydedildi
+1 kontrol noktası
+Ürün / revizyon seçimi ve plan durumu
+v1.2 · 2026-11-08
+Plan yapısı
+
+v1.2 · 1 / 50 nokta
+
+1
+Ana Boyut (Kritik Çap/Boy)
+Sayısal
++ Nokta ekle
+Hepsini göster
+Noktayı sil
+Teknik resim
+Ölçü ve tolerans
+#1 Ana Boyut (Kritik Çap/Boy)
+Karakteristik adı
+Kontrol tipi
+Sayısal
+Uygun / Uygunsuz
+Görsel
+Tekli Seçim
+Çoklu Seçim
+Evet / Hayır
+Metin
+Mobil ölçüm ve kanıt kuralları
+Önem seviyesi
+Normal
+Önemli
+Kritik
+Kanıt politikası
+Kanıt yok
+İsteğe bağlı
+Uygunsuzlukta zorunlu
+Her zaman zorunlu
+Fotoğraf zorunlu
+Fotoğraf veya video
+Dosya / belge gerekli
+Nominal
+Birim
+mm
+inch
+µm
+°
+N
+Ra
+kg
+bar
+adet
+Alt tolerans
+Üst tolerans
+Alt sınır
+49.95 mm
+Nominal
+50 mm
+Üst sınır
+50.05 mm
+Ölçüm aleti
+Dijital Kumpas 0.01
+Mikrometre 0.001
+CMM 3D Ölçüm Cihazı
+Mihengir / Yükseklik Mastarı
+Profil Projeksiyon / Optik
+Yüzey Pürüzlülük (Surftest)
+Geçer / Geçmez Tampon Mastar
+Torkmetre
+Sertlik Ölçüm Cihazı (HRC/HB)
+Diğer Ölçüm Aleti
+Numune
+Kontrol sıklığı
+Kontrol açıklaması
+← Önceki
+1 / 1
+Sonraki →
+Revizyon bilgileri
+Ritim Quality · v1.0 · Ritim Cloud
+Revizyon kontrollü kalite kayıtları

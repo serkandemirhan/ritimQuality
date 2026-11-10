@@ -1,0 +1,147 @@
+{
+  "serial": "R5CTB21F4LH",
+  "at": "2026-11-09T21:45:08.112Z",
+  "device": {
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Mobile Safari/537.36",
+    "width": 360,
+    "height": 649,
+    "pixelRatio": 3,
+    "touchPoints": 5
+  },
+  "evidence": [
+    {
+      "name": "01-genel-bakis",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": true,
+      "title": ""
+    },
+    {
+      "name": "02-kontrol-planlari",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": true,
+      "title": "Kontrol planları"
+    },
+    {
+      "name": "03-parcalar",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": true,
+      "title": "Parçalar"
+    },
+    {
+      "name": "04-aksiyonlar",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": true,
+      "title": "Aksiyonlar"
+    },
+    {
+      "name": "05-kontrol-kayitlari",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": true,
+      "title": "Kontrol kayıtları"
+    },
+    {
+      "name": "06-kullanicilar",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": true,
+      "title": "Kullanıcılar"
+    },
+    {
+      "name": "07-ayarlar",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": true,
+      "title": "Ayarlar"
+    },
+    {
+      "name": "08-olcum-hazirligi",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": true,
+      "title": "Ölçüm hazırlığı"
+    },
+    {
+      "name": "09-mobil-olcum-basladi",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": true,
+      "title": "1 / 6 · Gövde Dış Çapı (ØA)"
+    },
+    {
+      "name": "10-olcum-1-girildi",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": true,
+      "title": "1 / 6 · Gövde Dış Çapı (ØA)"
+    },
+    {
+      "name": "10-olcum-2-girildi",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": true,
+      "title": "2 / 6 · İç Delik Çapı (ØB)"
+    },
+    {
+      "name": "10-olcum-3-girildi",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": true,
+      "title": "3 / 6 · Toplam Parça Boyu (L)"
+    },
+    {
+      "name": "11-cevrimdisi-cihazda-kayit",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": false,
+      "title": "4 / 6 · Flanş Baş Çapı (ØD)"
+    },
+    {
+      "name": "10-olcum-4-girildi",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": false,
+      "title": "4 / 6 · Flanş Baş Çapı (ØD)"
+    },
+    {
+      "name": "10-olcum-5-girildi",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": false,
+      "title": "5 / 6 · Pah Açısı & Boyutu"
+    },
+    {
+      "name": "12-bes-ardisik-olcum",
+      "width": 360,
+      "height": 649,
+      "scrollWidth": 360,
+      "online": true,
+      "title": "6 / 6 · Yüzey Pürüzlülüğü (Ra)"
+    }
+  ],
+  "attempts": 5,
+  "errors": [],
+  "testTransportWarnings": [
+    "WebSocket closed without opened.",
+    "WebSocket closed without opened."
+  ]
+}

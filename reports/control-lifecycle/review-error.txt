@@ -1,0 +1,73 @@
+Error: expect(received).toBeTruthy()
+
+Received: null
+İçeriğe geç
+Ritim Quality
+AKIŞ TESTİ — DENEME
+OPERASYON
+Genel Bakış
+Uygunsuzluklar
+Onaylar
+Aksiyonlar
+Kontrol başlat
+CANLI
+KALİTE
+Kontrol Planları
+Parçalar
+1
+Kontrol kayıtları
+1
+ANALİTİK
+SPC Analizi
+YÖNETİM
+Organizasyon
+Ayarlar
+Kullanıcılar & Roller
+Abonelik
+PRO
+Kişisel ayarlar
+Akış Testi — Deneme
+1
+DY
+Kaliteye genel bakış
+
+Son 30 gün · 1 kontrol
+
+Kontrol başlat
+7 gün
+30 gün
+90 gün
+Oran ve grafik dönemi
+Uygunluk oranı
+%100
+1 uygun / 1 kontrol
+Nasıl hesaplanır?
+Açık uygunsuzluklar
+0
+Son kontrol
+INS-ab33b44c-dfc9-4c7e-93c2-6065f8359dc0
+Bağlantı Plakası — Akış Testi · 08 Kas 2026 09:34
+Raporu aç
+Öncelikli işler
+Tüm açık işler
+1
+Bekleyen onay
+Kontrol sonuçları kararınızı bekliyor.
+İlk kontrol raporunuz hazır.
+
+Sonuçları inceleyin; yazdırma ekranından PDF olarak kaydedin.
+
+İlk raporumu aç
+Son kontrol kayıtları
+En yeniden eskiye
+Tüm kayıtlar
+INS-ab33b44c-dfc9-4c7e-93c2-6065f8359dc0
+Bağlantı Plakası — Akış Testi · AKIS-001
+Parti: LOT-2026-001 · İş emri: İE-2026-001
+Ece Operatör
+08 Kas 2026 09:34
+Uygun
+Parça, istasyon ve operatör dağılımı
+Tüm kayıtlar
+Ritim Quality · v1.0 · Ritim Cloud
+Revizyon kontrollü kalite kayıtları

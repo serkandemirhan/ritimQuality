@@ -35,7 +35,8 @@ export async function assertQuota(
            AND occurred_at >= date_trunc('month', now())`;
   const result = await client.query(sql, [tenantId]);
   if (result.rows[0].count + requestedAmount > limits[resource]) {
-    const error = new Error(`Paket kotası doldu: ${resource}`);
+    const labels={controlPlans:'kontrol planı / revizyon sayısı',users:'aktif kullanıcı sayısı',monthlyMeasurements:'aylık numune sayısı'};
+    const error = new Error(`Paketinizdeki ${labels[resource]} sınırına ulaştınız. Paket ve kullanım bilgilerinizi kontrol edin.`);
     Object.assign(error, { status: 409, code: 'QUOTA_EXCEEDED' });
     throw error;
   }

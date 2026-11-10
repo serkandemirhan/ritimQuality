@@ -1,0 +1,16 @@
+[
+  {
+    "file": "reports/report-pagination/uc-noktali-rapor.pdf",
+    "pages": 1,
+    "number": "KNT-1029",
+    "signaturesTogether": true,
+    "footersVerified": true
+  },
+  {
+    "file": "reports/report-pagination/uzun-rapor.pdf",
+    "pages": 3,
+    "number": "TEST-UZUN-65",
+    "signaturesTogether": true,
+    "footersVerified": true
+  }
+]

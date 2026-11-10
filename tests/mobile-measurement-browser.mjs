@@ -128,7 +128,7 @@ await evaluate(`window.core=await import('/test-core.js');Object.defineProperty(
 assert.ok(await evaluate(`!!document.querySelector('.rq-report-modal')&&!document.querySelector('.mm-shell')`),'Completing an inspection opens its report before upload confirmation');
 assert.ok(await evaluate(`document.querySelector('.rq-report-paper').textContent.includes('Yerel rapor')`),'Unsynced report is explicitly local');
 await evaluate(`Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>true});window.dispatchEvent(new Event('online'))`);
-await evaluate(`document.querySelector('#btn-close-certificate').click()`);await delay(150);await evaluate(`document.querySelector('#nav-tab-logs').click()`);await delay(150);
+await evaluate(`document.querySelector('.rq-report-modal > header button').click()`);await delay(150);await evaluate(`document.querySelector('#nav-tab-logs').click()`);await delay(150);
 assert.ok(await evaluate(`!document.querySelector('.mm-shell')&&!!document.querySelector('.rq-record-table')`),'Navigation remains available during upload');
 await cmd('Page.reload');await delay(1300);await evaluate(`window.core=await import('/test-core.js')`);
 assert.ok(await evaluate(`(await core.readMobileUploads('review:user')).some(s=>s.id===${JSON.stringify(delayedId)})`),'Pending submission survives reload');

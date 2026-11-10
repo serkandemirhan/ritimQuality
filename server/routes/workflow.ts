@@ -15,8 +15,8 @@ workflowRouter.get('/work',async(req,res,next)=>{
     const result=await withTenant(tenantId,async client=>{
       const restricted=role==='operator';
       const cases=await client.query('SELECT * FROM quality_cases WHERE tenant_id=$1 AND ($2::boolean=false OR owner_id=$3) ORDER BY created_at DESC LIMIT 200',[tenantId,restricted,userId]);
-      const approvals=restricted ? {rows:[]} : await client.query(`SELECT a.*,l.payload->>'sessionCode' session_code,l.payload->>'operatorName' operator_name FROM inspection_approvals a JOIN inspection_logs l ON l.tenant_id=a.tenant_id AND l.id=a.inspection_id WHERE a.tenant_id=$1 AND l.voided_at IS NULL ORDER BY l.occurred_at DESC LIMIT 200`,[tenantId]);
-      const tasks=await client.query('SELECT * FROM quality_tasks WHERE tenant_id=$1 AND ($2::boolean=false OR owner_id=$3) ORDER BY due_at LIMIT 200',[tenantId,restricted,userId]);
+      const approvals=restricted ? {rows:[]} : await client.query(`SELECT a.*,COALESCE(l.control_number,l.payload->>'sessionCode') session_code,l.payload->>'operatorName' operator_name FROM inspection_approvals a JOIN inspection_logs l ON l.tenant_id=a.tenant_id AND l.id=a.inspection_id WHERE a.tenant_id=$1 AND l.voided_at IS NULL ORDER BY l.occurred_at DESC LIMIT 200`,[tenantId]);
+      const tasks=await client.query(`SELECT q.*, l.control_number FROM quality_tasks q LEFT JOIN inspection_logs l ON l.tenant_id=q.tenant_id AND l.id=q.result_inspection_id WHERE q.tenant_id=$1 AND ($2::boolean=false OR q.owner_id=$3) ORDER BY q.due_at DESC LIMIT 200`,[tenantId,restricted,userId]);
       const notifications=await client.query('SELECT * FROM quality_notifications WHERE tenant_id=$1 AND user_id=$2 ORDER BY created_at DESC LIMIT 100',[tenantId,userId]);
       const summary=(await client.query(`SELECT
         (SELECT count(*)::int FROM quality_cases WHERE tenant_id=$1 AND state<>'closed' AND ($2::boolean=false OR owner_id=$3)) open_cases,
@@ -63,18 +63,26 @@ workflowRouter.post('/approvals/:id',requireRole('admin','quality_engineer'),asy
       if(row.payload.operatorUserId===userId)conflict('Kendi kontrolünüzü onaylayamaz veya reddedemezsiniz.');
       await client.query('UPDATE inspection_approvals SET status=$3,reason=$4,reviewed_by=$5,reviewed_at=now() WHERE tenant_id=$1 AND inspection_id=$2',[tenantId,id,input.status,input.reason,userId]);
       await workflowAudit(client,tenantId,userId,'inspection.'+input.status,id,{status:'pending'},input);
-      await notifyQuality(client,tenantId,'Kontrol '+(input.status==='approved'?'onaylandı':'reddedildi: yeniden kontrol gerekli'),'approval',id,row.payload.operatorUserId);
+      await notifyQuality(client,tenantId,'Kontrol '+(input.status==='approved'?'onaylandı':'reddedildi: yeniden kontrol gerekli'),'inspection',id,row.payload.operatorUserId);
       if(input.status==='rejected')await client.query('INSERT INTO quality_tasks(tenant_id,title,owner_id,product_id,due_at) VALUES($1,$2,$3,$4,now()+interval \'1 day\')',[tenantId,'Yeniden kontrol: '+row.payload.sessionCode,row.payload.operatorUserId,row.payload.productId]);
     });res.status(204).end();
   }catch(error){next(error);}
 });
 workflowRouter.post('/tasks',requireRole('admin','quality_engineer'),async(req,res,next)=>{
   try{
-    const input=z.object({title:z.string().trim().min(3).max(250),ownerId:z.string().min(1),productId:z.string().optional(),priority:z.enum(['low','normal','high','critical']).default('normal'),caseId:z.string().uuid().optional(),inspectionId:z.string().min(1).optional(),dueAt:z.string().datetime()}).parse(req.body);
+    const input=z.object({title:z.string().trim().min(3).max(250),ownerId:z.string().min(1),productId:z.string().optional(),request:z.object({planId:z.string().min(1),orderNumber:z.string().trim().max(120),lotNumber:z.string().trim().max(120),sampleCount:z.number().int().min(1).max(100)}).optional(),priority:z.enum(['low','normal','high','critical']).default('normal'),caseId:z.string().uuid().optional(),inspectionId:z.string().min(1).optional(),dueAt:z.string().datetime()}).parse(req.body);
     const {tenantId,userId}=req.auth!;
     const result=await withTenant(tenantId,async client=>{
       if(!(await client.query("SELECT 1 FROM users WHERE tenant_id=$1 AND id=$2 AND status='active'",[tenantId,input.ownerId])).rowCount)conflict('Aktif sorumlu seçin.');
-      const row=(await client.query('INSERT INTO quality_tasks(tenant_id,title,owner_id,product_id,due_at,priority,case_id,inspection_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',[tenantId,input.title,input.ownerId,input.productId||null,input.dueAt,input.priority,input.caseId||null,input.inspectionId||null])).rows[0];
+      let requestContext = null;
+      if(input.request){
+        const plan=(await client.query('SELECT payload FROM control_plans WHERE tenant_id=$1 AND id=$2 AND product_id=$3 FOR SHARE',[tenantId,input.request.planId,input.productId])).rows[0]?.payload;
+        if(!plan || !plan.isActive || plan.status!=='active')conflict('Parçaya ait aktif bir kontrol planı seçin.');
+        const owner=(await client.query('SELECT role FROM users WHERE tenant_id=$1 AND id=$2',[tenantId,input.ownerId])).rows[0];
+        if(!['operator','admin','quality_engineer'].includes(owner.role))conflict('Sorumlu ölçüm yapabilen bir kullanıcı olmalıdır.');
+        requestContext={...input.request,planVersion:plan.version};
+      }
+      const row=(await client.query('INSERT INTO quality_tasks(tenant_id,title,owner_id,product_id,due_at,priority,case_id,inspection_id,request_context) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',[tenantId,input.title,input.ownerId,input.productId||null,input.dueAt,input.priority,input.caseId||null,input.inspectionId||null,requestContext])).rows[0];
       await workflowAudit(client,tenantId,userId,'task.created',row.id,null,row);await notifyQuality(client,tenantId,input.title,'task',row.id,input.ownerId);return row;
     });res.status(201).json(result);
   }catch(error){next(error);}
@@ -90,7 +98,7 @@ workflowRouter.post('/tasks/:id/start',requireRole('admin','quality_engineer','o
 });
 workflowRouter.post('/tasks/:id/complete' ,requireRole('admin','quality_engineer','operator'),async(req,res,next)=>{
   try{const {tenantId,userId,role}=req.auth!;const id=z.string().uuid().parse(req.params.id);const note=z.object({note:z.string().trim().min(5).max(2000)}).parse(req.body).note;
-    await withTenant(tenantId,async client=>{const result=await client.query('UPDATE quality_tasks SET completed_at=now(),completion_note=$3 WHERE tenant_id=$1 AND id=$2 AND completed_at IS NULL AND ($4::boolean OR owner_id=$5) RETURNING *',[tenantId,id,note,role!=='operator',userId]);if(!result.rowCount)conflict('Görev bulunamadı veya kapalı.');await workflowAudit(client,tenantId,userId,'task.completed',id,null,result.rows[0]);});res.status(204).end();
+    await withTenant(tenantId,async client=>{const result=await client.query('UPDATE quality_tasks SET completed_at=now(),completion_note=$3 WHERE tenant_id=$1 AND id=$2 AND completed_at IS NULL AND request_context IS NULL AND ($4::boolean OR owner_id=$5) RETURNING *',[tenantId,id,note,role!=='operator',userId]);if(!result.rowCount)conflict('Görev bulunamadı veya kapalı.');await workflowAudit(client,tenantId,userId,'task.completed',id,null,result.rows[0]);await notifyQuality(client,tenantId,'Görev tamamlandı: '+result.rows[0].title,'task',id);});res.status(204).end();
   }catch(error){next(error);}
 });
 workflowRouter.get('/organization',requireRole('admin'),async(req,res,next)=>{

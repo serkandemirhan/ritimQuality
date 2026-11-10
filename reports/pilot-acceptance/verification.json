@@ -1,0 +1,24 @@
+{
+  "at": "2026-11-08T14:43:48.998Z",
+  "unitTests": {
+    "passed": 29,
+    "failed": 0,
+    "files": [
+      "inspection-validation",
+      "pending-session",
+      "mobile-measurement",
+      "measurement-order",
+      "plan-version",
+      "plan-placement",
+      "drawing-analysis",
+      "account-mail"
+    ]
+  },
+  "database": {
+    "accountSecurity": "passed, transaction rolled back",
+    "tenantIsolation": "7 passed, transaction rolled back"
+  },
+  "lint": "passed",
+  "build": "passed, existing chunk size warning",
+  "deployment": "dpl_B7zRf9R1zbVA7KXSyTziFZrPtGHM"
+}

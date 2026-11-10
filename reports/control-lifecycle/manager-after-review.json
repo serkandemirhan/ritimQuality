@@ -1,0 +1,52 @@
+{
+  "cases": [],
+  "approvals": [
+    {
+      "tenant_id": "35bef083-9fb7-4c6e-9f27-588fc67ef861",
+      "inspection_id": "fc10d428-ddad-4ce1-b982-0dd1500a4d33",
+      "status": "approved",
+      "reason": "Teknik resim, üç tolerans ve ölçüm sonuçları incelendi. İlk parça kontrolü uygundur.",
+      "reviewed_by": "7985328a-328f-49e0-b2e1-01e2db6212b1",
+      "reviewed_at": "2026-11-08T08:37:01.645Z",
+      "session_code": "INS-ab33b44c-dfc9-4c7e-93c2-6065f8359dc0",
+      "operator_name": "Ece Operatör"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "00a6a90c-b8f2-4da2-8f4c-6ace37b0dcb5",
+      "tenant_id": "35bef083-9fb7-4c6e-9f27-588fc67ef861",
+      "title": "AKIS-001 ilk parça kontrolü · İE-2026-001",
+      "owner_id": "2aa9281d-7d0f-450b-9a3f-ea8ab61d35c9",
+      "product_id": "prod-1794126771928",
+      "due_at": "2026-11-10T16:00:00.000Z",
+      "completed_at": "2026-11-08T08:35:20.797Z",
+      "completion_note": "Üç ölçüm kaydedildi; LOT-2026-001 kontrol raporu yöneticinin onayını bekliyor.",
+      "created_at": "2026-11-08T08:33:13.606Z",
+      "priority": "high",
+      "started_at": null,
+      "case_id": null,
+      "inspection_id": null
+    }
+  ],
+  "notifications": [
+    {
+      "id": "155",
+      "tenant_id": "35bef083-9fb7-4c6e-9f27-588fc67ef861",
+      "user_id": "7985328a-328f-49e0-b2e1-01e2db6212b1",
+      "title": "Kontrol onay bekliyor: INS-ab33b44c-dfc9-4c7e-93c2-6065f8359dc0",
+      "kind": "approval",
+      "entity_id": "fc10d428-ddad-4ce1-b982-0dd1500a4d33",
+      "read_at": "2026-11-08T08:35:55.797Z",
+      "created_at": "2026-11-08T08:34:01.963Z",
+      "push_sent_at": null,
+      "push_attempts": 0,
+      "push_retry_at": "2026-11-08T08:34:01.963Z"
+    }
+  ],
+  "summary": {
+    "open_cases": 0,
+    "overdue_tasks": 0,
+    "pending_approvals": 0
+  }
+}

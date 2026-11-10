@@ -1,3 +1,4 @@
+import { completeInspectionRequest } from '../services/inspectionRequest.js';
 import { createInspectionWorkflow } from '../services/workflow.js';
 import { inspectionRulesSchema, inspectionSignature, validateInspection, planSchema, assertRevisionUnchanged, conflict } from '../services/inspectionValidation.js';
 import { Router } from 'express';
@@ -24,7 +25,7 @@ saasRouter.get('/bootstrap', async (req, res, next) => {
           FROM users WHERE tenant_id = $1 ORDER BY name`, [tenantId]);
       const products = await client.query('SELECT payload FROM products WHERE tenant_id = $1 ORDER BY created_at DESC', [tenantId]);
       const controlPlans = await client.query('SELECT payload FROM control_plans WHERE tenant_id = $1 ORDER BY created_at DESC', [tenantId]);
-      const logs = await client.query('SELECT payload FROM inspection_logs WHERE tenant_id = $1 AND voided_at IS NULL ORDER BY occurred_at DESC', [tenantId]);
+      const logs = await client.query(`SELECT l.payload,l.control_number, jsonb_build_object('status',COALESCE(a.status,'not_required'),'reviewedBy',u.name,'reviewedAt',a.reviewed_at,'reason',a.reason) approval FROM inspection_logs l LEFT JOIN inspection_approvals a ON a.tenant_id=l.tenant_id AND a.inspection_id=l.id LEFT JOIN users u ON u.tenant_id=a.tenant_id AND u.id=a.reviewed_by WHERE l.tenant_id=$1 AND l.voided_at IS NULL ORDER BY l.occurred_at DESC`, [tenantId]);
       const usage = await client.query(`SELECT
           (SELECT count(*)::int FROM control_plans WHERE tenant_id = $1) control_plans,
           (SELECT count(*)::int FROM users WHERE tenant_id = $1 AND status = 'active') users,
@@ -35,7 +36,7 @@ saasRouter.get('/bootstrap', async (req, res, next) => {
         company: tenant.rows[0], users: users.rows,
         products: products.rows.map(row => row.payload),
         controlPlans: controlPlans.rows.map(row => row.payload),
-        inspectionLogs: logs.rows.map(row => row.payload),
+        inspectionLogs: logs.rows.map(row => ({...row.payload,controlNumber:row.control_number,approval:row.approval})),
         usage: usage.rows[0],
       };
     });
@@ -119,7 +120,9 @@ saasRouter.put('/control-plans/:id', requireRole('admin', 'quality_engineer'), a
     await withTenant(tenantId, async client => {
       if (payload.id !== id) conflict('Plan kimliği tutarsız.');
       await client.query('SELECT id FROM products WHERE tenant_id=$1 AND id=$2 FOR UPDATE', [tenantId, productId]);
+      if((await client.query('SELECT 1 FROM control_plans WHERE tenant_id=$1 AND product_id=$2 AND version=$3 AND id<>$4',[tenantId,productId,version,id])).rowCount)conflict('Bu plan sürümü zaten var. Listeyi yenileyip yeni revizyon oluşturun.');
       const prior = (await client.query('SELECT payload FROM control_plans WHERE tenant_id=$1 AND id=$2 FOR UPDATE', [tenantId,id])).rows[0]?.payload;
+      if(prior&&(await client.query("SELECT 1 FROM quality_tasks WHERE tenant_id=$1 AND request_context->>'planId'=$2 AND completed_at IS NULL LIMIT 1",[tenantId,id])).rowCount)assertRevisionUnchanged(prior,payload);
       if (prior && (await client.query('SELECT 1 FROM inspection_logs WHERE tenant_id=$1 AND control_plan_id=$2 LIMIT 1',[tenantId,id])).rowCount) assertRevisionUnchanged(prior,payload);
       const exists = await client.query('SELECT 1 FROM control_plans WHERE tenant_id=$1 AND id=$2', [tenantId, id]);
       if (!exists.rowCount) await assertQuota(client, tenantId, 'controlPlans'); else await assertSubscription(client, tenantId);
@@ -162,11 +165,12 @@ saasRouter.post('/inspection-logs', requireRole('admin', 'quality_engineer', 'op
     const { tenantId, userId } = req.auth!;
     await withTenant(tenantId, async client => {
       const signature = inspectionSignature(req.body);
+      await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[tenantId+':control-number']);
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[tenantId+':inspection:'+id]);
-      const existing = (await client.query('SELECT payload,voided_at FROM inspection_logs WHERE tenant_id=$1 AND id=$2',[tenantId,id])).rows[0];
+      const existing = (await client.query('SELECT payload,control_number,voided_at FROM inspection_logs WHERE tenant_id=$1 AND id=$2',[tenantId,id])).rows[0];
       if (existing) {
         if(existing.voided_at || existing.payload.operatorUserId !== userId || existing.payload.requestSignature !== signature) conflict('Bu kayıt kimliği başka bir ölçüm için kullanılmış.');
-        payload=existing.payload; return;
+        payload={...existing.payload,controlNumber:existing.control_number}; return;
       }
       const plan = (await client.query('SELECT payload FROM control_plans WHERE tenant_id=$1 AND id=$2 FOR SHARE',[tenantId,controlPlanId])).rows[0]?.payload;
       const actor = (await client.query('SELECT name FROM users WHERE tenant_id=$1 AND id=$2',[tenantId,userId])).rows[0];
@@ -202,11 +206,15 @@ saasRouter.post('/inspection-logs', requireRole('admin', 'quality_engineer', 'op
         }
       }
       await assertQuota(client, tenantId, 'monthlyMeasurements', samples.length);
-      await client.query(`INSERT INTO inspection_logs (id,tenant_id,product_id,control_plan_id,session_code,occurred_at,payload)
-        VALUES ($1,$2,$3,$4,$5,$6,$7)`, [id, tenantId, productId, controlPlanId, sessionCode, occurredAt, payload]);
+      const numbering=await client.query('UPDATE tenants SET next_control_number=next_control_number+1 WHERE id=$1 RETURNING next_control_number',[tenantId]);
+      payload.controlNumber='KNT-'+numbering.rows[0].next_control_number;
+      delete payload.approval;
+      await client.query(`INSERT INTO inspection_logs (id,tenant_id,product_id,control_plan_id,session_code,occurred_at,payload,control_number)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, [id, tenantId, productId, controlPlanId, sessionCode, occurredAt, payload,payload.controlNumber]);
       for(const sample of payload.samples as any[]) for(const [characteristicId,items] of Object.entries(sample.evidence || {})) {
         await client.query('UPDATE media_evidence SET inspection_id=$1,draft_id=NULL,sample_index=$2,characteristic_id=$3 WHERE tenant_id=$4 AND id=ANY($5::uuid[])',[id,sample.sampleIndex,characteristicId,tenantId,(items as {id:string}[]).map(item=>item.id)]);
       }
+      await completeInspectionRequest(client,tenantId,userId,payload);
       await createInspectionWorkflow(client,tenantId,userId,payload);
       if(serverDraftId)await client.query('DELETE FROM inspection_drafts WHERE tenant_id=$1 AND id=$2 AND claimed_by=$3',[tenantId,serverDraftId,userId]);
       await audit(client, { tenantId, userId, action: 'inspection.created', entityType: 'inspection_log', entityId: id, after: payload, ip: req.ip });

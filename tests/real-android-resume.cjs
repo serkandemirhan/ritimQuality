@@ -1,0 +1,24 @@
+const {chromium}=require('../website/node_modules/@playwright/test');
+const {execFileSync}=require('child_process');
+const fs=require('fs');
+const port=process.env.ANDROID_CDP_PORT;
+const serial=process.env.ANDROID_SERIAL;
+const adb=process.env.ADB_PATH||'C:/Users/serkan/Downloads/platform-tools-latest-windows/platform-tools/adb.exe';
+const out=`reports/real-android/${serial}`;
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const capture=name=>{const remote=`/sdcard/${name}.png`;execFileSync(adb,['-s',serial,'shell','screencap','-p',remote]);execFileSync(adb,['-s',serial,'pull',remote,`${out}/${name}.png`],{stdio:'ignore'});execFileSync(adb,['-s',serial,'shell','rm',remote]);};
+const attempts=page=>page.evaluate(async()=>{const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('ritim-mobile-measurement');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});return await new Promise((resolve,reject)=>{const tx=db.transaction('sessions');const request=tx.objectStore('sessions').getAll();request.onsuccess=()=>resolve(request.result[0]?.attempts?.length||0);request.onerror=()=>reject(request.error);});});
+(async()=>{
+ let browser=await chromium.connectOverCDP(`http://127.0.0.1:${port}`);let page=browser.contexts()[0].pages().find(item=>item.url().startsWith('http://127.0.0.1:3350'));
+ if(!page)throw Error('Ritim tab is not open');
+ if(await attempts(page)<5)throw Error('Five-attempt draft is missing before resume test');
+ execFileSync(adb,['-s',serial,'shell','input','keyevent','3']);await wait(1200);capture('13-arka-plana-alindi');
+ execFileSync(adb,['-s',serial,'shell','monkey','-p','com.android.chrome','1'],{stdio:'ignore'});await wait(1800);
+ if(await attempts(page)<5)throw Error('Draft was lost after background/resume');capture('14-geri-dondu-taslak-korundu');
+ execFileSync(adb,['-s',serial,'shell','settings','put','system','accelerometer_rotation','0']);execFileSync(adb,['-s',serial,'shell','settings','put','system','user_rotation','1']);await wait(1800);
+ const landscape=await page.evaluate(()=>({width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth,attempts:document.querySelector('.mm-characteristic')?.textContent}));capture('15-yatay-olcum');
+ if(landscape.scrollWidth>landscape.width+1)throw Error('Landscape horizontal overflow '+JSON.stringify(landscape));
+ execFileSync(adb,['-s',serial,'shell','settings','put','system','user_rotation','0']);execFileSync(adb,['-s',serial,'shell','settings','put','system','accelerometer_rotation','1']);await wait(1200);capture('16-dikey-duzene-dondu');
+ fs.writeFileSync(`${out}/resume-results.json`,JSON.stringify({serial,attempts:await attempts(page),landscape,passed:true},null,2));
+ console.log(`PASS ${serial}: background/resume preserved draft; landscape and portrait had no horizontal overflow.`);await browser.close();
+})().catch(error=>{try{execFileSync(adb,['-s',serial,'shell','settings','put','system','user_rotation','0']);execFileSync(adb,['-s',serial,'shell','settings','put','system','accelerometer_rotation','1']);}catch{}console.error(error);process.exitCode=1;});

@@ -1,0 +1,6 @@
+'use client';
+import {useState} from 'react';
+import {useRouter} from 'next/navigation';
+import {browserClient} from '@/lib/supabase/client';
+import {Button} from './ui/button';
+export function Onboarding(){const[busy,setBusy]=useState(false),[error,setError]=useState('');const router=useRouter();return <div className="auth-layout"><span className="eyebrow">İLK ADIM</span><h1>Çalışma alanınızı hazırlayalım.</h1><p>Örnek ölçümlerinizi saklayacağınız alan. Ücretsiz paketle başlarsınız.</p><form className="form-card" onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');try{const data=new FormData(e.currentTarget);const {error}=await browserClient().rpc('site_create_workspace',{workspace_name:String(data.get('company'))});if(error)throw error;router.push('/app');router.refresh();}catch{setError('Çalışma alanı oluşturulamadı. Hesap doğrulamasını ve bağlantıyı kontrol edin.');}finally{setBusy(false);}}}><label className="form-field">Firma / çalışma alanı adı<input name="company" required minLength={2} maxLength={120} placeholder="Örn. Atölyem" disabled={busy}/></label><Button disabled={busy}>{busy?'Hazırlanıyor…':'Çalışma alanını oluştur'}</Button>{error&&<p role="alert" className="error">{error}</p>}</form></div>;}

@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { withTenant } from '../db/pool.js';
 
 export type Role = 'admin' | 'quality_engineer' | 'operator' | 'auditor';
-export interface AuthClaims { userId: string; tenantId: string; role: Role; }
+export interface AuthClaims { userId: string; tenantId: string; role: Role; sessionVersion?: number; }
 
 declare global {
   namespace Express {
@@ -26,9 +26,10 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   if (!token) { res.status(401).json({ error: 'Oturum açmanız gerekiyor.' }); return; }
   try {
     const claims = jwt.verify(token, jwtSecret()) as AuthClaims;
-    const result = await withTenant(claims.tenantId, client => client.query('SELECT role,status FROM users WHERE tenant_id=$1 AND id=$2', [claims.tenantId, claims.userId]));
+    const result = await withTenant(claims.tenantId, client => client.query('SELECT role,status,session_version FROM users WHERE tenant_id=$1 AND id=$2', [claims.tenantId, claims.userId]));
     const user = result.rows[0];
     if (!user || user.status !== 'active') { res.status(401).json({error:'Kullanıcı hesabı aktif değil.'}); return; }
+    if ((claims.sessionVersion ?? 0) !== user.session_version) { res.status(401).json({error:'Şifreniz değişti. Lütfen yeniden giriş yapın.'}); return; }
     req.auth = {userId:claims.userId, tenantId:claims.tenantId, role:user.role};
     next();
   } catch {
@@ -45,4 +46,3 @@ export function requireRole(...roles: Role[]) {
     next();
   };
 }
-

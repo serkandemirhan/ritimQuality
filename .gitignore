@@ -16,3 +16,6 @@ on-premise/dist-server/
 .data/
 .vercel/
 *.pem
+
+.vercel
+.env*

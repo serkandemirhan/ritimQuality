@@ -1,4 +1,4 @@
-import { useMediaSource, isPdfMedia } from './MediaImage';
+import { useDrawingSource, isPdfMedia } from './MediaImage';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Characteristic, PinCoordinate, MeasurementValue } from '../types';
 import { 
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 
 interface DrawingCanvasProps {
+  balloonMode?: 'overlay'|'embedded';
   imageUrl: string;
   characteristics: Characteristic[];
   activePointNo?: number | null;
@@ -33,7 +34,7 @@ interface DrawingCanvasProps {
 }
 
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
-  imageUrl,
+  imageUrl, balloonMode='overlay',
   characteristics,
   activePointNo,
   onPointSelect,
@@ -46,7 +47,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   showLabelsDefault = true,
   defaultFilterMode = 'activeOnly',
 }) => {
-  const resolvedImageUrl = useMediaSource(imageUrl);
+  const [imageRetry,setImageRetry]=useState(0),[imageFailed,setImageFailed]=useState(false),[imageReady,setImageReady]=useState(false);
+  const imageError=useCallback(()=>setImageFailed(true),[]);
+  const resolvedImageUrl = useDrawingSource(imageUrl,imageRetry,imageError);
+  useEffect(()=>{setImageReady(false);setImageFailed(false);},[imageUrl,imageRetry]);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollStageRef = useRef<HTMLDivElement>(null);
   
@@ -432,14 +436,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           className="relative transition-transform duration-100 ease-out shadow-2xl rounded-xl overflow-visible inline-block"
         >
           {/* Technical Drawing Blueprint Image */}
-          {isPdfMedia(imageUrl) ? (
-            <object data={resolvedImageUrl} type="application/pdf" aria-label="PDF teknik resim" className="block h-[65vh] min-h-[460px] w-[min(900px,90vw)] pointer-events-none rounded-xl bg-white" />
-          ) : (
-            <>{resolvedImageUrl ? <img onLoad={event => {const image=event.currentTarget; if(image.naturalHeight) setImageRatio(image.naturalWidth/image.naturalHeight);}} src={resolvedImageUrl} alt="Teknik Resim Kontrol Planı" className="w-full h-auto object-contain block pointer-events-none rounded-xl bg-slate-900/60" referrerPolicy="no-referrer" /> : <div className="flex min-h-40 items-center justify-center rounded-xl bg-slate-900 px-6 text-center text-sm text-slate-400">Bu kontrol planına teknik resim eklenmemiş.</div>}</>
-          )}
+          {
+            <>{resolvedImageUrl&&!imageFailed ? <img onError={imageError} onLoad={event => {setImageReady(true);const image=event.currentTarget; if(image.naturalHeight) setImageRatio(image.naturalWidth/image.naturalHeight);}} src={resolvedImageUrl} alt="Teknik Resim Kontrol Planı" className="w-full h-auto object-contain block pointer-events-none rounded-xl bg-slate-900/60" referrerPolicy="no-referrer" /> : <div role={imageFailed?'alert':'status'} className="rq-media-placeholder rounded-xl">{!imageUrl?'Bu kontrol planına teknik resim eklenmemiş.':imageFailed?'Teknik resim yüklenemedi.':'Teknik resim hazırlanıyor…'}{imageFailed&&<button type="button" className="rq-button" onClick={()=>setImageRetry(n=>n+1)}>Tekrar dene</button>}</div>}</>
+}
 
           {/* Interactive Inspection Point Hotspots / Pins */}
-          {visibleCharacteristics.map(char => {
+          {imageReady&&!imageFailed&&visibleCharacteristics.map(char => {
             const style = getPinStyle(char);
             const isActive = activePointNo === char.pointNo;
             const coords = char.pin || { x: 50, y: 50 };
@@ -464,15 +466,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                 }`}
               >
                 {/* Active Glowing Radar Pulse Ring */}
-                {isActive && (
+                {false && (
                   <span className="absolute -inset-3 rounded-full bg-blue-500/40 animate-ping pointer-events-none" />
                 )}
 
                 {/* Main Pin Circle Button */}
                 <div
-                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-black shadow-xl transition-transform active:scale-90 ${style.bg}`}
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-black shadow-xl transition-transform active:scale-90 ${balloonMode==='embedded'?'rq-embedded-balloon':style.bg}`} aria-label={`Nokta ${char.pointNo}`} data-selected={isActive}
                 >
-                  <span>{char.pointNo}</span>
+                  {balloonMode!=='embedded'&&<span>{char.pointNo}</span>}
                 </div>
 
                 {/* Clean, Non-Intrusive Tolerance Tag Right Beside Pin */}
@@ -484,7 +486,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                   >
                     <div className={`px-2 py-0.5 rounded-md border backdrop-blur-md text-[10px] sm:text-[11px] font-mono font-bold shadow-lg flex items-center gap-1 ${style.badgeBg}`}>
                       <span>#{char.pointNo}:</span>
-                      {(char.type||'numeric')==='numeric'?<><span className="text-white font-black">{char.nominal}{char.unit}</span><span className="text-[9px] text-slate-400">[{char.lsl}~{char.usl}]</span></>:<span className="text-white font-black">{char.type==='ok_nok'?'OK/NOK':char.type==='single_select'?'Tekli Seçim':'Çoklu Seçim'}</span>}
+                      {(char.type||'numeric')==='numeric'?<><span className="text-white font-black">{char.nominal}{char.unit}</span><span className="text-[9px] text-slate-400">[{char.lsl}~{char.usl}]</span></>:<span className="text-white font-black">{char.type==='ok_nok'?'Uygun / Uygunsuz':char.type==='single_select'?'Tekli Seçim':'Çoklu Seçim'}</span>}
                       {measuredVal !== null && measuredVal !== undefined && (
                         <span className="ml-1 px-1 py-0.2 rounded bg-black/50 text-amber-300 font-black">
                           {Array.isArray(measuredVal)?measuredVal.join(', '):String(measuredVal)}

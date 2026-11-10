@@ -1,0 +1,81 @@
+{
+  "at": "2026-11-08T14:32:08.014Z",
+  "device": "Edge / 411×811 ve yazdırma PDF testi",
+  "order": "PILOT-1794148262151",
+  "taskId": "0195528c-7a3c-4bad-9044-c120b75e695f",
+  "inspectionId": "10eea5be-312f-4cee-9585-d11be4e7f19b",
+  "controlNumber": "KNT-1001",
+  "approval": {
+    "reason": "Pilot kabul provasında çizim ve üç ölçüm sonucu incelendi.",
+    "status": "approved",
+    "reviewedAt": "2026-11-08T14:31:47.052931+00:00",
+    "reviewedBy": "Deniz Yönetici"
+  },
+  "events": [
+    {
+      "screenshot": "01-yonetici-gorev-formu",
+      "overflow": false
+    },
+    {
+      "screenshot": "02-gorev-atandi",
+      "overflow": false
+    },
+    {
+      "screenshot": "03-operator-okunmamis-bildirim",
+      "overflow": false
+    },
+    {
+      "screenshot": "04-operator-hazirlik",
+      "overflow": false
+    },
+    {
+      "screenshot": "05-teknik-resim",
+      "overflow": false
+    },
+    {
+      "screenshot": "06-olcum-1",
+      "overflow": false
+    },
+    {
+      "screenshot": "06-olcum-2",
+      "overflow": false
+    },
+    {
+      "screenshot": "06-olcum-3",
+      "overflow": false
+    },
+    {
+      "screenshot": "07-olcum-ozeti",
+      "overflow": false
+    },
+    {
+      "screenshot": "08-operator-rapor",
+      "overflow": false
+    },
+    {
+      "screenshot": "09-yonetici-tamamlanan",
+      "overflow": false
+    },
+    {
+      "screenshot": "10-yonetici-onay-bildirimi",
+      "overflow": false
+    },
+    {
+      "screenshot": "11-yonetici-onay-karari",
+      "overflow": false
+    },
+    {
+      "screenshot": "12-yonetici-bildirim-gecmisi",
+      "overflow": false
+    },
+    {
+      "screenshot": "13-operator-onaylanan-kayit",
+      "overflow": false
+    },
+    {
+      "screenshot": "14-onay-sonrasi-rapor",
+      "overflow": false
+    }
+  ],
+  "scope": "Plan test hazırlığı API ile; atama, ölçüm, rapor ve onay telefon arayüzünde. Bildirimler uygulama içidir; işletim sistemi push ve e-posta sınanmadı."
+}

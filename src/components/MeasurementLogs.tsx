@@ -1,4 +1,7 @@
+import {orderedMeasurements} from '../services/measurementOrder';
 import {InspectionTrace} from './InspectionTrace';
+import {ApprovalSummary} from './ApprovalSummary';
+import {controlLabel} from '../services/controlLabel';
 import {Button, Input, Select, Card, MetricCard, SearchInput, DataTable, StatusBadge, Badge, DetailDrawer, Modal, Field, PageActions} from './ui';
 import {SOURCE_LABELS} from '../services/terms';
 import { exportInspectionRecords } from '../services/exportRecords';
@@ -69,6 +72,7 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
   const [equipmentFilter,setEquipmentFilter]=useState('all');
   const [characteristicFilter,setCharacteristicFilter]=useState('all');
   const [selectedLogForDetail, setSelectedLogForDetail] = useState<InspectionLog | null>(()=>logs.find(l=>l.id===initialLogId)||null);
+  useEffect(()=>{if(initialLogId)setSelectedLogForDetail(logs.find(l=>l.id===initialLogId)||null);},[initialLogId,logs]);
 
   // Filter logs
   const filteredLogs = useMemo(() => {
@@ -76,7 +80,7 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
       // Search
       const term = searchTerm.toLowerCase();
       const matchSearch = 
-        log.sessionCode.toLowerCase().includes(term) ||
+        log.sessionCode.toLowerCase().includes(term) || (log.controlNumber||'').toLowerCase().includes(term) ||
         log.productName.toLowerCase().includes(term) ||
         log.productCode.toLowerCase().includes(term) ||
         log.lotNumber.toLowerCase().includes(term) ||
@@ -138,7 +142,7 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
       {onOpenSPC&&<Button className="quality-secondary" onClick={onOpenSPC}>SPC Analizine Git</Button>}
       <div className="rq-metrics-row"><MetricCard label="Kayıtlı kontrol oturumları" value={logs.length} detail={'Bugün: '+todayLogs.length}/><MetricCard label="Uygun / uyarılı" value={passedCount} detail="Geçerli filtrelerdeki oturumlar" tone="success"/><MetricCard label="Uygunsuz" value={filteredLogs.filter(log=>log.overallStatus==='fail').length} detail="Geçerli filtrelerdeki oturumlar" tone="danger"/><MetricCard label="Uygunluk oranı" value={passRate===null?'—':'%'+passRate.toFixed(1)} detail="Uyarılı sonuçlar dahil"/></div>
       <div className="rq-actions"><Button onClick={()=>{setExportMessage('');setExportOpen(true);}}><Download size={16}/>Dışa Aktar</Button><span className="rq-helper m-0">{filteredLogs.length} / {logs.length} kontrol oturumu</span></div>
-      <Modal open={exportOpen} title="Ölçüm kayıtlarını dışa aktar" onClose={()=>setExportOpen(false)}><div className="space-y-5"><Card><h3 className="rq-section-title">Geçerli filtrelerin sonucu</h3><p className="rq-helper">{filteredLogs.length} kontrol oturumu dışa aktarılacak. Arama, ürün, sonuç, tarih ve gelişmiş filtreler uygulanır.</p><div className="rq-summary"><Badge>{exportFormat==='csv'?'CSV · UTF-8':'Excel · XML'}</Badge><span>{filteredLogs.reduce((sum,log)=>sum+log.sampleCount,0)} numune</span></div></Card><Field label="Dosya biçimi"><Select value={exportFormat} onChange={event=>setExportFormat(event.target.value as 'csv'|'excel')}><option value="csv">CSV (.csv)</option><option value="excel">Excel çalışma sayfası (.xml)</option></Select></Field><p className="rq-helper">Sütunlar: oturum, tarih, ürün ve revizyonlar, parti, seri, iş emri, operatör, istasyon, numune sayısı, sonuç ve hatalı nokta sayısı.</p>{exportMessage&&<p role="status" className="rq-feedback rq-tone-info">{exportMessage}</p>}<PageActions><Button onClick={()=>setExportOpen(false)}>Kapat</Button><Button variant="primary" disabled={!filteredLogs.length} onClick={()=>{try{exportInspectionRecords(filteredLogs,exportFormat);setExportMessage('Dosya hazırlandı; tarayıcı indirmesi başlatıldı.');}catch{setExportMessage('Dosya hazırlanamadı. Lütfen yeniden deneyin.');}}}><Download size={16}/>Dosyayı indir</Button></PageActions></div></Modal>
+      <Modal open={exportOpen} title="Kontrol kayıtlarını dışa aktar" onClose={()=>setExportOpen(false)}><div className="space-y-5"><Card><h3 className="rq-section-title">Geçerli filtrelerin sonucu</h3><p className="rq-helper">{filteredLogs.length} kontrol oturumu dışa aktarılacak. Arama, parça, sonuç, tarih ve gelişmiş filtreler uygulanır.</p><div className="rq-summary"><Badge>{exportFormat==='csv'?'CSV · UTF-8':'Excel · XML'}</Badge><span>{filteredLogs.reduce((sum,log)=>sum+log.sampleCount,0)} numune</span></div></Card><Field label="Dosya biçimi"><Select value={exportFormat} onChange={event=>setExportFormat(event.target.value as 'csv'|'excel')}><option value="csv">CSV (.csv)</option><option value="excel">Excel çalışma sayfası (.xml)</option></Select></Field><p className="rq-helper">Sütunlar: oturum, tarih, parça ve revizyonlar, parti, seri, iş emri, operatör, istasyon, numune sayısı, sonuç ve hatalı nokta sayısı.</p>{exportMessage&&<p role="status" className="rq-feedback rq-tone-info">{exportMessage}</p>}<PageActions><Button onClick={()=>setExportOpen(false)}>Kapat</Button><Button variant="primary" disabled={!filteredLogs.length} onClick={()=>{try{exportInspectionRecords(filteredLogs,exportFormat);setExportMessage('Dosya hazırlandı; tarayıcı indirmesi başlatıldı.');}catch{setExportMessage('Dosya hazırlanamadı. Lütfen yeniden deneyin.');}}}><Download size={16}/>Dosyayı indir</Button></PageActions></div></Modal>
 
       <div className="rq-record-source-summary border-y border-slate-200 py-3">
         <div className="flex flex-wrap items-center gap-3 text-xs"><span className="font-bold text-slate-800">Kaynak Özeti:</span>{(['manual','gauge','import','cmm'] as const).map(source=><span key={source} className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono font-bold uppercase text-slate-700">{SOURCE_LABELS[source]}: {filteredLogs.filter(log=>(log.source||'manual')===source).reduce((total,log)=>total+log.samples.reduce((sum,sample)=>sum+Object.values(sample.statuses).filter(status=>status!=='empty').length,0),0)}</span>)}<span className="ml-auto font-bold text-emerald-700">Uygun: {filteredLogs.filter(log=>log.overallStatus==='pass').length} / {filteredLogs.length}</span></div>
@@ -146,11 +150,11 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
 
       {/* Main Table Card */}
       <div className="rq-records-list">
-        <div className="rq-record-filters"><SearchInput value={searchTerm} onChange={event=>setSearchTerm(event.target.value)} placeholder="Oturum, ürün, parti veya operatör ara…" aria-label="Ölçüm kaydı ara"/>
+        <div className="rq-record-filters"><SearchInput value={searchTerm} onChange={event=>setSearchTerm(event.target.value)} placeholder="Oturum, parça, parti veya operatör ara…" aria-label="Kontrol kaydı ara"/>
           <div className="rq-record-filter-fields">
             {/* Product filter */}
             <Select
-              aria-label="Ürün filtresi" value={productFilter}
+              aria-label="Parça filtresi" value={productFilter}
               onChange={(e) => setProductFilter(e.target.value)}
               className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-xs"
             >
@@ -196,7 +200,7 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
 
         {/* Logs Table */}
         <div className="mt-4">
-          <DataTable label="Ölçüm kayıtları" className="rq-record-table rq-mobile-cards">
+          <DataTable label="Kontrol kayıtları" className="rq-record-table rq-mobile-cards">
             <thead>
               <tr className="border-b border-slate-200 text-slate-600 font-mono uppercase text-[11px] bg-slate-50">
                 <th className="p-3.5 font-bold">Kayıt No & Tarih</th>
@@ -223,7 +227,7 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
                 return (
                   <tr key={log.id} className={log.overallStatus==='fail'?'rq-row-alert':undefined}>
                     <td className="p-3.5">
-                      <Button variant="ghost" className="rq-technical" onClick={()=>setSelectedLogForDetail(log)}>{log.sessionCode}</Button>
+                      <Button variant="ghost" className="rq-technical" onClick={()=>setSelectedLogForDetail(log)}>{controlLabel(log)}</Button>
                       <div className="text-[11px] text-slate-400 font-medium">{dateFormatted}</div>
                     </td>
 
@@ -306,10 +310,11 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
         </div>
       </div>
 
-      <DetailDrawer open={!!selectedLogForDetail} title={'Kontrol detayı · '+(selectedLogForDetail?.sessionCode||'')} className="rq-wide-drawer" onClose={()=>setSelectedLogForDetail(null)}>{selectedLogForDetail&&<div className="space-y-5">
+      <DetailDrawer open={!!selectedLogForDetail} title={'Kontrol detayı · '+(selectedLogForDetail?controlLabel(selectedLogForDetail):'')} className="rq-wide-drawer" onClose={()=>setSelectedLogForDetail(null)}>{selectedLogForDetail&&<div className="space-y-5">
         <div><h3 className="rq-section-title">{selectedLogForDetail.productName}</h3><p className="rq-helper rq-technical">{selectedLogForDetail.productCode} · Plan {selectedLogForDetail.controlPlanVersion}</p><div className="rq-actions"><StatusBadge status={selectedLogForDetail.overallStatus}/><SyncIndicator pending={pending.find(item=>item.log.id===selectedLogForDetail.id)}/></div></div>
-        <dl className="rq-detail-grid">{[['Kontrol zamanı',new Date(selectedLogForDetail.timestamp).toLocaleString('tr-TR')],['İş emri',selectedLogForDetail.orderNumber],['Parti / şarj',selectedLogForDetail.lotNumber],['Seri numarası',selectedLogForDetail.serialNumber],['İstasyon',selectedLogForDetail.machineNo],['Operatör',selectedLogForDetail.operatorName],['Ürün revizyonu',selectedLogForDetail.productRevision],['Ölçüm kaynağı',SOURCE_LABELS[selectedLogForDetail.source||'manual']],['Ekipman',selectedLogForDetail.equipmentId||selectedLogForDetail.machineNo],['Numune',selectedLogForDetail.sampleCount]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value||'—'}</dd></div>)}</dl>
-        <DataTable className="rq-mobile-cards rq-record-detail-table" label="Numune ölçümleri ve spesifikasyon"><thead><tr><th>Numune</th><th>Karakteristik / cihaz</th><th>Hedef / sınırlar</th><th>Ölçülen</th><th>Sonuç</th><th>Not / kanıt</th></tr></thead><tbody>{selectedLogForDetail.samples.flatMap(sample=>Object.entries(sample.values).map(([charId,value])=>{const point=(selectedLogForDetail.controlPlanSnapshot||controlPlans.find(plan=>plan.id===selectedLogForDetail.controlPlanId))?.characteristics.find(c=>c.id===charId);const status=sample.statuses[charId]||'empty';return <tr key={sample.sampleIndex+':'+charId} className={status==='fail'?'rq-row-alert':undefined}><td className="rq-technical">#{sample.sampleIndex}</td><td><strong>{point?'#'+point.pointNo+' '+point.name:charId}</strong><small>{point?.tool||'—'}</small></td><td className="rq-technical">{point?(point.type||'numeric')==='numeric'?<>{point.nominal} {point.unit}<small>{point.lsl} – {point.usl} {point.unit}</small></>:<>{point.type}<small>{point.rejectedOptions?.length?'NOK: '+point.rejectedOptions.join(', '):'OK / NOK'}</small></>:'Spesifikasyon bulunamadı'}</td><td className="rq-technical font-semibold">{value==null?'—':Array.isArray(value)?value.join(', '):value===true?'OK':value===false?'NOK':String(value)}{typeof value==='number'&&point?' '+point.unit:''}</td><td><StatusBadge status={status} label={status==='empty'?'Ölçülmedi':undefined}/></td><td><p className="whitespace-pre-wrap">{sample.pointNotes?.[charId]}</p>{(sample.evidence?.[charId]||[]).map(item=><Button key={item.id} variant="ghost" onClick={()=>void SaasApi.openEvidence(item.id)}>{item.fileName}</Button>)}</td></tr>;}))}</tbody></DataTable>
+        <ApprovalSummary log={selectedLogForDetail}/>
+        <DataTable className="rq-mobile-cards rq-record-detail-table" label="Numune ölçümleri ve spesifikasyon"><thead><tr><th>Numune</th><th>Karakteristik / cihaz</th><th>Hedef / sınırlar</th><th>Ölçülen</th><th>Sonuç</th><th>Not / kanıt</th></tr></thead><tbody>{selectedLogForDetail.samples.flatMap(sample=>orderedMeasurements(sample,selectedLogForDetail.controlPlanSnapshot||controlPlans.find(plan=>plan.id===selectedLogForDetail.controlPlanId)).map(([charId,value])=>{const point=(selectedLogForDetail.controlPlanSnapshot||controlPlans.find(plan=>plan.id===selectedLogForDetail.controlPlanId))?.characteristics.find(c=>c.id===charId);const status=sample.statuses[charId]||'empty';return <tr key={sample.sampleIndex+':'+charId} className={status==='fail'?'rq-row-alert':undefined}><td className="rq-technical">#{sample.sampleIndex}</td><td><strong>{point?'#'+point.pointNo+' '+point.name:charId}</strong><small>{point?.tool||'—'}</small></td><td className="rq-technical">{point?(point.type||'numeric')==='numeric'?<>{point.nominal} {point.unit}<small>{point.lsl} – {point.usl} {point.unit}</small></>:<>{point.type}<small>{point.rejectedOptions?.length?'Uygunsuz: '+point.rejectedOptions.join(', '):'Uygun / Uygunsuz'}</small></>:'Spesifikasyon bulunamadı'}</td><td className="rq-technical font-semibold">{value==null?'—':Array.isArray(value)?value.join(', '):value===true?'Uygun':value===false?'Uygunsuz':String(value)}{typeof value==='number'&&point?' '+point.unit:''}</td><td><StatusBadge status={status} label={status==='empty'?'Ölçülmedi':undefined}/></td><td><p className="whitespace-pre-wrap">{sample.pointNotes?.[charId]}</p>{(sample.evidence?.[charId]||[]).map(item=><Button key={item.id} variant="ghost" onClick={()=>void SaasApi.openEvidence(item.id)}>{item.fileName}</Button>)}</td></tr>;}))}</tbody></DataTable>
+        <details className="rq-card"><summary>İzlenebilirlik</summary>        <dl className="rq-detail-grid">{[['Kontrol zamanı',new Date(selectedLogForDetail.timestamp).toLocaleString('tr-TR')],['İş emri',selectedLogForDetail.orderNumber],['Parti / şarj',selectedLogForDetail.lotNumber],['Seri numarası',selectedLogForDetail.serialNumber],['İstasyon',selectedLogForDetail.machineNo],['Operatör',selectedLogForDetail.operatorName],['Parça revizyonu',selectedLogForDetail.productRevision],['Ölçüm kaynağı',SOURCE_LABELS[selectedLogForDetail.source||'manual']],['Ekipman',selectedLogForDetail.equipmentId||selectedLogForDetail.machineNo],['Numune',selectedLogForDetail.sampleCount]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value||'—'}</dd></div>)}</dl><p className="rq-helper break-all">Teknik kimlik: {selectedLogForDetail.id}</p><Button variant="ghost" onClick={()=>void navigator.clipboard.writeText(selectedLogForDetail.id).catch(()=>window.alert('Kimlik kopyalanamadı. Metni seçerek kopyalayabilirsiniz.'))}>Teknik kimliği kopyala</Button></details>
         {selectedLogForDetail.notes&&<Card><h3 className="rq-section-title">Operatör / kalite notu</h3><p className="rq-helper whitespace-pre-wrap">{selectedLogForDetail.notes}</p></Card>}
         <InspectionTrace log={selectedLogForDetail}/>
         <PageActions>{onOpenPlan&&<Button onClick={()=>onOpenPlan(selectedLogForDetail.productId)}>İlgili kontrol planını aç</Button>}<Button variant="primary" onClick={()=>{onOpenCertificate(selectedLogForDetail);setSelectedLogForDetail(null);}}><Printer size={16}/>Kalite Sertifikası Yazdır</Button></PageActions>

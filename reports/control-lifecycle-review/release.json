@@ -1,0 +1,13 @@
+{
+  "at": "2026-11-08T10:59:59.818Z",
+  "deploymentId": "dpl_BuSmyxd49eJ2fVyg9LJHNbDYuMZJ",
+  "url": "https://quality.getritim.com",
+  "status": "READY",
+  "asset": "/assets/index-kRr_ntxZ.js",
+  "checks": [
+    "Canlı sağlık uç noktası 200 / ok.",
+    "Canlı web paketi yeni balon, görev ve teknik kimlik arayüzünü içeriyor.",
+    "Canlı API test çalışma alanında tamamlanan görev ve KNT numarasını döndürüyor.",
+    "Canlı bootstrap bağımsız onaylayan ve gerekçeyi döndürüyor."
+  ]
+}

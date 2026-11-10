@@ -1,0 +1,13 @@
+{
+  "status": "Canlı yayında · quality.getritim.com · Sağlık ve test çalışma alanı API kontrolü başarılı.",
+  "deploymentId": "dpl_BHefvkRGFVZHBE4ZMpRm1bt6PaCf",
+  "checkedAt": "2026-11-08T10:02:24.625Z",
+  "healthStatus": 200,
+  "appStatus": 200,
+  "apiStatus": 200,
+  "asset": "/assets/index-BSZSB5-w.js",
+  "checks": [
+    "Canlı uygulama yeni görev ve mobil düzenleyici metinlerini içeriyor.",
+    "Canlı API izole test çalışma alanında tamamlanan görevin rapor bağlantısını döndürüyor."
+  ]
+}

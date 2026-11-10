@@ -1,0 +1,53 @@
+{
+  "device": {
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Mobile Safari/537.36",
+    "width": 411,
+    "height": 755,
+    "pixelRatio": 2.625,
+    "touchPoints": 5
+  },
+  "events": [
+    {
+      "screenshot": "01-ana-sayfa",
+      "overflow": false
+    },
+    {
+      "screenshot": "02-menu",
+      "overflow": false
+    },
+    {
+      "screenshot": "03-paketler",
+      "overflow": false
+    },
+    {
+      "check": "PDF ilk sayfa, yedi nokta",
+      "elapsedMs": 1368
+    },
+    {
+      "screenshot": "04-olcum-alani",
+      "overflow": false
+    },
+    {
+      "screenshot": "05-uygunsuz-sonuc",
+      "overflow": false
+    },
+    {
+      "screenshot": "06-rapor-hazir",
+      "overflow": false
+    },
+    {
+      "check": "Telefonda üretilen PDF doğrulandı",
+      "pages": 2,
+      "bytes": 218918
+    },
+    {
+      "check": "İndirme bağlantısına basıldı; Android dosya kaydı ayrıca doğrulanmalı"
+    }
+  ],
+  "errors": [],
+  "limitations": [
+    "PDF input uzaktan dolduruldu; Android yerel dosya seçici sınanmadı.",
+    "Fiziksel klavyede elle yazma sınanmadı.",
+    "Uygulama yönetici–operatör akışı bu dosyanın kapsamı dışında."
+  ]
+}

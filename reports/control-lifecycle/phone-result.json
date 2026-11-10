@@ -1,0 +1,194 @@
+{
+  "id": "e989ca4c-4976-4120-a852-257320402dd0",
+  "source": "manual",
+  "samples": [
+    {
+      "values": {
+        "char-1794126774812-1": 100.02,
+        "05aa75ad-26c6-4e4e-b1f6-7ed6f7f7ac7a": 10.01,
+        "4d9589f0-fcf0-4096-a814-0efe8c0f5c4d": 49.98
+      },
+      "evidence": {
+        "char-1794126774812-1": [],
+        "05aa75ad-26c6-4e4e-b1f6-7ed6f7f7ac7a": [],
+        "4d9589f0-fcf0-4096-a814-0efe8c0f5c4d": []
+      },
+      "statuses": {
+        "char-1794126774812-1": "pass",
+        "05aa75ad-26c6-4e4e-b1f6-7ed6f7f7ac7a": "pass",
+        "4d9589f0-fcf0-4096-a814-0efe8c0f5c4d": "pass"
+      },
+      "pointNotes": {
+        "char-1794126774812-1": "",
+        "05aa75ad-26c6-4e4e-b1f6-7ed6f7f7ac7a": "",
+        "4d9589f0-fcf0-4096-a814-0efe8c0f5c4d": ""
+      },
+      "sampleIndex": 1
+    }
+  ],
+  "lotNumber": "LOT-2026-002",
+  "machineNo": "CNC-01",
+  "productId": "prod-1794126771928",
+  "timestamp": "2026-11-08T08:39:25.365Z",
+  "equipmentId": "CNC-01",
+  "orderNumber": "İE-2026-002-MOBİL",
+  "productCode": "AKIS-001",
+  "productName": "Bağlantı Plakası — Akış Testi",
+  "sampleCount": 1,
+  "sessionCode": "INS-e989ca4c-4976-4120-a852-257320402dd0",
+  "operatorName": "Ece Operatör",
+  "serialNumber": "SN-002",
+  "controlPlanId": "cp-1794126774812",
+  "overallStatus": "pass",
+  "operatorUserId": "2aa9281d-7d0f-450b-9a3f-ea8ab61d35c9",
+  "requiresReview": true,
+  "requestSignature": "992d40a481e2318692f5b6532767700fd651ddb04e11e772f7c64164f1fe549a",
+  "failedPointsCount": 0,
+  "mobileMeasurement": {
+    "version": 1,
+    "attempts": [
+      {
+        "id": "f4199c3b-a7bd-4bc4-94ee-bc82a5720775",
+        "raw": "100,02",
+        "mode": "absolute",
+        "value": 100.02,
+        "photos": [],
+        "reason": "",
+        "result": "pass",
+        "sample": 1,
+        "source": "manual",
+        "comment": "",
+        "canonical": "100.02",
+        "measuredAt": "2026-11-08T08:39:25.872Z",
+        "operatorId": "2aa9281d-7d0f-450b-9a3f-ea8ab61d35c9",
+        "retryReason": "",
+        "instrumentId": "CNC-01",
+        "characteristic": "char-1794126774812-1"
+      },
+      {
+        "id": "d1e2a0fc-6c3d-4b86-ab81-17ea24076873",
+        "raw": "49,98",
+        "mode": "absolute",
+        "value": 49.98,
+        "photos": [],
+        "reason": "",
+        "result": "pass",
+        "sample": 1,
+        "source": "manual",
+        "comment": "",
+        "canonical": "49.98",
+        "measuredAt": "2026-11-08T08:39:27.005Z",
+        "operatorId": "2aa9281d-7d0f-450b-9a3f-ea8ab61d35c9",
+        "retryReason": "",
+        "instrumentId": "CNC-01",
+        "characteristic": "4d9589f0-fcf0-4096-a814-0efe8c0f5c4d"
+      },
+      {
+        "id": "89681c2d-fb6d-43f7-b04b-0c6ab61640d1",
+        "raw": "10,01",
+        "mode": "absolute",
+        "value": 10.01,
+        "photos": [],
+        "reason": "",
+        "result": "pass",
+        "sample": 1,
+        "source": "manual",
+        "comment": "",
+        "canonical": "10.01",
+        "measuredAt": "2026-11-08T08:39:28.159Z",
+        "operatorId": "2aa9281d-7d0f-450b-9a3f-ea8ab61d35c9",
+        "retryReason": "",
+        "instrumentId": "CNC-01",
+        "characteristic": "05aa75ad-26c6-4e4e-b1f6-7ed6f7f7ac7a"
+      }
+    ]
+  },
+  "controlPlanVersion": "v1.0",
+  "totalPointsChecked": 3,
+  "warningPointsCount": 0,
+  "controlPlanSnapshot": {
+    "id": "cp-1794126774812",
+    "author": "Deniz Yönetici",
+    "status": "active",
+    "version": "v1.0",
+    "isActive": true,
+    "createdAt": "2026-11-08T08:32:58.098Z",
+    "productId": "prod-1794126771928",
+    "updatedAt": "2026-11-08T08:33:05.331Z",
+    "approvedBy": "",
+    "revisionDate": "2026-11-08",
+    "revisionNote": "İlk devreye alma kontrol planı.",
+    "characteristics": [
+      {
+        "id": "char-1794126774812-1",
+        "lsl": 99.9,
+        "pin": {
+          "x": 50,
+          "y": 50
+        },
+        "usl": 100.1,
+        "name": "Uzunluk",
+        "tool": "Dijital Kumpas 0.01",
+        "type": "numeric",
+        "unit": "mm",
+        "nominal": 100,
+        "pointNo": 1,
+        "tolLower": -0.1,
+        "tolUpper": 0.1,
+        "frequency": "Saat başı",
+        "sampleSize": "1",
+        "description": "Kritik montaj boyutu",
+        "criticalClass": "critical",
+        "evidencePolicy": "none"
+      },
+      {
+        "id": "4d9589f0-fcf0-4096-a814-0efe8c0f5c4d",
+        "lsl": 49.9,
+        "pin": {
+          "x": 50,
+          "y": 50
+        },
+        "usl": 50.1,
+        "name": "Genişlik",
+        "tool": "Dijital Kumpas 0.01",
+        "type": "numeric",
+        "unit": "mm",
+        "nominal": 50,
+        "pointNo": 2,
+        "tolLower": -0.1,
+        "tolUpper": 0.1,
+        "frequency": "Saat başı",
+        "sampleSize": "1",
+        "criticalClass": "major",
+        "evidencePolicy": "none"
+      },
+      {
+        "id": "05aa75ad-26c6-4e4e-b1f6-7ed6f7f7ac7a",
+        "lsl": 9.95,
+        "pin": {
+          "x": 50,
+          "y": 50
+        },
+        "usl": 10.05,
+        "name": "Delik çapı",
+        "tool": "Dijital Kumpas 0.01",
+        "type": "numeric",
+        "unit": "mm",
+        "policy": {
+          "requireSupervisorApproval": true
+        },
+        "nominal": 10,
+        "pointNo": 3,
+        "tolLower": -0.05,
+        "tolUpper": 0.05,
+        "frequency": "Saat başı",
+        "sampleSize": "1",
+        "criticalClass": "major",
+        "evidencePolicy": "none"
+      }
+    ],
+    "drawingImageUrl": "media:4ba47c1e-944b-48eb-84b4-78d632fbfaa6#image/png",
+    "defaultSampleCount": 1
+  },
+  "hasHistoricalFailure": false
+}

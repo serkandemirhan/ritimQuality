@@ -26,6 +26,13 @@ test('plan-defined boolean meaning, suspect and text stay distinct',()=>{
  assert.equal(evaluateMeasurement({...c,type:'text'},'Parça kontrol edildi').result,'unclassified');
  assert.throws(()=>evaluateMeasurement({...c,type:'text'},'  '));
 });
+test('OK/NOK, single-select and multi-select use plan-defined quality decisions',()=>{
+ assert.equal(evaluateMeasurement({...c,type:'ok_nok'},'OK').result,'pass');
+ assert.equal(evaluateMeasurement({...c,type:'ok_nok'},'NOK').result,'fail');
+ assert.equal(evaluateMeasurement({...c,type:'single_select',options:['Kırmızı','Yeşil'],optionResults:{Kırmızı:'fail',Yeşil:'pass'}},'Kırmızı').result,'fail');
+ assert.equal(evaluateMeasurement({...c,type:'multi_select',options:['Çizik','Çapak','Temiz'],optionResults:{Çizik:'fail',Çapak:'review',Temiz:'pass'}},['Temiz','Çapak']).result,'review');
+ assert.throws(()=>evaluateMeasurement({...c,type:'single_select',options:['A','B']},'C'));
+});
 test('one-sided limits and N/A do not invent a pass decision',()=>{
  assert.equal(evaluateMeasurement({...c,lsl:undefined},'0').result,'pass');
  assert.equal(evaluateMeasurement({...c,usl:undefined},'100').result,'pass');

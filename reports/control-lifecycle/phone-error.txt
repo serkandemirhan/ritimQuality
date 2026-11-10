@@ -1,0 +1,61 @@
+TimeoutError: locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: 'Ölçümü tamamla', exact: true })[22m
+[2m    - locator resolved to <button class="mm-primary">Ölçümü tamamla</button>[22m
+[2m  - attempting click action[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <dialog open="" class="mm-sheet">…</dialog> intercepts pointer events[22m
+[2m    - retrying click action[22m
+[2m    - waiting 20ms[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <dialog open="" class="mm-sheet">…</dialog> intercepts pointer events[22m
+[2m    - retrying click action[22m
+[2m      - waiting 100ms[22m
+[2m    52 × waiting for element to be visible, enabled and stable[22m
+[2m       - element is visible, enabled and stable[22m
+[2m       - scrolling into view if needed[22m
+[2m       - done scrolling[22m
+[2m       - <dialog open="" class="mm-sheet">…</dialog> intercepts pointer events[22m
+[2m     - retrying click action[22m
+[2m       - waiting 500ms[22m
+
+İçeriğe geç
+AKIS-001 · Bağlantı Plakası — Akış Testi
+Çevrimiçi
+Büyüt
+1
+2
+3
+3 / 3 · Delik çapı
+Noktalar · 3/3
+S1 ✓
+Alt sınır
+9.95
+Nominal
+10
+Üst sınır
+10.05
+mm
+✓ Uygun · Son kayıt: 10.01 Tekrar ölç
+Ölçüm girişi
+Önceki
+Ölçümü tamamla
+Sonraki eksik
+Ölçüm denemeleri
+✕
+✓ Uygun · 10.01
+
+2aa9281d-7d0f-450b-9a3f-ea8ab61d35c9 · 08.11.2026 09:37:57
+
+Tekrar ölçüm sebebi
+Yeni denemeye başla
+
+İlk uygunsuzluk yeni uygun sonuçla kapanmaz. İnceleme / yetkili karar ayrı yürütülür.
+
+Görev ve onayları aç

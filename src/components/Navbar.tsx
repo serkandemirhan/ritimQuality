@@ -21,10 +21,13 @@ import {
   PanelLeftOpen,
 } from 'lucide-react';
 import { TenantCompany, User, UserRole } from '../types';
+import {NotificationPanel} from './NotificationPanel';
+import {AccountMenu} from './AccountMenu';
 
-export type NavTab = 'overview' | 'organization' | 'work' | 'operator' | 'control-plans' | 'products' | 'spc' | 'logs' | 'users' | 'subscription' | 'cases' | 'approvals' | 'notifications' | 'settings';
+export type NavTab = 'overview' | 'organization' | 'work' | 'operator' | 'control-plans' | 'products' | 'qr-labels' | 'spc' | 'logs' | 'users' | 'subscription' | 'cases' | 'approvals' | 'notifications' | 'settings';
 
 interface NavbarProps {
+  onOpenRecord?: (id:string)=>void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   activeTab: NavTab;
@@ -48,7 +51,7 @@ type NavItem = {
 };
 
 export const Navbar: React.FC<NavbarProps> = ({
-  activeTab, collapsed=false, onToggleCollapse,
+  activeTab, onOpenRecord, collapsed=false, onToggleCollapse,
   onTabChange,
   onOpenBackupModal,
   onLogout,
@@ -71,7 +74,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   const navItems: NavItem[] = [
-    {id:'overview',label:'Genel Bakış',description:'Kalite performansı',icon:<BarChart3 className="h-4 w-4"/>,allowedRoles:['admin','quality_engineer','auditor'],group:'Operasyon'},
+    {id:'overview',label:'Genel Bakış',description:'Kalite performansı',icon:<BarChart3 className="h-4 w-4"/>,allowedRoles:['admin','quality_engineer','operator','auditor'],group:'Operasyon'},
     {id:'organization',label:'Organizasyon',description:'Tesis, bölüm ve istasyon',icon:<Building2 className="h-4 w-4"/>,allowedRoles:['admin'],group:'Yönetim'},
     {id:'settings',label:'Ayarlar',description:'Tercihler ve veri yönetimi',icon:<Settings2 className="h-4 w-4"/>,allowedRoles:['admin'],group:'Yönetim'},
     {id:'cases',label:'Uygunsuzluklar',description:'Kalite aksiyonları',icon:<ShieldCheck className="h-4 w-4"/>,allowedRoles:['admin','quality_engineer','operator','auditor'],group:'Operasyon'},
@@ -79,7 +82,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     {id:'work',label:'Aksiyonlar',description:'Atanan görevler',icon:<ClipboardCheck className="h-4 w-4"/>,allowedRoles:['admin','quality_engineer','operator','auditor'],group:'Operasyon'},
     {
       id: 'operator',
-      label: 'Ölçüm İstasyonu',
+      label: 'Kontrol başlat',
       description: 'Canlı operatör ölçümü',
       icon: <Play className="h-4 w-4" />,
       badge: 'CANLI',
@@ -96,7 +99,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     },
     {
       id: 'products',
-      label: 'Ürünler',
+      label: 'Parçalar',
       description: 'Parça ve teknik resimler',
       icon: <Package className="h-4 w-4" />,
       badge: String(productCount),
@@ -113,7 +116,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     },
     {
       id: 'logs',
-      label: 'Ölçüm Kayıtları',
+      label: 'Kontrol kayıtları',
       description: 'Geçmiş ve sertifikalar',
       icon: <History className="h-4 w-4" />,
       badge: String(logCount),
@@ -140,15 +143,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   ];
 
   const visibleItems = navItems.filter(item => item.allowedRoles.includes(currentUser.role));
-  const mobileItems = (['work','operator','logs','overview'] as NavTab[]).map(id=>visibleItems.find(item=>item.id===id)).filter((item):item is NavItem=>!!item).slice(0,3);
+  const mobileItems = (['overview','operator','work'] as NavTab[]).map(id=>navItems.find(item=>item.id===id)).filter((item):item is NavItem=>!!item).slice(0,3);
   const groups: NavItem['group'][] = ['Operasyon', 'Kalite', 'Analitik', 'Yönetim'];
-
-  const initials = currentUser.name
-    .split(' ')
-    .slice(0, 2)
-    .map(part => part[0])
-    .join('')
-    .toUpperCase();
 
   const renderSidebar = (mobile = false) => (
     <Sidebar className={`rq-navigation flex h-full flex-col ${collapsed && !mobile ? 'is-collapsed' : ''}`}>
@@ -210,28 +206,25 @@ export const Navbar: React.FC<NavbarProps> = ({
     </Sidebar>
   );
 
-  const activeItem = navItems.find(item => item.id === activeTab);
-
   return (
     <>
-      <div className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 shadow-sm backdrop-blur lg:hidden">
+      <div className="quality-mobile-topbar sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 shadow-sm backdrop-blur lg:hidden">
         <div className="flex min-w-0 items-center gap-3">
           <button type="button" onClick={() => setMobileOpen(true)} className="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-50" aria-label="Menüyü aç">
             <Menu className="h-5 w-5" />
           </button>
           <div className="min-w-0">
-            <div className="truncate text-sm font-black text-slate-900">{activeItem?.label || (activeTab==='settings'?'Ayarlar':'Bildirimler')}</div>
-            <div className="truncate text-[10px] text-slate-500">Ritim Quality</div>
+            <div className="rq-mobile-company" title={company.name}>{company.name}</div>
           </div>
         </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-[10px] font-black text-white">{initials}</div>
+        <div className="rq-mobile-account-actions"><NotificationPanel onNavigate={onTabChange} onOpenRecord={onOpenRecord} role={currentUser.role}/><AccountMenu user={currentUser} onSettings={()=>onTabChange('settings')} onLogout={onLogout}/></div>
       </div>
 
       <div className="fixed inset-y-0 left-0 z-50 hidden lg:block">{renderSidebar()}</div>
 
       <nav aria-label="Mobil gezinme" className="quality-bottom-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-slate-200 bg-white px-2 pt-1 text-slate-800 lg:hidden" style={{paddingBottom:'max(.5rem, env(safe-area-inset-bottom))'}}>
-        {mobileItems.map(item=><button key={item.id} type="button" onClick={()=>onTabChange(item.id)} aria-current={activeTab===item.id?'page':undefined} className={'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-xs '+(activeTab===item.id?'bg-slate-100 text-slate-950 font-bold':'')}>{item.icon}<span>{item.id==='operator'?'Ölçüm':item.id==='logs'?'Kayıtlar':item.id==='work'?'Aksiyonlar':'Ana sayfa'}</span></button>)}
-        <button type="button" onClick={()=>setMobileOpen(true)} aria-expanded={mobileOpen} className="flex min-h-14 flex-col items-center justify-center gap-1 text-xs"><Menu className="h-5 w-5"/>Diğer</button>
+        {mobileItems.map(item=><button key={item.id} type="button" disabled={!item.allowedRoles.includes(currentUser.role)} onClick={()=>onTabChange(item.id)} aria-current={activeTab===item.id?'page':undefined} className={'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-xs '+(activeTab===item.id?'bg-slate-100 text-slate-950 font-bold':'')}>{item.icon}<span>{item.id==='operator'?'Kontrol başlat':item.id==='work'?'İşler':'Genel Bakış'}</span></button>)}
+        <button type="button" onClick={()=>setMobileOpen(true)} aria-current={!['overview','operator','work'].includes(activeTab)?'page':undefined} aria-expanded={mobileOpen} className="flex min-h-14 flex-col items-center justify-center gap-1 text-xs"><Menu className="h-5 w-5"/>Diğer</button>
       </nav>
       <Modal open={mobileOpen} title="Gezinme" onClose={() => setMobileOpen(false)} className="rq-mobile-navigation">
         <div className="quality-mobile-menu">{renderSidebar(true)}</div>

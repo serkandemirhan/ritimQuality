@@ -1,6 +1,6 @@
 import { Button } from './ui';
 import React, {useEffect, useRef, useState} from 'react';
-import {useMediaSource, isPdfMedia} from './MediaImage';
+import {useDrawingSource, isPdfMedia} from './MediaImage';
 import type {ImageAnnotation} from '../types';
 
 type Tool = 'select' | 'pin' | 'measurement_line' | 'area' | 'note' | 'delete';
@@ -10,8 +10,8 @@ const DEFAULT_COLOR = '#2563eb';
 const COLORS = ['#2563eb','#dc2626','#16a34a','#f59e0b','#7c3aed','#111827'];
 const clamp = (value:number) => Math.max(0,Math.min(100,value));
 
-export function AnnotationCanvas({imageUrl,pointNo,annotations,onChange}:{imageUrl:string;pointNo:number;annotations:ImageAnnotation[];onChange:(items:ImageAnnotation[])=>void}) {
-  const url=useMediaSource(imageUrl);
+export function AnnotationCanvas({imageUrl,pointNo,annotations,onChange,balloonMode='overlay'}:{balloonMode?:'overlay'|'embedded';imageUrl:string;pointNo:number;annotations:ImageAnnotation[];onChange:(items:ImageAnnotation[])=>void}) {
+  const url=useDrawingSource(imageUrl);
   const stage=useRef<HTMLDivElement>(null);
   const drag=useRef<Drag|null>(null);
   const [tool,setTool]=useState<Tool>('select');
@@ -22,6 +22,7 @@ export function AnnotationCanvas({imageUrl,pointNo,annotations,onChange}:{imageU
   const [colorOpen,setColorOpen]=useState(false);
   const [history,setHistory]=useState<ImageAnnotation[][]>([]);
   const [future,setFuture]=useState<ImageAnnotation[][]>([]);
+  const [aspect,setAspect]=useState(1.414);
   const [size,setSize]=useState({width:1,height:1});
 
   useEffect(()=>{setFirst(null);setSelected('');setHistory([]);setFuture([]);setZoom(1);setColorOpen(false);},[imageUrl,pointNo]);
@@ -29,7 +30,7 @@ export function AnnotationCanvas({imageUrl,pointNo,annotations,onChange}:{imageU
 
   const commit=(next:ImageAnnotation[])=>{setHistory(items=>[...items.slice(-30),annotations]);setFuture([]);onChange(next);};
   const position=(event:{clientX:number;clientY:number})=>{const rect=stage.current!.getBoundingClientRect();return{x:Number(clamp((event.clientX-rect.left)/rect.width*100).toFixed(2)),y:Number(clamp((event.clientY-rect.top)/rect.height*100).toFixed(2))};};
-  const click=(event:React.MouseEvent)=>{if(tool==='select'||tool==='delete')return;const p=position(event);if(tool==='pin'){commit([...annotations,{id:crypto.randomUUID(),type:'pin',...p,label:`#${pointNo}`,color}]);return;}if(tool==='note'){const label=prompt('Görsel notu');if(label?.trim())commit([...annotations,{id:crypto.randomUUID(),type:'note',...p,label:label.trim(),color}]);return;}if(!first){setFirst(p);return;}const id=crypto.randomUUID();commit([...annotations,{id,type:tool,startX:first.x,startY:first.y,endX:p.x,endY:p.y,label:`#${pointNo}`,color}]);setFirst(null);setSelected(id);setTool('select');};
+  const click=(event:React.MouseEvent)=>{if(tool==='select'||tool==='delete')return;const p=position(event);if(tool==='pin'){commit([...annotations.filter(a=>a.type!=='pin'),{id:crypto.randomUUID(),type:'pin',...p,label:`#${pointNo}`,color}]);return;}if(tool==='note'){const label=prompt('Görsel notu');if(label?.trim())commit([...annotations,{id:crypto.randomUUID(),type:'note',...p,label:label.trim(),color}]);return;}if(!first){setFirst(p);return;}const id=crypto.randomUUID();commit([...annotations,{id,type:tool,startX:first.x,startY:first.y,endX:p.x,endY:p.y,label:`#${pointNo}`,color}]);setFirst(null);setSelected(id);setTool('select');};
   const undo=()=>{const prior=history.at(-1);if(!prior)return;setFuture(items=>[annotations,...items]);setHistory(items=>items.slice(0,-1));onChange(prior);};
   const redo=()=>{const next=future[0];if(!next)return;setHistory(items=>[...items,annotations]);setFuture(items=>items.slice(1));onChange(next);};
   const choose=(id:string,event:React.MouseEvent)=>{event.stopPropagation();if(tool==='delete'){commit(annotations.filter(item=>item.id!==id));setSelected('');return;}setSelected(id);const item=annotations.find(annotation=>annotation.id===id);if(item?.color)setColor(item.color);};
@@ -40,7 +41,7 @@ export function AnnotationCanvas({imageUrl,pointNo,annotations,onChange}:{imageU
   const cap=(item:Extract<ImageAnnotation,{type:'measurement_line'}>,at:'start'|'end')=>{const dx=(item.endX-item.startX)*size.width/100,dy=(item.endY-item.startY)*size.height/100,length=Math.hypot(dx,dy)||1,half=8;const offsetX=(-dy/length*half)/size.width*100,offsetY=(dx/length*half)/size.height*100,x=at==='start'?item.startX:item.endX,y=at==='start'?item.startY:item.endY;return{x1:x-offsetX,y1:y-offsetY,x2:x+offsetX,y2:y+offsetY};};
   const arrow=(item:Extract<ImageAnnotation,{type:'measurement_line'}>,at:'start'|'end')=>{const dx=(item.endX-item.startX)*size.width/100,dy=(item.endY-item.startY)*size.height/100,length=Math.hypot(dx,dy)||1,ux=dx/length,uy=dy/length,direction=at==='start'?1:-1,tipX=at==='start'?item.startX:item.endX,tipY=at==='start'?item.startY:item.endY,baseX=tipX+direction*ux*10/size.width*100,baseY=tipY+direction*uy*10/size.height*100,sideX=-uy*4/size.width*100,sideY=ux*4/size.height*100;return `${tipX},${tipY} ${baseX+sideX},${baseY+sideY} ${baseX-sideX},${baseY-sideY}`;};
   const colorName:Record<string,string>={'#2563eb':'Mavi','#dc2626':'Kırmızı','#16a34a':'Yeşil','#f59e0b':'Turuncu','#7c3aed':'Mor','#111827':'Siyah'};
-  const buttons:[Tool,string][]=[['select','Seç/Pan'],['pin','Pin'],['measurement_line','Ölçüm Çizgisi'],['area','Alan'],['note','Not'],['delete','Sil']];
+  const buttons:[Tool,string][]=[['select','Seç / taşı'],['pin','Balon'],['measurement_line','Ölçüm Çizgisi'],['area','Alan'],['note','Not'],['delete','Sil']];
 
   return <section className="overflow-hidden rounded-2xl bg-slate-950">
     <div className="rq-dark-tools flex flex-wrap items-center gap-1 border-b border-slate-700 bg-slate-900 p-2">
@@ -56,8 +57,8 @@ export function AnnotationCanvas({imageUrl,pointNo,annotations,onChange}:{imageU
       {first&&<span className="ml-auto text-xs text-blue-300">Bitiş noktasını seçin</span>}
     </div>
     <div className={`${zoom>1?'overflow-auto':'overflow-hidden'} p-2`}>
-      <div ref={stage} onClick={click} style={{transform:`scale(${zoom})`,transformOrigin:'center'}} className="relative mx-auto h-[min(58vh,620px)] min-h-80 w-full max-w-5xl cursor-crosshair bg-slate-900">
-        {isPdfMedia(imageUrl)?<object data={url} type="application/pdf" className="pointer-events-none h-full w-full bg-white"/>:<img src={url} alt="Anotasyon yapılan teknik görsel" className="pointer-events-none h-full w-full object-contain"/>}
+      <div ref={stage} onClick={click} style={{transform:`scale(${zoom})`,transformOrigin:'center',aspectRatio:aspect}} className="relative mx-auto w-full max-w-5xl cursor-crosshair bg-slate-900">
+        {<img onLoad={e=>setAspect(e.currentTarget.naturalWidth/e.currentTarget.naturalHeight)} src={url} alt="Anotasyon yapılan teknik görsel" className="pointer-events-none h-full w-full object-contain"/>}
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full touch-none overflow-visible">
           {annotations.map(item=>{
             const itemColor=item.color||DEFAULT_COLOR;
@@ -78,7 +79,7 @@ export function AnnotationCanvas({imageUrl,pointNo,annotations,onChange}:{imageU
             return null;
           })}
         </svg>
-        {annotations.filter(item=>item.type==='pin'||item.type==='note').map(item=><Button key={item.id} onClick={event=>choose(item.id,event)} onPointerDown={event=>beginDrag(item.id,event)} onPointerMove={event=>dragItem(item.id,event)} onPointerUp={endDrag} style={{left:`${item.x}%`,top:`${item.y}%`,backgroundColor:item.color||DEFAULT_COLOR,touchAction:'none'}} className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white px-2 py-1 text-xs font-bold text-white ${selected===item.id?'ring-4 ring-amber-300':''}`}>{item.type==='pin'?item.label:'📝'}</Button>)}
+        {annotations.filter(item=>item.type==='pin'||item.type==='note').map(item=><Button aria-label={item.type==='pin'?`Nokta ${pointNo}`:item.label} key={item.id} onClick={event=>choose(item.id,event)} onPointerDown={event=>beginDrag(item.id,event)} onPointerMove={event=>dragItem(item.id,event)} onPointerUp={endDrag} style={{left:`${item.x}%`,top:`${item.y}%`,backgroundColor:item.color||DEFAULT_COLOR,touchAction:'none'}} className={`rq-annotation-pin ${balloonMode==='embedded'&&item.type==='pin'?'rq-embedded-balloon':''} absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white px-2 py-1 text-xs font-bold text-white ${selected===item.id?'ring-4 ring-amber-300':''}`}>{item.type==='pin'?(balloonMode==='embedded'?'':String(pointNo)):'📝'}</Button>)}
       </div>
     </div>
   </section>;

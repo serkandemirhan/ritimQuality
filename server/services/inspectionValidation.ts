@@ -16,15 +16,28 @@ const characteristicSchema = z.object({
 export const planSchema = z.object({
   id: z.string().min(1), productId: z.string().min(1), version: z.string().min(1),
   status: z.enum(['active', 'draft', 'archived']), isActive: z.boolean(),
+  balloonMode: z.enum(['overlay','embedded']).optional(),
   characteristics: z.array(characteristicSchema).min(1),
 }).passthrough().superRefine((plan, ctx) => {
   if (plan.isActive !== (plan.status === 'active')) ctx.addIssue({ code: 'custom', message: 'Aktif plan durumu tutarsız.' });
+  if(plan.isActive && plan.drawingImageUrl){
+    const pins=new Set<string>();
+    for(const c of plan.characteristics){
+      const pin=c.pin as {x:number;y:number}|undefined;
+      if(!pin||!Number.isFinite(pin.x)||!Number.isFinite(pin.y)||pin.x<0||pin.x>100||pin.y<0||pin.y>100){ctx.addIssue({code:'custom',message:`#${c.pointNo}: balonu teknik resim üzerinde konumlandırın.`});continue;}
+      const key=`${pin.x.toFixed(1)}:${pin.y.toFixed(1)}`;
+      if(pins.has(key))ctx.addIssue({code:'custom',message:'Balonlar üst üste. Aktifleştirmeden önce noktaları çizimde ayırın.'});
+      pins.add(key);
+    }
+  }
   if (new Set(plan.characteristics.map(c => c.id)).size !== plan.characteristics.length ||
       new Set(plan.characteristics.map(c => c.pointNo)).size !== plan.characteristics.length)
     ctx.addIssue({ code: 'custom', message: 'Kontrol noktaları benzersiz olmalıdır.' });
   for (const c of plan.characteristics) {
     if(c.policy?.minPhotos!=null&&c.policy.maxPhotos!=null&&c.policy.minPhotos>c.policy.maxPhotos)ctx.addIssue({code:'custom',message:'Minimum fotoğraf adedi maksimumu aşamaz.'});
-    if (c.type === 'numeric' && (c.lsl!=null&&c.usl!=null&&c.lsl>=c.usl || c.lsl!=null&&c.nominal<c.lsl || c.usl!=null&&c.nominal>c.usl))
+    if(c.extraction && (typeof c.extraction!=='object'||(c.extraction as Record<string,unknown>).verificationStatus!=='verified'))
+      ctx.addIssue({code:'custom',message:`#${c.pointNo}: PDF ölçüsü kullanıcı tarafından doğrulanmalı.`});
+    if (c.type === 'numeric' && (c.lsl!=null&&c.usl!=null&&c.lsl>=c.usl || !c.extraction&&(c.lsl!=null&&c.nominal<c.lsl || c.usl!=null&&c.nominal>c.usl)))
       ctx.addIssue({ code: 'custom', message: `#${c.pointNo}: tolerans aralığı geçersiz.` });
     if (c.type.endsWith('select') && (!c.options?.length || new Set(c.options).size !== c.options.length || c.rejectedOptions?.some(v => !c.options!.includes(v))))
       ctx.addIssue({ code: 'custom', message: `#${c.pointNo}: seçenekler geçersiz.` });

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "mounting",
+    "elapsedMs": 26972,
+    "rows": [
+      "1Uzunluk 100100 ±0.199,9 – 100,1 mm · Özel toleransÖlçüm bekliyor",
+      "2Uzunluk 6060 ±0.159,9 – 60,1 mm · Özel toleransÖlçüm bekliyor",
+      "3Uzunluk 606059,7 – 60,3 mm · Genel toleransÖlçüm bekliyor",
+      "4Yarıçap 33x R3Ölçüm bekliyor",
+      "5Uzunluk 303029,8 – 30,2 mm · Genel toleransÖlçüm bekliyor",
+      "6Uzunluk 120120119,7 – 120,3 mm · Genel toleransOtomatik örnek",
+      "7Uzunluk 606059,7 – 60,3 mm · Genel toleransOtomatik örnek",
+      "8Uzunluk 808079,7 – 80,3 mm · Genel toleransOtomatik örnek",
+      "9Uzunluk 10109,8 – 10,2 mm · Genel toleransOtomatik örnek",
+      "10Uzunluk 404039,7 – 40,3 mm · Genel toleransOtomatik örnek"
+    ],
+    "count": 10,
+    "scope": "Gerçek PDF demo içe aktarımı; otomatik satır oluşumu gözlendi. Her ölçü ve toleransın mühendislik doğruluğu bu testte bağımsız olarak kanıtlanmadı."
+  },
+  {
+    "name": "motor",
+    "elapsedMs": 3440,
+    "rows": [
+      "1Uzunluk 58,4258.42 ±0.2558,17 – 58,67 mm · Özel toleransÖlçüm bekliyor",
+      "2Uzunluk 9,539.530 ±0.0129,518 – 9,542 mm · Özel toleransÖlçüm bekliyor",
+      "3Uzunluk 37,7837.780 ±0.01237,768 – 37,792 mm · Özel toleransÖlçüm bekliyor",
+      "4Uzunluk 66,0466.04 ±0.1065,94 – 66,14 mm · Özel toleransÖlçüm bekliyor"
+    ],
+    "count": 4,
+    "scope": "Gerçek PDF demo içe aktarımı; otomatik satır oluşumu gözlendi. Her ölçü ve toleransın mühendislik doğruluğu bu testte bağımsız olarak kanıtlanmadı."
+  }
+]

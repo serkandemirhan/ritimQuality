@@ -1,0 +1,9 @@
+{
+  "at": "2026-11-08T15:40:33.855Z",
+  "status": 422,
+  "elapsedMs": 2489,
+  "result": {
+    "error": "Yapay zekâ kullanım sınırına ulaşıldı. Daha sonra tekrar deneyin."
+  },
+  "scope": "Yalnızca sentetik çizim canlı AI API üzerinden gönderildi; müşteri çizimi kullanılmadı."
+}

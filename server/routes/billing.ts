@@ -11,12 +11,23 @@ import { audit } from '../services/access.js';
 export const billingRouter = Router();
 billingRouter.use(requireAuth, requireRole('admin'));
 
+billingRouter.get('/status', (_req, res) => {
+  const configured = process.env.BILLING_ENABLED === 'true' && Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET);
+  const availablePlans = configured ? ['starter', 'pro', 'enterprise'].filter(plan =>
+    ['monthly', 'annual'].every(period => process.env[`STRIPE_${plan.toUpperCase()}_${period.toUpperCase()}_PRICE_ID`])) : [];
+  res.json({ portalAvailable: configured, availablePlans });
+});
+
 billingRouter.post('/checkout', async (req, res, next) => {
   try {
     const { planId, billingPeriod } = z.object({
       planId: z.enum(['starter', 'pro', 'enterprise']),
       billingPeriod: z.enum(['monthly', 'annual']),
     }).parse(req.body);
+    if (process.env.BILLING_ENABLED !== 'true' || !process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET ||
+        !process.env[`STRIPE_${planId.toUpperCase()}_${billingPeriod.toUpperCase()}_PRICE_ID`]) {
+      res.status(503).json({ error: 'Bu paket için çevrim içi satın alma henüz açık değil.' }); return;
+    }
     const { tenantId, userId } = req.auth!;
     const stripe = stripeClient();
     const tenantResult = await pool.query(
@@ -62,6 +73,9 @@ billingRouter.post('/checkout', async (req, res, next) => {
 
 billingRouter.post('/portal', async (req, res, next) => {
   try {
+    if (process.env.BILLING_ENABLED !== 'true' || !process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+      res.status(503).json({ error: 'Ödeme ve fatura hizmeti henüz açık değil.' }); return;
+    }
     const { tenantId } = req.auth!;
     const result = await pool.query('SELECT stripe_customer_id FROM tenants WHERE id=$1', [tenantId]);
     const customerId = result.rows[0]?.stripe_customer_id;

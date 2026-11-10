@@ -1,0 +1,2 @@
+export type AnalyticsEvent='landing_viewed'|'demo_started'|'balloon_selected'|'measurement_entered'|'demo_completed'|'report_preview_opened'|'signup_started'|'signup_completed'|'first_inspection_completed'|'pricing_viewed'|'checkout_started'|'subscription_activated';
+export function track(name:AnalyticsEvent){if(typeof window!=='undefined')window.dispatchEvent(new CustomEvent('ritim:analytics',{detail:{name}}));}

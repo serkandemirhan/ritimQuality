@@ -1,0 +1,8 @@
+Bu dosyalar çalışmada kullanılan tarayıcı ve veritabanı doğrulama kodlarının kaynak kopyalarıdır. Tek komutluk bağımsız test paketi değildir.
+Asıl konumlar: .runtime/lifecycle/run.cjs, .runtime/lifecycle/verify.ts ve .runtime/lifecycle-server.ts.
+Çalıştırma için uygulama deposu, Node.js, Microsoft Edge, Playwright ve sunucu ortam değişkenleri gerekir.
+session.json oturum anahtarları içerir ve güvenlik nedeniyle pakete konmadı. Sunucu düzeneği bunu ayrı test kullanıcıları için üretir.
+Gerçek veritabanında test firması oluşturur; normal müşteri hesabıyla çalıştırılmamalıdır. Deneme firmasına geçerli deneme/lisans süresi tanımlanmalıdır.
+Bu çalışma aşamalar hâlinde yürütüldü. create: yönetici plan ve görev; operate: masaüstü ölçüm; complete: görevi ayrıca tamamlama; review: yönetici onayı; operator-return: geri bildirim; phone: ayrı mobil ölçüm; phone-review: mobil onayı; inspect: plan ve çizim görüntüsü.
+operate aşamasındaki ölçüm ekranından çıkış otomasyonu durduğunda görev tamamlama complete aşamasında ayrı oturumda yapıldı. Bu, ölçüm kaydının başarısız olduğu anlamına gelmez; gerçek kaydı verification.json doğrular.
+verify.ts sadece test firmasının kayıtlarını okur. Kaynak dosyalar test oturumu olmadan çalışmaz.

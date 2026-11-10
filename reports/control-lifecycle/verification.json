@@ -1,0 +1,148 @@
+{
+  "verifiedAt": "2026-11-08T08:40:47.891Z",
+  "scope": "Isolated test tenant; real API, Supabase PostgreSQL; local frontend; no API response mocks",
+  "plans": [
+    {
+      "id": "cp-1794126774812",
+      "version": "v1.0",
+      "status": "active",
+      "is_active": true,
+      "points": 3
+    }
+  ],
+  "measurements": [
+    {
+      "id": "e989ca4c-4976-4120-a852-257320402dd0",
+      "session_code": "INS-e989ca4c-4976-4120-a852-257320402dd0",
+      "work_order": "İE-2026-002-MOBİL",
+      "operator_id": "2aa9281d-7d0f-450b-9a3f-ea8ab61d35c9",
+      "result": "pass",
+      "samples": [
+        {
+          "values": {
+            "char-1794126774812-1": 100.02,
+            "05aa75ad-26c6-4e4e-b1f6-7ed6f7f7ac7a": 10.01,
+            "4d9589f0-fcf0-4096-a814-0efe8c0f5c4d": 49.98
+          },
+          "evidence": {
+            "char-1794126774812-1": [],
+            "05aa75ad-26c6-4e4e-b1f6-7ed6f7f7ac7a": [],
+            "4d9589f0-fcf0-4096-a814-0efe8c0f5c4d": []
+          },
+          "statuses": {
+            "char-1794126774812-1": "pass",
+            "05aa75ad-26c6-4e4e-b1f6-7ed6f7f7ac7a": "pass",
+            "4d9589f0-fcf0-4096-a814-0efe8c0f5c4d": "pass"
+          },
+          "pointNotes": {
+            "char-1794126774812-1": "",
+            "05aa75ad-26c6-4e4e-b1f6-7ed6f7f7ac7a": "",
+            "4d9589f0-fcf0-4096-a814-0efe8c0f5c4d": ""
+          },
+          "sampleIndex": 1
+        }
+      ]
+    },
+    {
+      "id": "fc10d428-ddad-4ce1-b982-0dd1500a4d33",
+      "session_code": "INS-ab33b44c-dfc9-4c7e-93c2-6065f8359dc0",
+      "work_order": "İE-2026-001",
+      "operator_id": "2aa9281d-7d0f-450b-9a3f-ea8ab61d35c9",
+      "result": "pass",
+      "samples": [
+        {
+          "values": {
+            "char-1794126774812-1": 100.02,
+            "05aa75ad-26c6-4e4e-b1f6-7ed6f7f7ac7a": 10.01,
+            "4d9589f0-fcf0-4096-a814-0efe8c0f5c4d": 49.98
+          },
+          "statuses": {
+            "char-1794126774812-1": "pass",
+            "05aa75ad-26c6-4e4e-b1f6-7ed6f7f7ac7a": "pass",
+            "4d9589f0-fcf0-4096-a814-0efe8c0f5c4d": "pass"
+          },
+          "sampleIndex": 1
+        }
+      ]
+    }
+  ],
+  "approvals": [
+    {
+      "inspection_id": "fc10d428-ddad-4ce1-b982-0dd1500a4d33",
+      "status": "approved",
+      "reviewed_by": "7985328a-328f-49e0-b2e1-01e2db6212b1",
+      "reviewed_at": "2026-11-08T08:37:01.645Z"
+    },
+    {
+      "inspection_id": "e989ca4c-4976-4120-a852-257320402dd0",
+      "status": "approved",
+      "reviewed_by": "7985328a-328f-49e0-b2e1-01e2db6212b1",
+      "reviewed_at": "2026-11-08T08:40:41.489Z"
+    }
+  ],
+  "tasks": [
+    {
+      "title": "AKIS-001 ilk parça kontrolü · İE-2026-001",
+      "owner_id": "2aa9281d-7d0f-450b-9a3f-ea8ab61d35c9",
+      "product_id": "prod-1794126771928",
+      "inspection_id": null,
+      "started_at": null,
+      "completed_at": "2026-11-08T08:35:20.797Z",
+      "completion_note": "Üç ölçüm kaydedildi; LOT-2026-001 kontrol raporu yöneticinin onayını bekliyor."
+    }
+  ],
+  "notifications": [
+    {
+      "title": "AKIS-001 ilk parça kontrolü · İE-2026-001",
+      "kind": "task",
+      "user_id": "2aa9281d-7d0f-450b-9a3f-ea8ab61d35c9",
+      "read_at": "2026-11-08T08:33:48.864Z",
+      "created_at": "2026-11-08T08:33:13.606Z"
+    },
+    {
+      "title": "Kontrol onay bekliyor: INS-ab33b44c-dfc9-4c7e-93c2-6065f8359dc0",
+      "kind": "approval",
+      "user_id": "7985328a-328f-49e0-b2e1-01e2db6212b1",
+      "read_at": "2026-11-08T08:35:55.797Z",
+      "created_at": "2026-11-08T08:34:01.963Z"
+    },
+    {
+      "title": "Kontrol onaylandı",
+      "kind": "approval",
+      "user_id": "2aa9281d-7d0f-450b-9a3f-ea8ab61d35c9",
+      "read_at": null,
+      "created_at": "2026-11-08T08:37:01.645Z"
+    },
+    {
+      "title": "Kontrol onay bekliyor: INS-e989ca4c-4976-4120-a852-257320402dd0",
+      "kind": "approval",
+      "user_id": "7985328a-328f-49e0-b2e1-01e2db6212b1",
+      "read_at": null,
+      "created_at": "2026-11-08T08:39:31.000Z"
+    },
+    {
+      "title": "Kontrol onaylandı",
+      "kind": "approval",
+      "user_id": "2aa9281d-7d0f-450b-9a3f-ea8ab61d35c9",
+      "read_at": null,
+      "created_at": "2026-11-08T08:40:41.489Z"
+    }
+  ],
+  "media": [
+    {
+      "file_name": "teknik-resim.png",
+      "storage_provider": "supabase",
+      "upload_status": "ready"
+    },
+    {
+      "file_name": "teknik-resim.png",
+      "storage_provider": "supabase",
+      "upload_status": "ready"
+    },
+    {
+      "file_name": "teknik-resim.png",
+      "storage_provider": "supabase",
+      "upload_status": "ready"
+    }
+  ]
+}

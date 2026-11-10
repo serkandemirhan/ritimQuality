@@ -7,6 +7,7 @@ import {
   INITIAL_COMPANY
 } from '../data/mockData';
 import { SaasApi } from './api';
+import {readOfflineCatalog,saveOfflineCatalog} from './offlineCatalog';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'qualitrack_products_v1',
@@ -65,6 +66,22 @@ export const StorageService = {
     localStorage.setItem(STORAGE_KEYS.INSPECTION_LOGS, JSON.stringify(data.inspectionLogs));
     const currentUserId = String(data.currentUserId || '');
     if (currentUserId) localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, currentUserId);
+    const currentUser=users.find(user=>user.id===currentUserId);
+    if(currentUser){
+      const activePlans=(data.controlPlans as ControlPlan[]).filter(plan=>plan.isActive&&plan.status==='active');
+      const productIds=new Set(activePlans.map(plan=>plan.productId));
+      const previous=await readOfflineCatalog(SaasApi.scope()).catch(()=>undefined);
+      await saveOfflineCatalog({
+        version:1,
+        scope:SaasApi.scope(),
+        savedAt:new Date().toISOString(),
+        products:(data.products as Product[]).filter(product=>productIds.has(product.id)),
+        controlPlans:activePlans,
+        currentUser,
+        company,
+        rules:previous?.rules,
+      }).catch(()=>{/* Online operation remains available if private storage is blocked. */});
+    }
   },
 
   reportSyncError: (error: unknown): void => {

@@ -1,7 +1,7 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState, useCallback} from 'react';
 import {MoreHorizontal} from 'lucide-react';
 import type {InspectionLog} from '../types';
-import {useMediaSource,isPdfMedia} from './MediaImage';
+import {useDrawingSource} from './MediaImage';
 import {SaasApi} from '../services/api';
 import {finishMobileSession,cellKey, changeMobileSession, commitMobileCell, emptyDraft, evaluateMeasurement, evidenceErrors, latestAttempt, mobileSummary, readMobileSession, syncMobileSession, type Cell, type MobileDraft, type MobileSession} from '../services/mobileMeasurement';
 import './mobileMeasurement.css';
@@ -10,7 +10,7 @@ const labels = {pass:'✓ Uygun',fail:'✕ Uygunsuz',review:'⚠ Şüpheli · İ
 function Sheet({title,children,onClose}:{title:string;children:React.ReactNode;onClose:()=>void}) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {const previous = document.activeElement as HTMLElement;ref.current?.showModal();return () => {if(previous?.isConnected)previous.focus?.({preventScroll:true});};},[]);
-  return <dialog ref={ref} className="mm-sheet" onCancel={e=>{e.preventDefault();onClose();}}><header><h2>{title}</h2><button onClick={onClose} aria-label="Kapat">✕</button></header>{children}</dialog>;
+  return <dialog ref={ref} className="mm-sheet" aria-label={title} onCancel={e=>{e.preventDefault();onClose();}}><header><h2>{title}</h2><button onClick={onClose} aria-label="Kapat">✕</button></header>{children}</dialog>;
 }
 function Photo({file,onClick}:{key?:string;file:File;onClick:()=>void}) {
   const [url,setUrl]=useState('');
@@ -27,14 +27,15 @@ export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onComp
   const [sheet,setSheet]=useState<'evidence'|'navigator'|'summary'|'drawing'|'history'|'tools'|null>(null);
   const [pending,setPending]=useState<Cell|'exit'|null>(null);
   const [search,setSearch]=useState(''); const [remaining,setRemaining]=useState(false); const [group,setGroup]=useState(-1);
+  const [editingCompleted,setEditingCompleted]=useState(false);
   const [online,setOnline]=useState(navigator.onLine); const [syncing,setSyncing]=useState(false);
   const [hand,setHand]=useState(()=>localStorage.getItem('ritim:measurement:hand')||'right');
   const [imageIndex,setImageIndex]=useState(0); const [zoom,setZoom]=useState(1); const [imageReady,setImageReady]=useState(false); const [imageFailed,setImageFailed]=useState(false); const [imageRetry,setImageRetry]=useState(0);
   const [imageRatio,setImageRatio]=useState(1);
   const [photo,setPhoto]=useState<string>(); const [boundary,setBoundary]=useState<Cell>();
   const notified=useRef(''); const saveLock=useRef(false);
-  const externalExit=useRef<(()=>void)|undefined>();
-  const evidenceTarget=useRef<Cell|'exit'|undefined>();
+  const externalExit=useRef<(()=>void)|undefined>(undefined);
+  const evidenceTarget=useRef<Cell|'exit'|undefined>(undefined);
   const showError=(e:unknown)=>setError(e instanceof Error?e.message:String(e));
   const loadDraft=(s:MobileSession)=>{const d=s.drafts[cellKey(s.active)]||emptyDraft();draftRef.current=d;setDraft(d);dirty.current=Boolean(s.drafts[cellKey(s.active)]);};
   useEffect(()=>{let alive=true;void (async()=>{
@@ -66,7 +67,8 @@ export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onComp
   const references=links.map(l=>({link:l,image:session?.product.images?.find(i=>i.id===l.imageId)})).filter(r=>r.image);
   const reference=references[imageIndex]||references[0];
   const imageSource=reference?.image?.url||session?.plan.drawingImageUrl||session?.product.defaultDrawingUrl;
-  const resolved=useMediaSource(imageSource,imageRetry);
+  const imageError=useCallback(()=>setImageFailed(true),[]);
+  const resolved=useDrawingSource(imageSource,imageRetry,imageError);
   useEffect(()=>{setImageReady(false);setImageFailed(false);setZoom(1);},[imageSource,imageRetry]);
   useEffect(()=>{setImageIndex(0);},[c?.id]);
   const updateDraft=(patch:Partial<MobileDraft>)=>{
@@ -97,13 +99,13 @@ export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onComp
       if(!confirmedEvidence&&(evaluated.result==='fail'||evaluated.result==='review'||errors.length)){evidenceTarget.current=target;setPending(null);setSheet('evidence');return false;}
       saveLock.current=true;setBusy(true);await writeChain.current;
       const s=await commitMobileCell(scope,session.active,draftRef.current,imageReady,latestAttempt(session,session.active)?.id||null);
-      setSession(s);dirty.current=false;draftRef.current=emptyDraft();setDraft(emptyDraft());setMessage('✓ Cihazda kaydedildi');setSheet(null);setPending(null);
+      setSession(s);dirty.current=false;setEditingCompleted(false);draftRef.current=emptyDraft();setDraft(emptyDraft());setMessage('✓ Cihazda kaydedildi');setSheet(null);setPending(null);
       const summary=mobileSummary(s);const index=summary.cells.findIndex(cell=>cellKey(cell)===cellKey(s.active));
       const next=[...summary.cells.slice(index+1),...summary.cells.slice(0,index)].find(cell=>!latestAttempt(s,cell));
       const attempt=latestAttempt(s,s.active)!;
       if(target)await move(target);
       else if(attempt.result==='review'||c.policy?.requireReview||c.policy?.requireSupervisorApproval)setSheet('history');
-      else if(!next)setSheet('summary');
+      else if(!next)setSheet(null);
       else if(s.order==='sample'&&next.sample!==s.active.sample)setBoundary(next);
       else await move(next);
       void sync();return true;
@@ -119,6 +121,7 @@ export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onComp
   };
   if(!session||!c)return <section className="mm-shell"><p role={error?'alert':'status'}>{error||'Yerel ölçüm oturumu açılıyor…'}</p><button onClick={onExit}>Hazırlığa dön</button></section>;
   const summary=mobileSummary(session);const current=latestAttempt(session,session.active);const locked=Boolean(session.submissionRequested||session.submission||session.confirmed);
+  const completedView=summary.missing.length===0&&!editingCompleted&&!dirty.current;
   let preview:ReturnType<typeof evaluateMeasurement>|undefined;let validation='';try{preview=evaluateMeasurement(c,draft.raw,draft.mode);}catch(e){validation=(e as Error).message;}
   const activeIndex=session.plan.characteristics.findIndex(item=>item.id===c.id);
   const options=c.type==='boolean'?['yes','no']:c.type==='visual'?['OK','NOK','SUSPECT']:c.type==='ok_nok'?['OK','NOK']:c.options||[];
@@ -127,10 +130,10 @@ export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onComp
   const drawing=<>
     {!!references.length&&<select aria-label="Referans resim" value={imageIndex} onChange={e=>setImageIndex(Number(e.target.value))}>{references.map((r,i)=><option key={r.link.id} value={i}>{r.image!.name}</option>)}</select>}
     {imageSource?<><div className="mm-drawing-tools"><button onClick={()=>{setZoom(z=>Math.min(4,z+.5));}}>＋</button><button onClick={()=>setZoom(z=>Math.max(1,z-.5))}>−</button><button onClick={()=>setZoom(1)}>Sığdır</button><button onClick={()=>setSheet(sheet==='drawing'?null:'drawing')}>{sheet==='drawing'?'Küçült':'Büyüt'}</button></div><div className="mm-drawing-scroll"><div className="mm-drawing-image" style={{width:`${zoom*100}%`,'--mm-image-ratio':imageRatio} as React.CSSProperties}>
-      {resolved&&(isPdfMedia(imageSource)?<object data={resolved} type="application/pdf" aria-label={`${c.name} PDF teknik resmi`} style={{width:'100%',height:400}} onLoad={()=>setImageReady(true)} onError={()=>setImageFailed(true)}><p>PDF bu cihazda görüntülenemiyor.</p></object>:<img key={`${imageSource}:${imageRetry}`} src={resolved} alt={`${c.name} teknik resmi`} onLoad={e=>{setImageRatio(e.currentTarget.naturalWidth/e.currentTarget.naturalHeight);setImageReady(true);setImageFailed(false);}} onError={()=>{setImageReady(false);setImageFailed(true);}}/>)}
+      {resolved&&<img key={`${imageSource}:${imageRetry}`} src={resolved} alt={`${c.name} teknik resmi`} onLoad={e=>{setImageRatio(e.currentTarget.naturalWidth/e.currentTarget.naturalHeight);setImageReady(true);setImageFailed(false);}} onError={()=>{setImageReady(false);setImageFailed(true);}}/>}
       {imageReady&&reference&&<svg className="mm-annotations" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{reference.link.annotations.map(a=>a.type==='measurement_line'?<line key={a.id} x1={a.startX} y1={a.startY} x2={a.endX} y2={a.endY} stroke={a.color||'#245b86'} strokeWidth=".5"/>:a.type==='area'?<rect key={a.id} x={Math.min(a.startX,a.endX)} y={Math.min(a.startY,a.endY)} width={Math.abs(a.endX-a.startX)} height={Math.abs(a.endY-a.startY)} fill="none" stroke={a.color||'#245b86'} strokeWidth=".5"/>:null)}</svg>}
-      {imageReady&&(reference?session.plan.characteristicImageLinks?.filter(l=>l.imageId===reference.image!.id).flatMap(l=>l.annotations.filter(a=>a.type==='pin').map(a=>({c:session.plan.characteristics.find(c=>c.id===l.characteristicId),x:'x' in a?a.x:0,y:'y' in a?a.y:0}))):session.plan.characteristics.map(c=>({c,x:c.pin.x,y:c.pin.y})))?.map((p,i)=>p.c&&<button key={i} className={`mm-pin ${p.c.id===c.id?'active':''}`} style={{left:`${p.x}%`,top:`${p.y}%`}} aria-label={`Nokta ${p.c.pointNo}: ${p.c.name}`} onClick={()=>navigate({sample:session.active.sample,characteristic:p.c!.id})}>{p.c.pointNo}</button>)}
-    </div></div>{(!resolved||imageFailed)&&<p role="alert">Teknik resim yüklenemedi. <button onClick={()=>setImageRetry(n=>n+1)}>Tekrar dene</button></p>}</>:<p>Bu nokta için teknik resim eklenmemiş.</p>}
+      {imageReady&&(reference?session.plan.characteristicImageLinks?.filter(l=>l.imageId===reference.image!.id).flatMap(l=>l.annotations.filter(a=>a.type==='pin').slice(0,1).map(a=>({c:session.plan.characteristics.find(c=>c.id===l.characteristicId),x:'x' in a?a.x:0,y:'y' in a?a.y:0}))):session.plan.characteristics.map(c=>({c,x:c.pin.x,y:c.pin.y})))?.map((p,i)=>p.c&&<button key={i} className={`mm-pin ${session.plan.balloonMode==='embedded'?'rq-embedded-balloon':''} ${p.c.id===c.id?'active':''}`} style={{left:`${p.x}%`,top:`${p.y}%`}} aria-label={`Nokta ${p.c.pointNo}: ${p.c.name}`} onClick={()=>navigate({sample:session.active.sample,characteristic:p.c!.id})}>{session.plan.balloonMode!=='embedded'&&p.c.pointNo}</button>)}
+    </div></div>{!resolved&&!imageFailed&&<p role="status" className="rq-media-placeholder">Teknik resim hazırlanıyor…</p>}{imageFailed&&<p role="alert">Teknik resim yüklenemedi. <button onClick={()=>setImageRetry(n=>n+1)}>Tekrar dene</button></p>}</>:<p>Bu nokta için teknik resim eklenmemiş.</p>}
     <p className="mm-instruction">{c.description||'Kontrol planındaki ölçüm talimatını uygulayın.'}</p>
   </>;
   const errorBlock=error&&<p role="alert" className="mm-error">{error}</p>;
@@ -145,7 +148,8 @@ export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onComp
     <div className="mm-product-line"><span>{session.product.code} · {session.product.name}</span><span role="status">{session.syncError?'Gönderim bekliyor':syncing?'Gönderiliyor':online?'Çevrimiçi':'Çevrimdışı'}</span></div>
     <div className="mm-drawing">{drawing}</div>
     </div>
-    <div className="mm-characteristic"><h1>{activeIndex+1} / {session.plan.characteristics.length} · {c.name}</h1><button onClick={()=>setSheet('navigator')}>Noktalar · {summary.cells.length-summary.missing.length}/{summary.cells.length}</button><button className="mm-tools-button" title="Diğer işlemler" aria-label="Diğer işlemler" onClick={()=>setSheet('tools')}><MoreHorizontal size={20}/></button></div>
+    <div className="mm-characteristic"><h1>{activeIndex+1} / {session.plan.characteristics.length} · {c.name}</h1><button className="mm-point-progress" onClick={()=>setSheet('navigator')}><span>Noktalar · </span>{summary.cells.length-summary.missing.length}/{summary.cells.length}</button><button className="mm-tools-button" title="Diğer işlemler" aria-label="Diğer işlemler" onClick={()=>setSheet('tools')}><MoreHorizontal size={20}/></button></div>
+    {completedView?<section className="mm-completed" role="status"><h2>Tüm ölçümler tamamlandı</h2><p>{summary.cells.length} ölçüm kaydedildi. Kontrolü tamamlayarak raporunuzu açabilirsiniz.</p>{summary.review&&<p>{session.attempts.some(a=>a.result!=='pass')?'İnceleme gerektiren ölçüm sonuçları bulunuyor. Kontrol yetkili değerlendirmesine gönderilecek.':'Kaydettiğiniz kontrol yönetici onayına gönderilecek.'}</p>}</section>:<>
     <div className="mm-samples" aria-label="Numuneler">{Array.from({length:session.count},(_,i)=>i+1).map(sample=><button key={sample} aria-pressed={sample===session.active.sample} onClick={()=>navigate({sample,characteristic:c.id})}>S{sample} {session.attempts.some(a=>a.sample===sample&&a.result==='fail')?'✕':summary.missing.some(cell=>cell.sample===sample)?'○':'✓'}</button>)}</div>
     {(c.type||'numeric')==='numeric'&&<dl className="mm-limits"><div><dt>Alt sınır</dt><dd>{c.lsl??'—'}</dd></div><div><dt>Nominal</dt><dd>{c.nominal}</dd></div><div><dt>Üst sınır</dt><dd>{c.usl??'—'}</dd></div><span>{c.unit}</span></dl>}
     {current&&!dirty.current&&<div className="mm-saved">{labels[current.result]} · Son kayıt: {String(current.value)} <button disabled={locked} onClick={()=>{updateDraft({raw:'',retryReason:''});setSheet('history');}}>Tekrar ölç</button></div>}
@@ -155,10 +159,11 @@ export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onComp
       <p className={`mm-preview ${preview&&!dirty.current?preview.result:''}`} role="status">{dirty.current?validation:preview?`${labels[preview.result]} · Kayıtlı deneme`:''}</p>
       {!dirty.current&&preview?.result==='fail'&&typeof preview.value==='number'&&<p>{preview.value<c.lsl?`Alt sınırın ${Number((c.lsl-preview.value).toPrecision(10))} altında`:`Üst sınırın ${Number((preview.value-c.usl).toPrecision(10))} üzerinde`} {c.unit}</p>}
     </fieldset>}
+    </>}
     {errorBlock}
-    <footer className="mm-actions"><button onClick={()=>{const i=summary.cells.findIndex(cell=>cellKey(cell)===cellKey(session.active));if(i>0)navigate(summary.cells[i-1]);}}>Önceki</button><button className="mm-primary" disabled={busy} onClick={()=>void (!summary.missing.length?complete():save())}>{!summary.missing.length?'Ölçümü tamamla':'Kaydet ve ilerle'}</button><button onClick={goNext}>Sonraki eksik</button></footer>
+    <footer className={`mm-actions${completedView?' mm-actions-completed':''}`}>{completedView?<><button disabled={busy||locked} onClick={()=>{setEditingCompleted(true);setSheet('navigator');}}>Ölçümü düzelt</button><button className="mm-primary" disabled={busy} onClick={()=>void complete()}>Ölçümü tamamla ve raporu aç</button></>:<><button onClick={()=>{const i=summary.cells.findIndex(cell=>cellKey(cell)===cellKey(session.active));if(i>0)navigate(summary.cells[i-1]);}}>Önceki</button><button className="mm-primary" disabled={busy||locked} onClick={()=>void save()}>Kaydet ve ilerle</button>{summary.missing.length>0&&<button onClick={goNext}>Sonraki eksik</button>}{summary.missing.length===0&&<button onClick={()=>{if(dirty.current){setError('Düzeltmeyi kaydedin veya taslakta bırakın.');return;}setEditingCompleted(false);}}>Özete dön</button>}</>}</footer>
     {sheet==='drawing'&&<Sheet title="Teknik resim" onClose={()=>setSheet(null)}>{drawing}</Sheet>}
-    {sheet==='evidence'&&<Sheet title="Kanıt ve uygunsuzluk" onClose={()=>setSheet(null)}><p>{preview?labels[preview.result]:'Sonuç girişi bekleniyor'} · {String(preview?.value??'—')} {c.unit}</p><p>Alt {c.lsl} · Nominal {c.nominal} · Üst {c.usl}</p><fieldset disabled={busy||locked}><label>Açıklama<textarea maxLength={2000} value={draft.comment} onChange={e=>updateDraft({comment:e.target.value})}/></label><label>Kusur sebebi{c.policy?.reasons?.length?<select value={draft.reason} onChange={e=>updateDraft({reason:e.target.value})}><option value="">Seçin</option>{c.policy.reasons.map(r=><option key={r}>{r}</option>)}</select>:<input value={draft.reason} onChange={e=>updateDraft({reason:e.target.value})}/>}</label><div className="mm-secondary"><label className="mm-file">Fotoğraf çek<input type="file" accept="image/*" capture="environment" onChange={e=>{void addFiles(e.target.files);e.target.value='';}}/></label><label className="mm-file">Dosya ekle<input type="file" accept="image/*,video/*,application/pdf" multiple onChange={e=>{void addFiles(e.target.files);e.target.value='';}}/></label></div><p>Kamera açılamıyorsa cihaz izinlerini kontrol edin veya plan izin veriyorsa dosya seçin.</p><div className="mm-photos">{draft.photos.map(id=>session.media[id]&&<div key={id}><Photo file={session.media[id].file} onClick={()=>setPhoto(id)}/><button onClick={()=>updateDraft({photos:draft.photos.filter(p=>p!==id)})}>Kaldır</button><label className="mm-file">Yeniden çek<input type="file" accept="image/*" capture="environment" onChange={async e=>{const files=e.target.files;if(files?.length){await addFiles(files,id);}}}/></label></div>)}</div></fieldset>
+    {sheet==='evidence'&&<Sheet title="Kanıt ve uygunsuzluk" onClose={()=>setSheet(null)}><p>{preview?labels[preview.result]:'Sonuç girişi bekleniyor'} · {String(preview?.value??'—')} {(c.type||'numeric')==='numeric'?c.unit:''}</p>{(c.type||'numeric')==='numeric'?<p>Alt {c.lsl??'—'} · Nominal {c.nominal} · Üst {c.usl??'—'}</p>:<p>Kontrol tipi: {c.type==='ok_nok'?'Uygun / Uygunsuz':c.type==='visual'?'Görsel kontrol':c.type==='boolean'?'Evet / Hayır':c.type==='single_select'?'Tekli seçim':c.type==='multi_select'?'Çoklu seçim':'Metin'}</p>}<fieldset disabled={busy||locked}><label>Açıklama<textarea maxLength={2000} value={draft.comment} onChange={e=>updateDraft({comment:e.target.value})}/></label><label>Kusur sebebi{c.policy?.reasons?.length?<select value={draft.reason} onChange={e=>updateDraft({reason:e.target.value})}><option value="">Seçin</option>{c.policy.reasons.map(r=><option key={r}>{r}</option>)}</select>:<input value={draft.reason} onChange={e=>updateDraft({reason:e.target.value})}/>}</label><div className="mm-secondary"><label className="mm-file">Fotoğraf çek<input type="file" accept="image/*" capture="environment" onChange={e=>{void addFiles(e.target.files);e.target.value='';}}/></label><label className="mm-file">Dosya ekle<input type="file" accept="image/*,video/*,application/pdf" multiple onChange={e=>{void addFiles(e.target.files);e.target.value='';}}/></label></div><p>Kamera açılamıyorsa cihaz izinlerini kontrol edin veya plan izin veriyorsa dosya seçin.</p><div className="mm-photos">{draft.photos.map(id=>session.media[id]&&<div key={id}><Photo file={session.media[id].file} onClick={()=>setPhoto(id)}/><button onClick={()=>updateDraft({photos:draft.photos.filter(p=>p!==id)})}>Kaldır</button><label className="mm-file">Yeniden çek<input type="file" accept="image/*" capture="environment" onChange={async e=>{const files=e.target.files;if(files?.length){await addFiles(files,id);}}}/></label></div>)}</div></fieldset>
       {preview&&evidenceErrors(c,preview.result,draft.photos.map(id=>({mimeType:session.media[id]?.file.type||''})),draft.comment,draft.reason).map(e=><p className="mm-error" key={e}>{e}</p>)}{errorBlock}<div className="mm-sheet-actions"><button onClick={()=>setSheet(null)}>Girişe dön</button><button disabled={busy||locked} className="mm-primary" onClick={()=>void save(true,evidenceTarget.current)}>Sonucu kaydet</button></div></Sheet>}
     {sheet==='navigator'&&<Sheet title="Karakteristik gezgini" onClose={()=>setSheet(null)}><input aria-label="Karakteristik ara" placeholder="Numara veya ad ara" value={search} onChange={e=>setSearch(e.target.value)}/><label><input type="checkbox" checked={remaining} onChange={e=>setRemaining(e.target.checked)}/> Sadece kalanlar</label><div className="mm-groups"><button onClick={()=>setGroup(-1)}>Tümü</button>{Array.from({length:Math.ceil(session.plan.characteristics.length/10)},(_,i)=><button key={i} aria-pressed={group===i} onClick={()=>setGroup(i)}>{i*10+1}–{Math.min((i+1)*10,session.plan.characteristics.length)}</button>)}</div><div className="mm-navigator">{session.plan.characteristics.filter((item,i)=>(group<0||Math.floor(i/10)===group)&&`${item.pointNo} ${item.name}`.toLocaleLowerCase('tr').includes(search.toLocaleLowerCase('tr'))&&(!remaining||!latestAttempt(session,{sample:session.active.sample,characteristic:item.id}))).map(item=>{const attempt=latestAttempt(session,{sample:session.active.sample,characteristic:item.id});return <button key={item.id} onClick={()=>navigate({sample:session.active.sample,characteristic:item.id})}>#{item.pointNo} {item.name}<small>{attempt?labels[attempt.result]:'○ Bekliyor'}{session.attempts.some(a=>a.sample===session.active.sample&&a.characteristic===item.id&&a.result==='fail')?' · İlk uygunsuzluk korunuyor':''}</small></button>;})}</div></Sheet>}
     {sheet==='history'&&<Sheet title="Ölçüm denemeleri" onClose={()=>setSheet(null)}>{session.attempts.filter(a=>cellKey(a)===cellKey(session.active)).map(a=><article key={a.id}><strong>{labels[a.result]} · {String(a.value)}</strong><p>{a.operatorId} · {new Date(a.measuredAt).toLocaleString('tr-TR')}</p><p>{a.comment} {a.reason} {a.retryReason}</p><div className="mm-photos">{a.photos.map(id=><Photo key={id} file={session.media[id].file} onClick={()=>setPhoto(id)}/>)}</div></article>)}{current&&!locked&&<><label>Tekrar ölçüm sebebi<input value={draft.retryReason} onChange={e=>updateDraft({retryReason:e.target.value})}/></label><button onClick={()=>{updateDraft({raw:''});setSheet(null);}}>Yeni denemeye başla</button></>}<p>İlk uygunsuzluk yeni uygun sonuçla kapanmaz. İnceleme / yetkili karar ayrı yürütülür.</p><button onClick={onOpenActions}>Görev ve onayları aç</button></Sheet>}

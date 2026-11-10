@@ -1,0 +1,337 @@
+TimeoutError: locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByLabel('Ölçülen değer')[22m
+[2m    - locator resolved to <input value="" class="dd-input" placeholder="100" autocomplete="off" inputmode="decimal" id="demo-measurement"/>[22m
+[2m  - attempting click action[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <section class="dd-measure" aria-label="Ölçüm girişi">…</section> intercepts pointer events[22m
+[2m    - retrying click action[22m
+[2m    - waiting 20ms[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <section class="dd-measure" aria-label="Ölçüm girişi">…</section> intercepts pointer events[22m
+[2m    - retrying click action[22m
+[2m      - waiting 100ms[22m
+[2m    11 × waiting for element to be visible, enabled and stable[22m
+[2m       - element is visible, enabled and stable[22m
+[2m       - scrolling into view if needed[22m
+[2m       - done scrolling[22m
+[2m       - <section class="dd-measure" aria-label="Ölçüm girişi">…</section> intercepts pointer events[22m
+[2m     - retrying click action[22m
+[2m       - waiting 500ms[22m
+[2m       - waiting for element to be visible, enabled and stable[22m
+[2m       - element is visible, enabled and stable[22m
+[2m       - scrolling into view if needed[22m
+[2m       - done scrolling[22m
+[2m       - <div>…</div> from <div class="dd-limits">…</div> subtree intercepts pointer events[22m
+[2m     - retrying click action[22m
+[2m       - waiting 500ms[22m
+[2m       - waiting for element to be visible, enabled and stable[22m
+[2m       - element is visible, enabled and stable[22m
+[2m       - scrolling into view if needed[22m
+[2m       - done scrolling[22m
+[2m       - <section class="dd-measure" aria-label="Ölçüm girişi">…</section> intercepts pointer events[22m
+[2m     - retrying click action[22m
+[2m       - waiting 500ms[22m
+[2m       - waiting for element to be visible, enabled and stable[22m
+[2m       - element is visible, enabled and stable[22m
+[2m       - scrolling into view if needed[22m
+[2m       - done scrolling[22m
+[2m       - <section class="dd-measure" aria-label="Ölçüm girişi">…</section> intercepts pointer events[22m
+[2m     - retrying click action[22m
+[2m       - waiting 500ms[22m
+[2m    - waiting for element to be visible, enabled and stable[22m
+[2m    - element is visible, enabled and stable[22m
+[2m    - scrolling into view if needed[22m
+[2m    - done scrolling[22m
+[2m    - <section class="dd-measure" aria-label="Ölçüm girişi">…</section> intercepts pointer events[22m
+[2m  - retrying click action[22m
+[2m    - waiting 500ms[22m
+
+İçeriğe geç
+ritim
+quality
+ ATÖLYENİZİN YENİ KONTROL ALIŞKANLIĞI
+Kalitenin bir ritmi var.
+Her ölçümde
+görünür kılın.
+
+Teknik resminizden kontrol planına, ölçümden rapora. Atölyenizin kalite kontrol akışını tek yerde birleştirin.
+
+Anında deneyin
+Kendi PDF’niz
+5 ölçüm
+Kayıt gerektirmez
+ TEKNİK RESİMDEN KONTROL PLANINA
+01 / TEKNİK RESMİNİZ
+PDF
+100 ±0,10
+80 ±0,05
+60 ±0,10
+1
+2
+3
+4
+5
+TEMSİLİ ÇİZİM · BİRİM: mm
+BAĞLANTI PLAKASI
+REV. A
+02 / KONTROL PLANINIZ
+Her ölçü,
+yerli yerinde.
+
+Çizime bağlı. Ölçüme hazır.
+
+NOKTA / ÖLÇÜ
+DEĞER
+1
+100 ±0,10
+100,02
+2
+60 ±0,10
+—
+3
+Ø10 ±0,02
+—
+4
+80 ±0,05
+—
+5
+40 ±0,05
+—
+İlk ölçüm uygun
+Siz ölçün. Sonuçlar aynı ekranda şekillensin.
+SİZİN ÇİZİMİNİZ. İLK KONTROL PLANINIZ.
+Bir PDF ile başlayın.
+Farkı kendiniz görün.
+
+İlk sayfadan kontrol noktalarını çıkarın, beş ölçüm girin.
+Sonucu ve raporunuzu bu ekranda görün.
+
+Kayıt yok. Kredi kartı yok.
+PDF’yi bırak
+02
+Planı incele ve ölç
+03
+Sonucu gör
+android-test-cizimi.pdf
+Sayfa 1 / 2 · Diğer sayfalar işlenmedi · 7 kontrol noktası
+PDF değiştir
+Parça, müşteri ve rapor bilgileri
+
+PDF’den okunabilen bilgiler korundu. Boş alanlar temsili demo verileriyle dolduruldu ve (Demo) olarak işaretlendi. Bilgileri değiştirebilirsiniz; boş bırakılan alanlar raporda yine demo verisiyle tamamlanır.
+
+Parça adı
+Parça / stok kodu
+Müşteri · isteğe bağlı
+Teknik resim no
+Revizyon
+Malzeme
+Sipariş no
+Lot / seri no
+Numune no
+Ölçümü yapan
+Ölçüm cihazı
+Rapor no
+Rapor tarihi
+PDF metninden oluşturulan taslak
+Ölçümden önce çizimle doğrulayın.
+İşaretleri gizle
+TEKNİK RESİM · 01
+1
+2
+3
+4
+5
+6
+7
+Sizin ölçümleriniz
+Otomatik örnek satırları
+Kontrol planı
+7 nokta · İlk 5 ölçüm size ait
+1
+Uzunluk 100
+100 ±0.10 mm
+99,9 – 100,1 mm · Özel tolerans
+Ölçüm bekliyor
+2
+Uzunluk 60
+60 ±0.10 mm
+59,9 – 60,1 mm · Özel tolerans
+Ölçüm bekliyor
+3
+Uzunluk 10
+10 ±0.10 mm
+9,9 – 10,1 mm · Özel tolerans
+Ölçüm bekliyor
+4
+Uzunluk 80
+80 ±0.10 mm
+79,9 – 80,1 mm · Özel tolerans
+Ölçüm bekliyor
+5
+Uzunluk 40
+40 ±0.10 mm
+39,9 – 40,1 mm · Özel tolerans
+Ölçüm bekliyor
+6
+Uzunluk 20
+20 ±0.10 mm
+19,9 – 20,1 mm · Özel tolerans
+Otomatik örnek
+7
+Uzunluk 8
+8 ±0.10 mm
+7,9 – 8,1 mm · Özel tolerans
+Otomatik örnek
+SİZİN ÖLÇÜMÜNÜZ
+0 / 5
+1
+Uzunluk 100
+
+mm · Çizimde işaretli nokta
+
+Çizimdeki ifade
+100 ±0.10 mm
+Alt sınır
+99,9
+Nominal
+100
+Üst sınır
+100,1
+
+Ölçünün yanında belirtilen tolerans
+
+Ölçü ve toleransları düzenle
+Ölçülen değer
+mm
+Ölçümü girin, sonucu anında görün.
+Kaydet ve sonraki
+
+En fazla 5 noktayı siz ölçersiniz. Kalan satırlar örnek değerlerle tamamlanır.
+
+ÇİZİMDEN RAPORA, TEK AKIŞTA.
+İşiniz ölçmek.
+Gerisi düzenli bir akış.
+01
+Çiziminizle başlayın.
+
+PDF’nin yalnızca ilk sayfasını açın. Kontrol noktalarını çizimin üzerinde görün.
+
+02
+Beş noktada deneyin.
+
+Ölçüleri ve toleransları doğrulayın. Sonuçların uygun veya uygunsuz olduğunu anında görün.
+
+03
+Sonucu yanınıza alın.
+
+Girdiğiniz ölçümleri ve otomatik örnek satırlarını ayrı görün. Demo raporunu indirin.
+
+DEMODAN ATÖLYENİZE
+İlk ölçüm bir başlangıç.
+Kalitenin tamamını görün.
+
+Denediğiniz akış, daha büyük bir çalışma alanının ilk adımı. Planlama, ölçüm ve analiz aynı ürün içinde.
+
+Kontrol planı
+Ölçüm istasyonu
+Proses analizi
+Ölçüm geçmişi
+Her parça için düzenli bir başlangıç.
+
+Teknik resim, ölçüm karakteristikleri ve revizyonlar aynı çalışma alanında. Üretim ekibinin kullanacağı kontrol planını hazırlayın.
+
+Gerçek uygulama ekranları · Örnek atölye verileri · Görseli büyütmek için seçin.
+
+BİR ÖLÇÜMÜN HİKÂYESİ
+25,14 mm.
+Bir sayıdan fazlası.
+
+Ölçüm tek başına bir değerdir. Parçası, toleransı ve üretim bilgileriyle birlikte takip edilebilir bir kalite kaydına dönüşür.
+
+Temsili üretim senaryosu
+DIŞ ÇAP · NOMİNAL 25,00 mm
+25,14 mm
+Tolerans dışında
+Alt sınır 24,90
+Üst sınır 25,10
+Parça
+Bağlantı gövdesi
+Lot
+LOT-001
+Operatör
+Örnek operatör
+Kontrol planı
+Revizyon A
+Ölçüm
+Sonuç
+Kalite geçmişi
+SONUÇ ELİNİZDE KALSIN
+Ölçtüğünüz her nokta.
+Düzenli bir raporda.
+
+Parça ve müşteri bilgileri, numaralandırılmış çizim, toleranslar ve ölçüm sonuçları. Paylaşmaya hazır bir PDF.
+
+Parça, revizyon ve rapor bilgileri
+Çizimle eşleşen kontrol noktaları
+Uygun, uygunsuz ve örnek ölçüm ayrımı
+Kendi raporunuzu oluşturun
+Görsel, demo verileriyle hazırlanmış örnek rapordur.
+TEKNİK RESMİNİZİN YOLCULUĞU
+Dosyanıza ne olduğunu bilin.
+01 / DOSYA
+İlk sayfa, tarayıcınızda.
+
+Demo, PDF’nin ilk sayfasını tarayıcınızda işler. Dosyanın diğer sayfaları analiz edilmez.
+
+02 / ANALİZ
+Yapay zekâ için açık izin.
+
+Yapay zekâ analizi kullanılabiliyorsa, ilk sayfa görüntüsü ve metni ancak onayınızla analiz sağlayıcısına gönderilir.
+
+03 / RAPOR
+İndirin, yanınızda kalsın.
+
+Demo PDF raporu cihazınızda hazırlanır. Hesap açmanız demo dosyasını otomatik olarak hesabınıza aktarmaz.
+
+Gizlilik hakkında
+AKLINIZDA KALMASIN
+Başlamadan önce.
+
+Bir PDF ile deneyin. Ekibiniz için uygun kapsamı paketler sayfasında inceleyin.
+
+Taranmış PDF dosyalarını okuyabilir miyim?
+Demo hangi sınırlarla çalışıyor?
+Yanlış okunan ölçüyü düzeltebilir miyim?
+Tolerans bulunamazsa ne olur?
+Raporu indirmek için hesap açmam gerekir mi?
+Kendi parçalarınız.
+Kendi kalite ritminiz.
+Ücretsiz hesabınızı oluşturun
+Hesap açmaya hazır mısınız?
+Ücretsiz başlayın
+ritim
+quality
+
+Atölyeden rapora.
+Kalitenin her adımında.
+
+Ürün
+Anında deneyin
+Paketler
+Yardım
+Hesabınız
+Ücretsiz başlayın
+Giriş yapın
+Çalışma alanı
+Bilgilendirme
+Gizlilik
+Kullanım koşulları
+© 2026 Ritim Quality
+Üretimin diliyle, Türkçe.

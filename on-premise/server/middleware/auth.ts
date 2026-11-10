@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { withDatabase } from '../db/pool.js';
 
 export type Role = 'admin' | 'quality_engineer' | 'operator' | 'auditor';
-export interface AuthClaims { userId: string; tenantId: string; role: Role; }
+export interface AuthClaims { userId: string; tenantId: string; role: Role; sessionVersion?: number; }
 
 declare global {
   namespace Express {

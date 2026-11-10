@@ -1,0 +1,12 @@
+{
+  "at": "2026-11-08T14:30:17.012Z",
+  "workspace": "pilot-1794148051042",
+  "tenantId": "26c1f1a6-c4be-413a-9bce-1823b327c573",
+  "productId": "prod-1794148077018",
+  "planId": "cp-1794148080095",
+  "events": [
+    "setup-04-manuel-plan-desktop",
+    "setup-05-manuel-plan-mobile"
+  ],
+  "scope": "Firma kayıt, parça, teknik resim yükleme, üç nokta/tolerans/balon ve aktifleştirme gerçek canlı arayüzden. Operatör oluşturma ve şifreyle giriş gerçek API üzerinden. Test adreslerine e-posta gönderilmedi."
+}

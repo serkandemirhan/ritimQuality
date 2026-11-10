@@ -9,6 +9,7 @@ import { pushRouter } from './routes/push.js';
 import { cronRouter } from './routes/cron.js';
 import { cloudMediaRouter } from './routes/cloudMedia.js';
 import { draftRouter } from './routes/drafts.js';
+import { drawingAnalysisRouter } from './routes/drawingAnalysis.js';
 
 // Importable in Vercel and tests: no listening socket or background timer here.
 export const app = express();
@@ -24,6 +25,7 @@ app.use(express.json({ limit: process.env.VERCEL ? '3mb' : '10mb' }));
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 app.use('/api/cron', cronRouter);
 app.use('/api/auth', authRouter);
+app.use('/api', drawingAnalysisRouter);
 app.use('/api', workflowRouter);
 app.use('/api', pushRouter);
 app.use('/api/billing', billingRouter);

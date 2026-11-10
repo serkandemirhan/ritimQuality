@@ -1,0 +1,17 @@
+Ritim Quality — Revizyon 3 / yeniden doğrulama
+
+Gereksinim: Node.js 22 ve Microsoft Edge. ZIP dosyasını açın ve bu klasörde PowerShell başlatın.
+
+npm install
+$env:REVIEW_URL='https://quality.getritim.com'
+$env:REVIEW_OUTPUT='yeniden-uretilen-kanitlar'
+npm test
+
+Yerel uygulama için REVIEW_URL değerini http://127.0.0.1:3410 yapın.
+Test başarısızsa süreç hata koduyla kapanır. Başarılıysa çıktı klasöründe evidence.json ve ekran görüntüleri oluşur.
+Test kodu tests/overview-evidence.cjs içindedir. API yanıtları tamamen test verileridir; gerçek hesap gerekmez.
+390×844 ve 1440×1000 tarayıcı görünümleri kullanılır. Sabit tarih 8 Kasım 2026 12:00 UTC.
+Gerçek veri tabanı, e-posta teslimatı, fiziksel telefon, PDF yazıcı çıktısı veya yeni kontrol kaydının sunucuya kaydedilmesi bu testin kapsamı değildir.
+İlk rapor bildirimi, tek kayıt içeren test verisi yüklenerek doğrulanır; gerçek kayıt oluşturma sürecinin uçtan uca testi değildir.
+Ekran görüntüleri belirli anları gösterir. Tıklama, dönem seçimi, tolerans dışı sonuç ve örnek akışın API'ye yazmaması kod içindeki assertions ile doğrulanır.
+Önce görüntüleri önceki sürümden gelir. Sonra verilerinde sabit saat ve açık parti bilgileri kullanıldı; bire bir aynı veriyle piksel karşılaştırması değildir.

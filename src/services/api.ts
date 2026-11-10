@@ -1,4 +1,4 @@
-import { pendingStore, sessionScope } from './pendingInspections';
+import { hasValidSession, pendingStore, sessionScope } from './pendingInspections';
 import type { BillingPeriod, SubscriptionPlanId } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -22,8 +22,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
+  }).catch((error: unknown) => {
+    if (error instanceof Error && error.name === 'AbortError') throw error;
+    throw new ApiError('Sunucuya ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.', 0, 'NETWORK_ERROR');
   });
-  const announce=()=>{if(options.method&&['POST','PUT','PATCH','DELETE'].includes(options.method)&&!path.startsWith('/auth')&&!path.startsWith('/notifications')&&!path.startsWith('/media'))window.dispatchEvent(new Event('quality-saved'));};
+  const announce=()=>{if(options.method&&['POST','PUT','PATCH','DELETE'].includes(options.method)&&!path.startsWith('/auth')&&!path.startsWith('/notifications')&&!path.startsWith('/media'))window.dispatchEvent(new CustomEvent('quality-saved',{detail:{message:path==='/tasks'?'Görev atandı':path.endsWith('/start')?'Görev başlatıldı':path.includes('/tasks/')?'Görev tamamlandı':path==='/inspection-logs'?'Ölçüm kaydedildi':path.includes('/approvals/')?'Onay kararı kaydedildi':'Değişiklikler kaydedildi'}}));};
   if (response.status === 204) {announce();return undefined as T;}
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -31,7 +34,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       localStorage.removeItem(TOKEN_KEY);
       window.dispatchEvent(new Event('qualitrack-auth-expired'));
     }
-    throw new ApiError(body.error || 'İstek tamamlanamadı.', response.status, body.code);
+    const planErrors=path.startsWith('/control-plans')?[...(body.details?.formErrors||[]),...Object.values(body.details?.fieldErrors||{}).flat()].filter(value=>typeof value==='string'):[];
+    throw new ApiError(planErrors.length?planErrors.join(' '):body.error || 'İstek tamamlanamadı.', response.status, body.code);
   }
   announce();
   return body as T;
@@ -39,6 +43,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 const pending = pendingStore(TOKEN_KEY);
 export const SaasApi = {
+  authCapabilities: () => request<{accountEmail:boolean}>('/auth/capabilities'),
+  accountProfile: () => request<{email:string;workspace:string;email_verified_at:string|null}>('/auth/me'),
+  requestAccountLink: (body:{workspace:string;email:string;purpose:'reset'|'verify'}) => request<{message:string}>('/auth/account-link',{method:'POST',body:JSON.stringify(body)}),
+  redeemAccountLink: (body:{token:string;purpose:'reset'|'verify';password?:string}) => request<{message:string}>('/auth/redeem-link',{method:'POST',body:JSON.stringify(body)}),
+  billingStatus: () => request<{ portalAvailable: boolean; availablePlans: string[] }>('/billing/status'),
+  analyzeDrawing: async <T,>(file:File,signal:AbortSignal):Promise<T> => {
+    const response=await fetch(`${API_URL}/drawing-analysis`,{method:'POST',signal,headers:{'Content-Type':'application/pdf','X-AI-Consent':'accepted',Authorization:`Bearer ${localStorage.getItem(TOKEN_KEY)||''}`},body:file});
+    const body=await response.json().catch(()=>({error:'Sunucu yanıtı okunamadı.'}));
+    if(!response.ok)throw new Error(body.error||'Teknik resim analizi tamamlanamadı.');
+    return body as T;
+  },
   inspectionRules: () => request<InspectionRules>('/inspection-rules'),
   saveInspectionRules: (rules: InspectionRules) => request<InspectionRules>('/inspection-rules', {method:'PUT', body:JSON.stringify(rules)}),
   pushConfig: () => request('/push/config'),
@@ -60,7 +75,7 @@ export const SaasApi = {
   createOrganization: (body:unknown) => request('/organization',{method:'POST',body:JSON.stringify(body)}),
   scope: () => sessionScope(TOKEN_KEY),
   pendingInspections: pending.list,
-  hasSession: () => Boolean(localStorage.getItem(TOKEN_KEY)),
+  hasSession: () => hasValidSession(TOKEN_KEY),
   logout: async () => {
     try { await request('/push/subscriptions',{method:'DELETE'}); const registration=await navigator.serviceWorker?.getRegistration();await (await registration?.pushManager.getSubscription())?.unsubscribe(); } catch { /* The local session must still be closed when offline. */ }
     localStorage.removeItem(TOKEN_KEY); for(const key of Object.keys(localStorage)) if(key.startsWith('qualitrack_') && !key.includes(':pending:') && !key.includes(':draft:') && !key.includes(':preferences:') && key !== TOKEN_KEY) localStorage.removeItem(key); },

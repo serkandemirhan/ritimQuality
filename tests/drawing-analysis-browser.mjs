@@ -1,0 +1,58 @@
+// Explicit offline browser fixtures: never used by the application in production.
+import express from 'express';
+import {spawn} from 'node:child_process';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {resolve} from 'node:path';
+import assert from 'node:assert/strict';
+import {PDFDocument,StandardFonts} from 'pdf-lib';
+const out=resolve('.runtime/drawing-browser');await mkdir(out,{recursive:true});
+const pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica);pdf.addPage([600,400]).drawText('DIAMETER 0.750 +/- 0.005 INCH',{x:80,y:200,font,size:14});pdf.addPage([600,400]);
+const fixture=resolve(out,'fixture.pdf');await writeFile(fixture,await pdf.save());
+const product={id:'test-part',code:'TEST-PDF',name:'PDF test parçası',defaultDrawingUrl:'',images:[]};let plans=[],saved;let analysisCalls=0;
+const app=express();app.use(express.json({limit:'10mb'}));
+app.post('/api/drawing-analysis',express.raw({type:'application/pdf',limit:'4mb'}),(req,res)=>{
+ analysisCalls++;assert.equal(req.headers['x-ai-consent'],'accepted');assert.equal(req.body.subarray(0,5).toString(),'%PDF-');
+ res.json({pageCount:2,notes:['Test çizimi, üretimde kullanılmaz.'],model:'offline-test-fixture',durationMs:120,usage:{input_tokens:0,output_tokens:0},characteristics:[{id:'char-test',description:'Dış çap',characteristicType:'diameter',originalText:'0.750',nominal:.75,unit:'inch',tolerancePlus:.005,toleranceMinus:-.005,lowerLimit:.745,upperLimit:.755,toleranceSource:'XXX +/- .005',suggestedInstrument:'Mikrometre 0.001',sourcePage:1,sourceBoundingBox:{x:15,y:45,width:25,height:5}}]});
+});
+app.get('/api/bootstrap',(_,res)=>res.json({company:{id:'review',name:'PDF test',plan_id:'enterprise',subscription_status:'active'},currentUserId:'user',users:[{id:'user',name:'Test kullanıcısı',role:'admin',status:'active',email:'test@example.test'}],products:[product],controlPlans:plans,inspectionLogs:[],usage:{control_plans:plans.length,users:1,monthly_measurements:0}}));
+app.get('/api/media/config',(_,res)=>res.json({provider:'local',maxBytes:8*1024*1024}));let media=0;
+app.post('/api/media',(req,res)=>res.json({...req.body,id:'test-media-'+(++media),createdAt:new Date().toISOString()}));
+app.get('/api/media/:id',(_,res)=>res.json({downloadUrl:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400"/>')}));
+app.put('/api/products/:id',(req,res)=>{Object.assign(product,req.body);res.json(req.body);});
+app.put('/api/control-plans/:id',(req,res)=>{saved=req.body;plans=[req.body];res.json(req.body);});
+app.get('/api/inspection-rules',(_,res)=>res.json({requireActivePlan:true,requireLotNumber:false,requireOrderNumber:false}));
+app.get('/api/work',(_,res)=>res.json({tasks:[],cases:[],approvals:[],notifications:[]}));
+app.get('/api/*',(_,res)=>res.json([]));app.use(express.static('dist'));
+const server=app.listen(3358,'127.0.0.1');
+const edge=spawn(process.env.EDGE_PATH||'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',['--headless=new','--remote-debugging-port=9358','--user-data-dir='+resolve(out,'profile'),'--no-first-run','--disable-gpu','about:blank'],{windowsHide:true,stdio:'ignore'});
+const delay=ms=>new Promise(r=>setTimeout(r,ms));let socket;
+try{
+ let target;for(let i=0;i<40;i++){try{target=(await(await fetch('http://127.0.0.1:9358/json')).json()).find(t=>t.type==='page');if(target)break;}catch{}await delay(250);}assert.ok(target,'Browser ready');
+ socket=new WebSocket(target.webSocketDebuggerUrl);await new Promise(r=>socket.addEventListener('open',r,{once:true}));let seq=0;const pending=new Map(),errors=[];
+ socket.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.exception?.description);if(m.id){const p=pending.get(m.id);pending.delete(m.id);m.error?p.reject(m.error):p.resolve(m.result);}});
+ const cmd=(method,params={})=>new Promise((resolve,reject)=>{const id=++seq;pending.set(id,{resolve,reject});socket.send(JSON.stringify({id,method,params}));});
+ const evaluate=async expression=>{const r=await cmd('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.text);return r.result?.value;};
+ const click=async text=>{assert.ok(await evaluate(`(()=>{const b=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(text)});if(!b||b.disabled)return false;b.click();return true;})()`),text);await delay(300);};
+ const waitFor=async expression=>{for(let i=0;i<50;i++){if(await evaluate(expression))return;await delay(100);}throw Error('Timed out: '+expression);};
+ await cmd('Page.enable');await cmd('Runtime.enable');
+ const token='review.'+Buffer.from(JSON.stringify({tenantId:'review',userId:'user',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url')+'.fixture';
+ await cmd('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('qualitrack_access_token',${JSON.stringify(token)})`});
+ await cmd('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+ await cmd('Page.navigate',{url:'http://127.0.0.1:3358'});await waitFor("!!document.querySelector('#nav-tab-control-plans')");
+ await evaluate("document.querySelector('#nav-tab-control-plans').click()");await delay(250);await click('Plan hazırla');await click('PDF’den plan oluştur');
+ const root=await cmd('DOM.getDocument');const input=await cmd('DOM.querySelector',{nodeId:root.root.nodeId,selector:'.drawing-analysis input[type=file]'});await cmd('DOM.setFileInputFiles',{nodeId:input.nodeId,files:[fixture]});
+ await waitFor("!!document.querySelector('.drawing-preview img')");
+ assert.ok(await evaluate("document.querySelector('.drawing-analysis').textContent.includes('2 sayfa')"));
+ assert.ok(await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent==='Teknik resmi yapay zekâ ile incele').disabled"));
+ await evaluate("document.querySelector('.drawing-consent input').click()");await click('Teknik resmi yapay zekâ ile incele');await waitFor("!!document.querySelector('.drawing-row')");
+ assert.equal(analysisCalls,1);assert.ok(await evaluate("!!document.querySelector('.drawing-source')"));
+ assert.ok(await evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent==='Doğrulanan ölçülerden kontrol planı oluştur').disabled"));
+ await evaluate("document.querySelector('.drawing-row input[type=checkbox]').click()");
+ await cmd('Page.captureScreenshot',{format:'png'}).then(r=>writeFile(resolve(out,'desktop.png'),Buffer.from(r.data,'base64')));
+ await cmd('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await delay(200);
+ assert.ok(await evaluate('document.documentElement.scrollWidth<=window.innerWidth'),'No mobile horizontal overflow');
+ await cmd('Page.captureScreenshot',{format:'png'}).then(r=>writeFile(resolve(out,'mobile.png'),Buffer.from(r.data,'base64')));
+ await click('Doğrulanan ölçülerden kontrol planı oluştur');await waitFor("!document.querySelector('.drawing-analysis')");
+ assert.equal(saved.status,'draft');assert.equal(saved.isActive,false);assert.equal(saved.characteristics[0].unit,'inch');assert.equal(saved.characteristics[0].lsl,.745);assert.equal(saved.characteristics[0].usl,.755);assert.equal(saved.drawingAnalysis.pageCount,2);assert.equal(saved.characteristics[0].extraction.verificationStatus,'verified');assert.ok(saved.characteristicImageLinks[0].annotations.length);
+ assert.deepEqual(errors,[]);console.log('PASS: PDF preview, first-page notice, consent gate, source highlight, verification gate, desktop/mobile layout, draft plan payload and media upload.');
+}finally{socket?.close();edge.kill();server.closeAllConnections();await new Promise(r=>server.close(r));}

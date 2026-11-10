@@ -1,0 +1,15 @@
+{
+  "at": "2026-11-08T11:48:14.155Z",
+  "app": "https://quality.getritim.com",
+  "web": "https://www.getritim.com/quality",
+  "asset": "/assets/index-BC_z0NzF.js",
+  "checks": [
+    "Canlı uygulama sağlık kontrolü geçti.",
+    "Canlı uygulama yeni hata kurtarma ekranını içeriyor.",
+    "Robot kuralları /quality altında doğru yolları kullanıyor.",
+    "Geçersiz eski hesap bağlantısı kendi alan adında giriş sayfasına dönüyor.",
+    "Canlı test çalışma alanı tamamlanan görev, kısa kontrol numarası ve yönetici onayını döndürüyor.",
+    "Mobil menü Escape ile kapanıyor ve odak menü düğmesine dönüyor.",
+    "Canlı şifre yardım ekranında gizlilik bağlantısı mevcut."
+  ]
+}

@@ -1,0 +1,56 @@
+[
+  {
+    "screenshot": "01-istek-1440"
+  },
+  {
+    "screenshot": "02-hazirlik-1440"
+  },
+  {
+    "screenshot": "03-olcum-1440"
+  },
+  {
+    "screenshot": "04-rapor-1440"
+  },
+  {
+    "check": "Görev otomatik tamamlandı",
+    "width": 1440,
+    "taskId": "be6462e1-c9d8-4f4d-b54e-a2e1c8687193",
+    "inspectionId": "aafaa985-e7ab-4d5f-8144-028f1a30f744"
+  },
+  {
+    "screenshot": "05-tamamlanan-gorev-1440"
+  },
+  {
+    "screenshot": "06-yonetici-bildirim-1440"
+  },
+  {
+    "screenshot": "07-bildirimden-kayit-1440"
+  },
+  {
+    "screenshot": "01-istek-390"
+  },
+  {
+    "screenshot": "02-hazirlik-390"
+  },
+  {
+    "screenshot": "03-olcum-390"
+  },
+  {
+    "screenshot": "04-rapor-390"
+  },
+  {
+    "check": "Görev otomatik tamamlandı",
+    "width": 390,
+    "taskId": "9d4ec14c-404f-48af-aedd-87f9c1dbf098",
+    "inspectionId": "1e1d1882-d0bc-49a3-8d6d-beede9e30fbd"
+  },
+  {
+    "screenshot": "05-tamamlanan-gorev-390"
+  },
+  {
+    "screenshot": "06-yonetici-bildirim-390"
+  },
+  {
+    "screenshot": "07-bildirimden-kayit-390"
+  }
+]

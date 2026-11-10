@@ -12,10 +12,11 @@ export interface MobileAttempt extends Cell {
 }
 export interface LocalMedia { id: string; file: File; attachment?: EvidenceAttachment; error?: string }
 export interface MobileSession {
+  taskId?:string;
   id: string; scope: string; plan: ControlPlan; product: Product; count: number; operatorId: string; operatorName: string;
   orderNumber: string; lotNumber: string; serialNumber: string; instrumentId: string; source: string;
   active: Cell; order: 'sample' | 'characteristic'; drafts: Record<string, MobileDraft>; attempts: MobileAttempt[];
-  media: Record<string, LocalMedia>; createdAt: string; submissionRequested?: boolean; submission?: InspectionLog; confirmed?: InspectionLog; syncError?: string;
+  media: Record<string, LocalMedia>; createdAt: string; completedAt?:string; submissionRequested?: boolean; submission?: InspectionLog; confirmed?: InspectionLog; syncError?: string;
 }
 export const cellKey = (cell: Cell) => `${cell.sample}:${cell.characteristic}`;
 export const emptyDraft = (): MobileDraft => ({raw:'',mode:'absolute',comment:'',reason:'',retryReason:'',photos:[]});
@@ -52,7 +53,7 @@ export async function finishMobileSession(scope:string):Promise<InspectionLog> {
   const database=await db();
   return new Promise((resolve,reject)=>{
     const tx=database.transaction(['sessions','archives'],'readwrite');const store=tx.objectStore('sessions');const request=store.get(scope);let log:InspectionLog;let error:unknown;
-    request.onsuccess=()=>{try{const s=request.result as MobileSession;if(!s||mobileSummary(s).missing.length)throw new Error('Ölçümü tamamlamak için eksik noktaları kaydedin.');log=s.confirmed||{...mobileLog(s,true),clientSyncStatus:'pending'};tx.objectStore('archives').put({...s,submissionRequested:true});store.delete(scope);}catch(e){error=e;tx.abort();}};
+    request.onsuccess=()=>{try{const s=request.result as MobileSession;if(!s||mobileSummary(s).missing.length)throw new Error('Ölçümü tamamlamak için eksik noktaları kaydedin.');const finished={...s,completedAt:s.completedAt||new Date().toISOString(),submissionRequested:true};log=s.confirmed||{...mobileLog(finished,true),clientSyncStatus:'pending'};tx.objectStore('archives').put(finished);store.delete(scope);}catch(e){error=e;tx.abort();}};
     tx.oncomplete=()=>{window.dispatchEvent(new Event('quality-mobile-queue-changed'));resolve(log);};tx.onabort=tx.onerror=()=>reject(error||new Error('Gönderim kuyruğu cihazda saklanamadı. Ölçüm oturumu korundu.'));
   });
 }
@@ -121,7 +122,11 @@ export function mobileLog(s: MobileSession, localPreview=false): InspectionLog {
     }
     return sample;
   });
-  return {id:s.id,sessionCode:`INS-${s.id}`,productId:s.product.id,productCode:s.product.code,productName:s.product.name,controlPlanId:s.plan.id,controlPlanVersion:s.plan.version,controlPlanSnapshot:s.plan,operatorName:s.operatorName,operatorUserId:s.operatorId,lotNumber:s.lotNumber,orderNumber:s.orderNumber,serialNumber:s.serialNumber,machineNo:s.instrumentId,equipmentId:s.instrumentId,source:s.source as InspectionLog['source'],sampleCount:s.count,samples,timestamp:s.createdAt,overallStatus:localPreview?(samples.some(sample=>Object.values(sample.statuses).includes('fail'))?'fail':summary.review?'warning':'pass'):'warning',totalPointsChecked:summary.cells.length,failedPointsCount:localPreview?samples.reduce((total,sample)=>total+Object.values(sample.statuses).filter(status=>status==='fail').length,0):0,warningPointsCount:localPreview?samples.reduce((total,sample)=>total+Object.values(sample.statuses).filter(status=>status==='warning').length,0):0,
+  const completedAt=s.completedAt||new Date().toISOString();
+  const elapsedSeconds=Math.max(0,Math.round((Date.parse(completedAt)-Date.parse(s.createdAt))/1000));
+  const moments=[Date.parse(s.createdAt),...s.attempts.map(attempt=>Date.parse(attempt.measuredAt)).filter(Number.isFinite),Date.parse(completedAt)].sort((a,b)=>a-b);
+  const activeSeconds=Math.round(moments.slice(1).reduce((total,time,index)=>total+Math.min(300,Math.max(0,(time-moments[index])/1000)),0));
+  return {taskId:s.taskId,id:s.id,sessionCode:`INS-${s.id}`,productId:s.product.id,productCode:s.product.code,productName:s.product.name,controlPlanId:s.plan.id,controlPlanVersion:s.plan.version,controlPlanSnapshot:s.plan,operatorName:s.operatorName,operatorUserId:s.operatorId,lotNumber:s.lotNumber,orderNumber:s.orderNumber,serialNumber:s.serialNumber,machineNo:s.instrumentId,equipmentId:s.instrumentId,source:s.source as InspectionLog['source'],sampleCount:s.count,samples,timestamp:s.createdAt,timing:{startedAt:s.createdAt,completedAt,elapsedSeconds,activeSeconds},overallStatus:localPreview?(samples.some(sample=>Object.values(sample.statuses).includes('fail'))?'fail':summary.review?'warning':'pass'):'warning',totalPointsChecked:summary.cells.length,failedPointsCount:localPreview?samples.reduce((total,sample)=>total+Object.values(sample.statuses).filter(status=>status==='fail').length,0):0,warningPointsCount:localPreview?samples.reduce((total,sample)=>total+Object.values(sample.statuses).filter(status=>status==='warning').length,0):0,
     mobileMeasurement:{version:1,attempts:s.attempts.map(a => ({...a,photos:a.photos.map(id => s.media[id].attachment?.id||id)}))}};
 }
 const running = new Map<string, Promise<MobileSession | undefined>>();

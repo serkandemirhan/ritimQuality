@@ -1,0 +1,43 @@
+İçeriğe geç
+Ritim Quality
+PİLOT KABUL — TEST FİRMASI
+OPERASYON
+Genel Bakış
+Uygunsuzluklar
+Aksiyonlar
+Kontrol başlat
+CANLI
+KALİTE
+Kontrol kayıtları
+4
+Kişisel ayarlar
+PİLOT KABUL — Test Firması
+Odak modu
+8
+EO
+1 ölçüm sunucu onayı bekliyor
+INS-85ba119c-5031-4d84-b07d-91b47673075b · Sunucuya ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.
+Tekrar dene
+Ölçüm hazırlığı
+
+Ürün, kontrol planı ve üretim bilgilerini doğrulayarak ölçümü başlatın.
+
+Yarım kalan bir kontrolünüz var.
+
+Kontrole devam et
+Kontrol kapsamı
+
+Ürün listesinden seçmek yerine QR okutun, iş emri/ürün kodu arayın veya istasyon kartına dokunun.
+
+QR Tara
+Pilot kontrol plakası
+PILOT-001 · Rev A
+android-1794148258148 · 3 nokta · Standart Müşteri
+Aç
+Başlatılacak kontrol
+
+Kontrol özetini görmek için ürün seçin.
+
+Ölçüme başla
+Ritim Quality · v1.0 · Ritim Cloud
+Revizyon kontrollü kalite kayıtları

@@ -1,93 +1,81 @@
-import {chartColors, chartAxis, chartTooltip} from './ui/chartTheme';
-import { Card, DataTable, StatusBadge, Button, Badge } from './ui';
-import { ArrowUpRight, AlertTriangle, Activity, CheckCircle2, Clock3, Gauge, ShieldCheck, Factory, Radar } from 'lucide-react';
-import React, {useEffect,useMemo,useState} from 'react';
-import {ResponsiveContainer,Line,XAxis,YAxis,Tooltip,Area,ComposedChart,Bar,ReferenceLine} from 'recharts';
-import type {InspectionLog} from '../types';
+import {controlLabel} from '../services/controlLabel';
+import {Fragment,useEffect,useMemo,useState} from 'react';
+import {ArrowRight,ArrowUpRight,AlertCircle,CheckCircle2,RefreshCw,Clock3} from 'lucide-react';
+import {ResponsiveContainer,Line,XAxis,YAxis,Tooltip,ComposedChart,Bar,LabelList,ReferenceArea,ReferenceLine} from 'recharts';
+import {chartColors,chartAxis,chartTooltip} from './ui/chartTheme';
+import {StatusBadge} from './ui';
+import {Onboarding} from './Onboarding';
+import {SampleControl} from './SampleControl';
+import type {InspectionLog,Product,ControlPlan} from '../types';
 import type {NavTab} from './Navbar';
 import {SaasApi} from '../services/api';
 import {qualityOverview} from '../services/overview';
-import {EmptyState} from './EmptyState';
+import './overview.css';
+import './overview-refinement.css';
+import './overview-validation.css';
+import {DailyOperatorPerformance} from './DailyOperatorPerformance';
 
 type WorkState={summary?:{open_cases:number;overdue_tasks:number;pending_approvals:number};cases:{state:string}[];tasks:{completed_at:string|null;due_at:string}[];approvals:{status:string}[]};
-
-export function Overview({logs,onNavigate,onOpenLog,canInspect}:{canInspect:boolean;logs:InspectionLog[];onNavigate:(tab:NavTab)=>void;onOpenLog:(log:InspectionLog)=>void}) {
+const dateLabel=(timestamp:string)=>new Date(timestamp).toLocaleString('tr-TR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',year:'numeric'});
+export function Overview({logs,products,plans,onNavigate,onOpenLog,onOpenReport,canInspect,canManage}:{logs:InspectionLog[];products:Product[];plans:ControlPlan[];canInspect:boolean;canManage:boolean;onNavigate:(tab:NavTab)=>void;onOpenLog:(log:InspectionLog)=>void;onOpenReport:(log:InspectionLog)=>void}) {
   const [work,setWork]=useState<WorkState|null>(null);
-  const [error,setError]=useState('');
-  useEffect(()=>{let live=true;const refresh=async()=>{try{const data=await SaasApi.work() as WorkState;if(live){setWork(data);setError('');}}catch{if(live)setError('Aksiyon özeti yüklenemedi. Yeniden deneniyor.');}};void refresh();const timer=setInterval(refresh,30000);return()=>{live=false;clearInterval(timer);};},[]);
-  const metrics=qualityOverview(logs);
+  const [error,setError]=useState(false),[busy,setBusy]=useState(false);
+  const [refreshKey,setRefreshKey]=useState(0);
+  useEffect(()=>{let live=true;const refresh=async()=>{if(live)setBusy(true);try{const value=await SaasApi.work() as WorkState;if(live){setWork(value);setError(false);}}catch{if(live)setError(true);}finally{if(live)setBusy(false);}};void refresh();const timer=setInterval(refresh,30000);return()=>{live=false;clearInterval(timer);};},[refreshKey]);
+  const [days,setDays]=useState<7|30|90>(30);
+  const [sampleOpen,setSampleOpen]=useState(false);
+  const [compact,setCompact]=useState(()=>window.matchMedia('(max-width:760px)').matches);
+  const [chartMode,setChartMode]=useState<'rate'|'volume'>('rate');
+  useEffect(()=>{const media=window.matchMedia('(max-width:760px)');const update=()=>setCompact(media.matches);media.addEventListener('change',update);return()=>media.removeEventListener('change',update);},[]);
+  const [chartWidth,setChartWidth]=useState(0);
+  const metrics=qualityOverview(logs,new Date(),days);
   const sorted=useMemo(()=>[...logs].sort((a,b)=>Date.parse(b.timestamp)-Date.parse(a.timestamp)),[logs]);
-  const open=work?.summary?.open_cases??work?.cases.filter(c=>c.state!=='closed').length;
-  const overdue=work?.summary?.overdue_tasks??work?.tasks.filter(t=>!t.completed_at&&Date.parse(t.due_at)<Date.now()).length;
-  const pending=work?.summary?.pending_approvals??work?.approvals.filter(a=>a.status==='pending').length;
-  const failCount=logs.filter(log=>log.overallStatus==='fail').length;
-  const warningCount=logs.filter(log=>log.overallStatus==='warning').length;
-  const todayPass=metrics.today.filter(l=>l.overallStatus!=='fail').length;
-  const todayFail=metrics.today.filter(l=>l.overallStatus==='fail').length;
-  const lastLog=sorted[0];
-  const healthTone=metrics.rate===null?'neutral':metrics.rate>=95?'success':metrics.rate>=85?'warning':'danger';
-  const healthLabel=metrics.rate===null?'Veri bekleniyor':metrics.rate>=95?'Kontrol altında':metrics.rate>=85?'Yakın izleme':'Aksiyon gerekli';
-  const activeRisks=Number(open||0)+Number(overdue||0)+Number(pending||0);
-  const trendData=metrics.trend.map(item=>({...item,count:item.count||0}));
-  const breakdown=(field:(log:InspectionLog)=>string)=>Object.entries(logs.reduce<Record<string,{total:number;fail:number}>>((acc,log)=>{
-    const key=field(log)||'Belirtilmedi';const item=acc[key]||{total:0,fail:0};item.total+=1;if(log.overallStatus==='fail')item.fail+=1;acc[key]=item;return acc;
-  },{})).map(([label,value])=>({label,...value,rate:value.total?Math.round((value.total-value.fail)/value.total*100):0})).sort((a,b)=>b.total-a.total).slice(0,4);
-  const breakdownGroups=[['Ürün kırılımı',breakdown(log=>log.productCode)],['İstasyon kırılımı',breakdown(log=>log.machineNo)],['Operatör kırılımı',breakdown(log=>log.operatorName)]] as const;
-  const statusStrip=[
-    ['Bugünkü kontroller',metrics.today.length,'Kaydedilmiş oturumlar','neutral'],
-    ['Uygun sonuç',todayPass,'Tolerans içinde','success'],
-    ['Uygunsuz sonuç',todayFail,'İnceleme gerektirir','danger'],
-    ['Açık uygunsuzluk',open??'--','Kapanış bekleyen',open?'danger':'neutral'],
-    ['Geciken görev',overdue??'--','Termin aşımı',overdue?'warning':'neutral'],
-  ] as const;
-  return <div className="rq-overview rq-overview-creative">
-    <section className="rq-overview-hero rq-overview-cockpit">
-      <div className="rq-overview-brand-rail" aria-hidden="true"><span/><span/><span/></div>
-      <div className="rq-cockpit-grid" aria-hidden="true"/>
-      <div className="rq-overview-hero-copy">
-        <div className="rq-cockpit-titlebar"><span className="rq-eyebrow">Ritim Quality / Genel Bakış</span><Badge tone={healthTone}>{healthLabel}</Badge></div>
-        <h2>{healthLabel}</h2>
-        <p>Kalite nabzı, risk kuyruğu ve son ölçüm hareketleri tek operasyon yüzeyinde izleniyor.</p>
-        <div className="rq-overview-hero-actions">
-          <Button variant="primary" onClick={()=>canInspect?onNavigate('operator'):onNavigate('logs')}><Gauge size={16}/>{canInspect?'Kontrol başlat':'Kayıtları aç'}</Button>
-          <Button onClick={()=>onNavigate(activeRisks?'cases':'logs')}><ArrowUpRight size={15}/>{activeRisks?'Riskleri incele':'Son kayıtlar'}</Button>
-        </div>
-      </div>
-      <div className={'rq-overview-score rq-overview-score-'+healthTone}>
-        <span>30 günlük uygunluk</span>
-        <strong>{metrics.rate===null?'--':`%${metrics.rate.toFixed(1)}`}</strong>
-        <small>{metrics.change===null?'Karşılaştırma için önceki dönem verisi bekleniyor':`${metrics.change>=0?'+':''}${metrics.change.toFixed(1)} puan önceki döneme göre`}</small>
-      </div>
-      <div className="rq-overview-hero-stats">
-        <div><CheckCircle2 size={16}/><span>Bugün uygun</span><strong>{todayPass}</strong><small>tolerans içinde</small></div>
-        <div><AlertTriangle size={16}/><span>Aktif risk</span><strong>{activeRisks}</strong><small>takip bekliyor</small></div>
-        <div><Clock3 size={16}/><span>Son ölçüm</span><strong>{lastLog?new Date(lastLog.timestamp).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):'--'}</strong><small>{lastLog?.productCode||'kayıt yok'}</small></div>
-      </div>
-    </section>
-    {error&&<p role="status" className="rq-overview-inline-alert">{error}</p>}
-    <div className="rq-ops-strip" aria-label="Kalite metrikleri">
-      {statusStrip.map(([label,value,detail,tone])=><div key={label} className={'rq-ops-metric rq-ops-metric-'+tone}><span>{label}</span><strong>{value}</strong><small>{detail}</small></div>)}
-    </div>
-    <div className="rq-overview-grid">
-      <Card className="rq-premium-chart rq-chart-module"><div className="rq-chart-heading"><div><span className="rq-eyebrow">Trend modülü</span><h2 className="rq-section-title">Kalite nabzı</h2><p className="rq-helper">Son 30 gün · uygunluk oranı, kontrol hacmi ve hedef çizgisi</p></div><Badge tone={healthTone}>{healthLabel}</Badge></div><div className="rq-chart">
-        {metrics.rate===null?<EmptyState title="Bu dönemde kontrol yok" description="Son 30 günde kaydedilen ölçümler kalite trendini oluşturur."/>:<ResponsiveContainer width="100%" height="100%"><ComposedChart data={trendData} margin={{top:16,right:20,left:0,bottom:8}}><XAxis {...chartAxis} dataKey="date" minTickGap={34}/><YAxis {...chartAxis} yAxisId="rate" domain={[0,100]} unit="%"/><YAxis {...chartAxis} yAxisId="count" orientation="right" allowDecimals={false}/><Tooltip {...chartTooltip}/><ReferenceLine yAxisId="rate" y={95} stroke="#be2846" strokeDasharray="6 6" label={{value:'Hedef %95',fill:'#7b8798',fontSize:11}}/><Bar yAxisId="count" name="Kontrol" dataKey="count" fill="#d8e2ee" radius={[3,3,0,0]}/><Area yAxisId="rate" name="Uygunluk (%)" dataKey="rate" fill="#dcecf7" stroke="none" connectNulls={false}/><Line yAxisId="rate" name="Uygunluk (%)" dataKey="rate" stroke={chartColors.measurement} strokeWidth={2.5} dot={{r:3,strokeWidth:2,fill:'white'}} connectNulls={false} isAnimationActive={false}/></ComposedChart></ResponsiveContainer>}
-      </div></Card>
-      <Card className="rq-command-card rq-radar-card">
-        <div className="rq-command-card-head"><div><span className="rq-eyebrow">Risk radarı</span><h2 className="rq-section-title">Öncelik kuyruğu</h2><p className="rq-helper">Açık kalite koşulları ve bekleyen işler</p></div><Radar size={18}/></div>
-        <div className="rq-command-list">{[['cases','Açık uygunsuzluk',open,'Kök neden ve aksiyon takibi'],['work','Geciken görev',overdue,'Termin geçmiş görevler'],['approvals','Bekleyen onay',pending,'Kalite kararı bekleyen ölçümler']].map(([tab,label,count,detail])=><button key={String(tab)} className="rq-command-item" onClick={()=>onNavigate(tab as NavTab)}><span><strong>{label}</strong><small>{detail}</small></span><Badge tone={Number(count)>0?'warning':'neutral'}>{count??'--'}</Badge></button>)}</div>
-        <div className="rq-risk-stack">
-          <div><ShieldCheck size={16}/><span>Toplam kayıt</span><strong>{logs.length}</strong></div>
-          <div><AlertTriangle size={16}/><span>Uygunsuz</span><strong>{failCount}</strong></div>
-          <div><Activity size={16}/><span>Uyarılı</span><strong>{warningCount}</strong></div>
-        </div>
-        <div className="rq-command-recent">{logs.filter(l=>l.overallStatus==='fail').slice(0,3).map(log=><button key={log.id} onClick={()=>onOpenLog(log)} className="rq-attention-link"><AlertTriangle size={14}/><span><strong>{log.productCode}</strong><small>{log.sessionCode}</small></span><ArrowUpRight size={14}/></button>)}</div>
-      </Card>
-    </div>
-    <div className="rq-breakdown-grid">
-      {breakdownGroups.map(([title,items])=><Card key={title} className="rq-breakdown-card rq-analytic-card"><div className="rq-breakdown-head"><Factory size={15}/><h2 className="rq-section-title">{title}</h2></div><div className="rq-breakdown-list">{items.length?items.map(item=><div key={item.label} className="rq-breakdown-item"><div><strong>{item.label}</strong><small>{item.total} kontrol · {item.fail} uygunsuz</small></div><span>{item.rate}%</span><progress value={item.rate} max={100} aria-label={item.label+' uygunluk'}/></div>):<p className="rq-helper">Kırılım için kayıt bekleniyor.</p>}</div></Card>)}
-    </div>
-    <Card className="rq-overview-records"><div className="mb-4 flex items-center justify-between gap-4"><div><span className="rq-eyebrow">Kayıt akışı</span><h2 className="rq-section-title">Son kontroller</h2><p className="rq-helper">En yeni ölçüm oturumları ve sonuç durumları</p></div><Button variant="ghost" onClick={()=>onNavigate('logs')}>Tüm kayıtlar <ArrowUpRight size={14}/></Button></div>
-      {!logs.length?<EmptyState title="İlk kontrolünüzü bekliyoruz" description="Aktif kontrol planıyla kaydettiğiniz ölçümler burada görünür." label="Kontrol başlat" action={canInspect?()=>onNavigate('operator'):undefined}/>:<DataTable label="Son kontroller" className="rq-premium-record-table"><thead><tr><th>Durum</th><th>Ürün / parça</th><th>Operatör / istasyon</th><th>Zaman</th><th>Sonuç</th><th><span className="sr-only">İşlem</span></th></tr></thead><tbody>{sorted.slice(0,8).map(log=><tr key={log.id} className={'rq-record-row rq-record-row-'+log.overallStatus}><td><span className="rq-record-status-line" aria-hidden="true"/></td><td><button className="rq-row-link" onClick={()=>onOpenLog(log)}><span className="rq-technical">{log.productCode}</span><small>{log.productName}</small></button></td><td>{log.operatorName}<small>{log.machineNo}</small></td><td className="rq-technical">{new Date(log.timestamp).toLocaleString('tr-TR')}</td><td><StatusBadge status={log.overallStatus}/></td><td><Button variant="ghost" aria-label={log.sessionCode+' kaydını aç'} onClick={()=>onOpenLog(log)}><ArrowUpRight size={15}/></Button></td></tr>)}</tbody></DataTable>}
-    </Card>
+  const currentCount=metrics.count;
+  const open=work?.summary?.open_cases??work?.cases.filter(c=>c.state!=='closed').length??0;
+  const overdue=work?.summary?.overdue_tasks??work?.tasks.filter(t=>!t.completed_at&&Date.parse(t.due_at)<Date.now()).length??0;
+  const pending=work?.summary?.pending_approvals??work?.approvals.filter(a=>a.status==='pending').length??0;
+  const ready=plans.some(p=>p.isActive&&p.status==='active');
+  const newInspection=()=>onNavigate(ready?'operator':canManage?'control-plans':'logs');
+  const nextLabel=ready?'Kontrol başlat':canManage?'Kontrol planlarını aç':'Kontrol kayıtları';
+  const hasPrior=logs.length>0;
+  const priorities=[{count:overdue,label:'Geciken görev',detail:'Hedef tarihi geçen işleri gözden geçirin.',tab:'work'},{count:pending,label:'Bekleyen onay',detail:'Kontrol sonuçları kararınızı bekliyor.',tab:'approvals'},{count:open,label:'Açık uygunsuzluk',detail:'İnceleme ve düzeltici aksiyonları takip edin.',tab:'cases'}].filter(item=>item.count>0);
+  const last=sorted[0];
+  const measuredDays=metrics.trend.filter(day=>day.count>0);
+  const chartData=compact&&measuredDays.length?metrics.trend.slice(metrics.trend.indexOf(measuredDays[0]),metrics.trend.indexOf(measuredDays[measuredDays.length-1])+1):metrics.trend;
+  const missingDays=metrics.trend.filter(day=>day.count===0).length;
+  const gaps:{start:string;end:string}[]=[];
+  for(let i=0;i<chartData.length;i++){if(chartData[i].count)continue;const start=chartData[i].date;while(i+1<chartData.length&&!chartData[i+1].count)i++;gaps.push({start,end:chartData[i].date});}
+  const gapMarks=gaps.map(gap=><Fragment key={gap.start}>{gap.start===gap.end?<ReferenceLine x={gap.start} stroke="#adb9b3" strokeDasharray="3 3"/>:<ReferenceArea x1={gap.start} x2={gap.end} className="ov-data-gap"/>}</Fragment>);
+  const lowestDay=measuredDays.reduce<(typeof measuredDays)[number]|undefined>((lowest,day)=>!lowest||day.rate!<lowest.rate!?day:lowest,undefined);
+  const labeledDates=new Set([measuredDays[0]?.date,lowestDay?.date,measuredDays.at(-1)?.date]);
+  const breakdown=(field:(log:InspectionLog)=>string)=>Object.entries(logs.reduce<Record<string,number>>((acc,log)=>{const key=field(log)||'Belirtilmedi';acc[key]=(acc[key]||0)+1;return acc;},{})).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  return <div className="rq-overview ov-page">
+    {sampleOpen&&<SampleControl onClose={()=>setSampleOpen(false)}/>}
+    {!hasPrior?<Onboarding products={products} plans={plans} canManage={canManage} canInspect={canInspect} onNavigate={onNavigate} onTrySample={()=>setSampleOpen(true)}/>:<>
+      <header className="ov-heading"><div><h2>Kaliteye genel bakış</h2><p>Son {days} gün · {currentCount} kontrol</p></div>{canInspect&&<button className="ov-primary" onClick={newInspection}>{nextLabel}<ArrowRight size={16}/></button>}</header>
+      <div className="ov-period" role="group" aria-label="Analiz dönemi">{([7,30,90] as const).map(value=><button key={value} aria-pressed={days===value} onClick={()=>setDays(value)}>{value} gün</button>)}<span>Oran ve grafik dönemi</span></div>
+      {metrics.rate===null?<section className="ov-inactive"><Clock3 size={24}/><div><h3>Bu dönemde kontrol kaydı yok.</h3><p>Geçmiş ölçümleriniz korunuyor. Son kontrol: {dateLabel(last.timestamp)}.</p></div><button className="ov-text-button" onClick={()=>onNavigate('logs')}>Geçmiş kayıtları aç <ArrowRight size={15}/></button></section>:<section className="rq-overview-summary ov-summary" aria-label="Kalite özeti">
+        <div><span>Uygunluk oranı</span><strong>%{metrics.rate.toLocaleString('tr-TR',{maximumFractionDigits:1})}</strong><small>{metrics.passCount} uygun{metrics.warningCount>0?` + ${metrics.warningCount} uyarılı`:""} / {currentCount} kontrol</small><details className="ov-rate-info"><summary>Nasıl hesaplanır?</summary><p>{metrics.passCount} uygun + {metrics.warningCount} uyarılı + {metrics.failCount} uygunsuz = {currentCount} kontrol. Uyarılı sonuçlar, tolerans içinde oldukları için hem paydaki uygun sayısına hem paydadaki toplam kontrol sayısına dahildir. Oran = (uygun + uyarılı) / toplam kontrol × 100. Numune veya ölçüm noktası değil, kontrol oturumu sayılır.</p></details>{metrics.change!==null&&<small className="ov-change">{metrics.change>=0?'+':''}{metrics.change.toLocaleString('tr-TR',{maximumFractionDigits:1})} puan önceki {days} güne göre</small>}</div>
+        <div><span>Açık uygunsuzluklar</span><strong>{error?'Alınamadı':!work?'Yükleniyor…':open}</strong><small>{error?'İş özeti yeniden yüklenmeli.':!work?'İş özeti alınıyor.':''}</small></div>
+        <div className="ov-latest"><span>Son kontrol</span><strong className="ov-last-product">{controlLabel(last)}</strong><small>{last.productName} · {dateLabel(last.timestamp)}</small><button className="ov-text-button" onClick={()=>onOpenReport(last)}>Raporu aç <ArrowUpRight size={14}/></button></div>
+      </section>}
+    </>}
+    {(hasPrior||priorities.length>0)&&<section className="ov-priorities" aria-label="Bekleyen işler">
+      {error?<div className="ov-work-error" role="status"><AlertCircle size={18}/><div><strong>İş özeti alınamadı.</strong><p>Bekleyen iş sayısını şu anda doğrulayamıyoruz.</p></div><button className="ov-text-button" disabled={busy} onClick={()=>setRefreshKey(key=>key+1)}><RefreshCw size={15}/>{busy?'Deneniyor…':'Yeniden dene'}</button></div>:!work?<p className="ov-quiet" role="status">Bekleyen işler kontrol ediliyor…</p>:priorities.length?<><div className="ov-section-heading"><h3>Öncelikli işler</h3><span>Tüm açık işler</span></div><div className="ov-priority-list">{priorities.map(item=><button key={item.tab} onClick={()=>onNavigate(item.tab as NavTab)}><span className="ov-count">{item.count}</span><span><strong>{item.label}</strong><small>{item.detail}</small></span><ArrowUpRight size={18}/></button>)}</div></>:<p className="ov-quiet"><CheckCircle2 size={16}/> Bekleyen aksiyon yok{hasPrior?' · Sonuçları aşağıdan inceleyebilirsiniz.':'.'}</p>}
+    </section>}
+    {logs.length===1&&<section className="ov-first-report"><CheckCircle2 size={20}/><div><h3>İlk kontrol raporunuz hazır.</h3><p>Sonuçları inceleyin; yazdırma ekranından PDF olarak kaydedin.</p></div><button className="ov-text-button" onClick={()=>onOpenReport(last)}>İlk raporumu aç <ArrowUpRight size={15}/></button></section>}
+    {canManage&&<DailyOperatorPerformance logs={logs}/>} 
+    {hasPrior&&<section className="ov-records" aria-labelledby="ov-records-title"><div className="ov-section-heading"><div><h3 id="ov-records-title">Son kontrol kayıtları</h3><span className="ov-scope">En yeniden eskiye</span></div><button className="ov-text-button" onClick={()=>onNavigate('logs')}>Tüm kayıtlar <ArrowRight size={15}/></button></div><div className="ov-record-list">{sorted.slice(0,5).map((log,index)=><button className={'ov-record'+(index>=3?' ov-record-desktop':'')} key={log.id} onClick={()=>onOpenLog(log)} aria-label={`${log.productCode} · ${controlLabel(log)} kaydını aç`}><span className="ov-record-part"><strong>{controlLabel(log)}</strong><span>{log.productName} · {log.productCode}</span>{(log.lotNumber||log.orderNumber)&&<small>{[log.lotNumber&&`Parti: ${log.lotNumber}`,log.orderNumber&&`İş emri: ${log.orderNumber}`].filter(Boolean).join(' · ')}</small>}</span><span className="ov-record-meta">{log.operatorName}<small>{dateLabel(log.timestamp)}</small></span><StatusBadge status={log.overallStatus}/><ArrowUpRight size={16}/></button>)}</div></section>}
+    {metrics.trend.filter(item=>item.count>0).length>=2&&<section className="ov-trend"><div className="ov-section-heading"><h3>Kalitenin seyri</h3><span>Son {days} gün</span></div>
+      <p className="ov-no-data">{missingDays>0?`${missingDays} gün veri yok · Veri yokluğu %0 uygunluk anlamına gelmez.`:'Her gün kontrol kaydı var.'}</p>
+      {compact&&<div className="ov-chart-tabs" role="group" aria-label="Grafik görünümü"><button aria-pressed={chartMode==='rate'} onClick={()=>setChartMode('rate')}>Uygunluk oranı</button><button aria-pressed={chartMode==='volume'} onClick={()=>setChartMode('volume')}>Kontrol sayısı</button></div>}
+      <div hidden={compact&&chartMode!=='rate'}><h4 className="ov-chart-title">Günlük uygunluk oranı <span>% · n = kontrol sayısı</span></h4>
+      <div className="ov-chart"><ResponsiveContainer width="100%" height="100%" onResize={width=>setChartWidth(width)}><ComposedChart data={chartData} syncId="quality-period" margin={{top:28,right:16,left:-12,bottom:0}}><XAxis {...chartAxis} dataKey="date" minTickGap={45}/><YAxis {...chartAxis} domain={[0,100]} unit="%"/><Tooltip filterNull={false} content={({active,payload})=>{const point=payload?.[0]?.payload;return active&&point?<div className="ov-chart-tooltip"><strong>{point.date}</strong><p>{point.count} kontrol · {point.rate===null?'Veri yok':`%${point.rate.toLocaleString('tr-TR',{maximumFractionDigits:1})} uygunluk`}</p></div>:null;}}/>{gapMarks}<Line name="Uygunluk (%)" dataKey="rate" stroke={chartColors.measurement} strokeWidth={2} dot={{r:4}} connectNulls={false} isAnimationActive={false}>{metrics.trend.filter(d=>d.count>0).length<=12&&<LabelList dataKey={(day:{date:string;count:number})=>day.count>0&&(chartWidth>600||labeledDates.has(day.date))?`n=${day.count}`:''} position="top" fill="#405e54" fontSize={12}/>}</Line></ComposedChart></ResponsiveContainer></div>
+      </div><div hidden={compact&&chartMode!=='volume'}><h4 className="ov-chart-title">Günlük kontrol sayısı <span>Kontrol oturumu</span></h4>
+      <div className="ov-chart ov-volume-chart"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} syncId="quality-period" margin={{top:20,right:16,left:-12,bottom:0}}><XAxis {...chartAxis} dataKey="date" minTickGap={45}/><YAxis {...chartAxis} allowDecimals={false} domain={[0,(max:number)=>Math.max(1,max)]}/><Tooltip {...chartTooltip}/>{gapMarks}<Bar name="Kontrol sayısı" dataKey="count" fill="#46786a" radius={[3,3,0,0]} maxBarSize={32} isAnimationActive={false}>{metrics.trend.filter(d=>d.count>0).length<=12&&<LabelList dataKey={(day:{date:string;count:number})=>day.count>0&&(chartWidth>600||labeledDates.has(day.date))?String(day.count):''} position="top" fill="#405e54" fontSize={12}/>}</Bar></ComposedChart></ResponsiveContainer></div>
+      </div>{metrics.trend.some(day=>day.count>0&&day.count<5)&&<details className="ov-volume-info"><summary>ⓘ Az kontrol oranı nasıl etkiler?</summary><p>Bazı günlerde 5’ten az kontrol var. Tek bir uygunsuz sonuç günlük oranı belirgin değiştirebilir; oranı kontrol sayısıyla birlikte değerlendirin.</p></details>}
+      <details className="ov-daily-data"><summary>Günlük değerleri göster</summary><table><caption>Son {days} gündeki günlük döküm</caption><thead><tr><th>Gün</th><th>Kontrol sayısı</th><th>Uygunluk</th></tr></thead><tbody>{metrics.trend.map(day=><tr key={day.date}><td>{day.date}</td><td>{day.count}</td><td>{day.rate===null?'Veri yok':`%${day.rate.toLocaleString('tr-TR',{maximumFractionDigits:1})}`}</td></tr>)}</tbody></table></details>
+    </section>}
+    {hasPrior&&<details className="ov-details"><summary>Parça, istasyon ve operatör dağılımı <span>Tüm kayıtlar</span></summary><div className="ov-breakdowns">{[['Parça',breakdown(log=>log.productCode)],['İstasyon',breakdown(log=>log.machineNo)],['Operatör',breakdown(log=>log.operatorName)]].map(([label,items])=><div key={String(label)}><h4>{String(label)}</h4>{(items as [string,number][]).map(([name,count])=><p key={name}><span>{name}</span><strong>{count} kontrol</strong></p>)}</div>)}</div></details>}
   </div>;
 }

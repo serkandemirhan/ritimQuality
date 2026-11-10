@@ -1,0 +1,61 @@
+/* Shared mobile presentation for landing, demo and account pages. */
+@media (max-width: 720px) {
+  html { scroll-padding-top: 86px; }
+  body { -webkit-text-size-adjust: 100%; }
+  .container { width: calc(100% - 40px); }
+  .auth-layout { padding-top: 36px; padding-bottom: 48px; }
+  .auth-layout > h1 { font-size: 32px; line-height: 1.2; letter-spacing: -1px; margin-block: 18px; }
+  .auth-layout > p { font-size: 15px; line-height: 1.8; }
+  .auth-layout .form-card { border-radius: 14px; }
+  .site-header .menu-toggle { width: 44px; height: 44px; border-radius: 10px; }
+  .site-header .navigation.open { padding: 16px 20px 24px; gap: 4px; border-radius: 0 0 18px 18px; box-shadow: 0 18px 35px #172b3614; max-height: calc(100dvh - 70px); overflow-y: auto; }
+  .navigation.open > a { min-height: 48px; display: flex; align-items: center; padding: 12px; font-size: 15px; border-radius: 8px; }
+  .navigation.open > .button { justify-content: center; margin-top: 10px; }
+  .upload-hero.container { padding-block: 32px 24px; gap: 28px; }
+  .upload-hero .upload-hero-copy h1 { font-size: clamp(36px, 10.5vw, 48px); line-height: 1.12; letter-spacing: -1.6px; margin-block: 20px; }
+  .upload-hero .upload-hero-copy > p { font-size: 16px; line-height: 1.7; margin-bottom: 24px; }
+  .upload-hero-copy > .button { width: 100%; justify-content: space-between; min-height: 54px; font-size: 15px; }
+  .upload-hero .upload-promises { flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 10px; margin-top: 14px; }
+  .upload-hero .journey { border-radius: 16px; box-shadow: none; }
+  .journey .journey-plan h3 { font-size: 18px; }
+  .journey .journey-row { padding-block: 8px; }
+  .journey .journey-caption small { display: none; }
+  .drawing-demo .dd-heading h2, .drawing-demo .dd-heading h1 { font-size: 30px; line-height: 1.2; letter-spacing: -1px; }
+  .drawing-demo .dd-heading p { font-size: 14px; }
+  .drawing-demo .dd-drop { border-radius: 0 0 16px 16px; }
+  .dd-drop > .button { width: 100%; min-height: 52px; }
+  .dd-drop .dd-example button { min-height: 44px; font-size: 13px; }
+  .dd-drop .dd-local { font-size: 11px; line-height: 1.6; margin-top: 22px; }
+  .dd-bench .dd-toolbar { padding: 12px; gap: 10px; }
+  .dd-bench .dd-toolbar > div { margin-left: auto; gap: 6px; }
+  .dd-bench .dd-toolbar button { width: 44px; height: 44px; border-radius: 8px; }
+  .dd-bench .dd-toolbar .dd-toggle-markers { width: auto; min-height: 44px; font-size: 11px; }
+  .dd-bench .dd-filebar { flex-wrap: wrap; }
+  .dd-bench .dd-filebar > div { flex: 1; }
+  .dd-bench .dd-filebar strong { max-width: 190px; font-size: 12px; }
+  .dd-bench .dd-filebar small { font-size: 10px; }
+  .dd-bench .dd-filebar > button { min-height: 44px; font-size: 11px; }
+  .dd-bench .dd-plan-row { min-height: 54px; }
+  .dd-bench .dd-plan-row strong { font-size: 13px; }
+  .dd-bench .dd-plan-row small { font-size: 11px; }
+  .dd-measure .dd-save { min-height: 52px; bottom: max(10px, env(safe-area-inset-bottom)); }
+  .premium-product .product-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; overflow: visible; border: 0; margin-top: 28px; }
+  .premium-product .product-tabs button { padding: 13px 12px; min-height: 48px; border: 1px solid #ffffff25; border-radius: 8px; white-space: normal; text-align: left; font-size: 12px; }
+  .premium-product .product-tabs button[aria-selected=true] { background: #ffffff10; border-color: #edb092; }
+  .premium-product .product-panel-copy { padding-block: 24px; }
+  .premium-product .product-panel-copy h3 { font-size: 22px; }
+  .premium-product .product-panel-copy p, .trust-columns article p, .premium-faq details p { font-size: 14px; line-height: 1.8; }
+  .premium-faq summary { min-height: 44px; padding-right: 12px; font-size: 15px; }
+  .flow-section .steps { gap: 0; }
+  .flow-section .steps article { padding-block: 24px; border-top: 1px solid var(--line); }
+  .flow-section .step-top { margin-bottom: 14px; }
+  .pricing-heading { display: block; }
+  .pricing-heading h1 { font-size: 36px; line-height: 1.15; letter-spacing: -1.3px; margin-block: 20px; }
+  .pricing-grid .price-card { border-radius: 16px; padding: 24px; }
+  .pricing-grid .price-card .button { width: 100%; font-size: 13px; white-space: normal; text-align: center; }
+  .cta-band .button { width: 100%; justify-content: center; }
+  .footer-main a { display: inline-flex; align-items: center; min-height: 44px; }
+  .footer-bottom { flex-wrap: wrap; padding-bottom: env(safe-area-inset-bottom); }
+  .landing-account { flex-wrap: wrap; padding-inline: 20px; text-align: center; }
+}
+.pricing-heading h1 { font-size: clamp(36px, 5vw, 48px); line-height: 1.12; letter-spacing: -.04em; }

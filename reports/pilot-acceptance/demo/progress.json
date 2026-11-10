@@ -1,0 +1,30 @@
+[
+  {
+    "screenshot": "01-ana-sayfa",
+    "overflow": false
+  },
+  {
+    "screenshot": "02-menu",
+    "overflow": false
+  },
+  {
+    "screenshot": "03-paketler",
+    "overflow": false
+  },
+  {
+    "check": "PDF ilk sayfa, yedi nokta",
+    "elapsedMs": 1730
+  },
+  {
+    "screenshot": "04-olcum-alani",
+    "overflow": false
+  },
+  {
+    "screenshot": "05-uygunsuz-sonuc",
+    "overflow": false
+  },
+  {
+    "screenshot": "06-rapor-hazir",
+    "overflow": false
+  }
+]

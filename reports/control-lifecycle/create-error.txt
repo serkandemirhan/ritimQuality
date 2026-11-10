@@ -1,0 +1,173 @@
+TimeoutError: locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('button', { name: 'Aktif varsayılan yap', exact: true })[22m
+
+İçeriğe geç
+Sunucu senkronizasyonu başarısız: Kayıt ilişkisi veya veri bütünlüğü kuralı bu işleme izin vermiyor. · Kapat
+Ritim Quality
+AKIŞ TESTİ — DENEME
+OPERASYON
+Genel Bakış
+Uygunsuzluklar
+Onaylar
+Aksiyonlar
+Kontrol başlat
+CANLI
+KALİTE
+Kontrol Planları
+Parçalar
+1
+Kontrol kayıtları
+0
+ANALİTİK
+SPC Analizi
+YÖNETİM
+Organizasyon
+Ayarlar
+Kullanıcılar & Roller
+Abonelik
+PRO
+Kişisel ayarlar
+Akış Testi — Deneme
+DY
+Kontrol planları
+AKIS-001
+Bağlantı Plakası — Akış Testi
+
+Kontrol noktaları, teknik resimler ve revizyon yönetimi.
+
+Ölçüme başla
+Yeni plan
+PDF’den plan oluştur
+Yeni revizyon
+Değişiklikleri kaydet
+AKIS-001 · v1.0
+Aktif
+Kaydedildi
+5 kontrol noktası
+Ürün / revizyon seçimi ve plan durumu
+v1.0 · 2026-11-08
+Parça / ürün
+AKIS-001 · Bağlantı Plakası — Akış Testi
+Kontrol planı revizyonu
+v1.0 · Aktif
+Aktif
+Arşivle
+Deniz Yönetici · 2026-11-08
+Plan yapısı
+
+v1.0 · 5 / 50 nokta
+
+1
+Uzunluk
+Sayısal
+2
+Genişlik
+Sayısal
+3
+Delik çapı
+Sayısal
+4
+Genişlik
+Sayısal
+5
+Delik çapı
+Sayısal
++ Nokta ekle
+Hepsini göster
+Noktayı sil
+Teknik Resim
++ Görsel Bağla
+Yeni görsel yükle
+Görseli kaldır
+Seç/Pan
+Pin
+Ölçüm Çizgisi
+Alan
+Not
+Sil
+Mavi
+▾
+−
++
+↶
+↷
+#5
+#5 Delik çapı
+Karakteristik adı
+Kontrol tipi
+Sayısal
+Uygun / Uygunsuz
+Görsel
+Tekli Seçim
+Çoklu Seçim
+Evet / Hayır
+Metin
+Mobil ölçüm ve kanıt kuralları
+Ondalık hassasiyet (isteğe bağlı)
+Uygunsuz / şüpheli sonuçta en az fotoğraf
+En fazla fotoğraf (isteğe bağlı)
+ Uygunsuzlukta açıklama zorunlu
+ Uygunsuzlukta kusur sebebi zorunlu
+ İnceleme zorunlu
+ Yetkili onayı zorunlu
+ Teknik resim zorunlu
+ Ölçüm aleti kimliği zorunlu
+Kusur sebepleri (her satıra bir sebep)
+Önem seviyesi
+Normal
+Önemli
+Kritik
+Kanıt politikası
+Kanıt yok
+İsteğe bağlı
+Uygunsuzlukta zorunlu
+Her zaman zorunlu
+Fotoğraf zorunlu
+Fotoğraf veya video
+Dosya / belge gerekli
+Nominal
+Birim
+mm
+inch
+µm
+°
+N
+Ra
+kg
+bar
+adet
+Alt tolerans
+Üst tolerans
+Alt sınır
+9.95 mm
+Nominal
+10 mm
+Üst sınır
+10.05 mm
+Ölçüm aleti
+Dijital Kumpas 0.01
+Mikrometre 0.001
+CMM 3D Ölçüm Cihazı
+Mihengir / Yükseklik Mastarı
+Profil Projeksiyon / Optik
+Yüzey Pürüzlülük (Surftest)
+Geçer / Geçmez Tampon Mastar
+Torkmetre
+Sertlik Ölçüm Cihazı (HRC/HB)
+Diğer Ölçüm Aleti
+Numune
+Kontrol sıklığı
+Kontrol açıklaması
+← Önceki
+5 / 5
+Sonraki →
+Revizyon bilgileri
+Revizyon ve kalite bilgileri
+Revizyon tarihi
+Hazırlayan
+Onaylayan
+Varsayılan numune
+Revizyon notu
+Ritim Quality · v1.0 · Ritim Cloud
+Revizyon kontrollü kalite kayıtları

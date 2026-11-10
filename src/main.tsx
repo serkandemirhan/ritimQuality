@@ -3,10 +3,11 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import {AuthGateway} from './components/AuthGateway.tsx';
+import {AppErrorBoundary} from './components/AppErrorBoundary';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthGateway><App /></AuthGateway>
+    <AppErrorBoundary><AuthGateway><App /></AuthGateway></AppErrorBoundary>
   </StrictMode>,
 );
 

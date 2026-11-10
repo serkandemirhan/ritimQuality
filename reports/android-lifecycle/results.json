@@ -1,0 +1,81 @@
+{
+  "at": "2026-11-08T12:35:37.707Z",
+  "device": "Samsung SM-M205F / Android 10 / Chrome 156, gerçek cihaz",
+  "order": "ANDROID-1794141247482",
+  "taskId": "d90f2466-9dd3-4ba3-b0eb-9cc8f9af1a26",
+  "inspectionId": "dc3959cf-6348-4aad-92cd-5b6a0a495a8c",
+  "controlNumber": "KNT-1028",
+  "approval": {
+    "reason": "Gerçek Android cihaz testinde çizim ve üç ölçüm sonucu incelendi.",
+    "status": "approved",
+    "reviewedAt": "2026-11-08T12:35:14.073418+00:00",
+    "reviewedBy": "Deniz Yönetici"
+  },
+  "events": [
+    {
+      "screenshot": "01-yonetici-gorev-formu",
+      "overflow": false
+    },
+    {
+      "screenshot": "02-gorev-atandi",
+      "overflow": false
+    },
+    {
+      "screenshot": "03-operator-okunmamis-bildirim",
+      "overflow": false
+    },
+    {
+      "screenshot": "04-operator-hazirlik",
+      "overflow": false
+    },
+    {
+      "screenshot": "05-teknik-resim",
+      "overflow": false
+    },
+    {
+      "screenshot": "06-olcum-1",
+      "overflow": false
+    },
+    {
+      "screenshot": "06-olcum-2",
+      "overflow": false
+    },
+    {
+      "screenshot": "06-olcum-3",
+      "overflow": false
+    },
+    {
+      "screenshot": "07-olcum-ozeti",
+      "overflow": false
+    },
+    {
+      "screenshot": "08-operator-rapor",
+      "overflow": false
+    },
+    {
+      "screenshot": "09-yonetici-tamamlanan",
+      "overflow": false
+    },
+    {
+      "screenshot": "10-yonetici-onay-bildirimi",
+      "overflow": false
+    },
+    {
+      "screenshot": "11-yonetici-onay-karari",
+      "overflow": false
+    },
+    {
+      "screenshot": "12-yonetici-bildirim-gecmisi",
+      "overflow": false
+    },
+    {
+      "screenshot": "13-operator-onaylanan-kayit",
+      "overflow": false
+    },
+    {
+      "screenshot": "14-onay-sonrasi-rapor",
+      "overflow": false
+    }
+  ],
+  "scope": "Plan test hazırlığı API ile; atama, ölçüm, rapor ve onay telefon arayüzünde. Bildirimler uygulama içidir; işletim sistemi push ve e-posta sınanmadı."
+}

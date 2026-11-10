@@ -1,0 +1,319 @@
+{
+  "generatedAt": "2026-11-08T08:17:01.834Z",
+  "fixtureTime": "2026-11-08T12:00:00.000Z",
+  "baseURL": "http://127.0.0.1:3410",
+  "browser": "Microsoft Edge / Playwright",
+  "widths": [
+    390,
+    1440
+  ],
+  "mode": "Mock API; no real account or delivery test",
+  "evidence": [
+    {
+      "scenario": "after-empty",
+      "width": 390,
+      "checks": [
+        "Yatay taşma yok",
+        "Mobil gezinmede Genel Bakış seçili",
+        "Boş aksiyon satırı yok",
+        "Örnek parça bağlantısı var"
+      ],
+      "file": "after-empty-390.png"
+    },
+    {
+      "scenario": "sample-control",
+      "width": 390,
+      "checks": [
+        "Üç örnek nokta",
+        "Virgüllü giriş",
+        "Tolerans dışı sonuç"
+      ],
+      "file": "sample-control-390.png"
+    },
+    {
+      "scenario": "sample-report",
+      "width": 390,
+      "checks": [
+        "Örnek rapor açıldı",
+        "API yazma isteği yok"
+      ],
+      "file": "sample-report-390.png"
+    },
+    {
+      "scenario": "after-active",
+      "width": 390,
+      "checks": [
+        "Yatay taşma yok",
+        "Mobil gezinmede Genel Bakış seçili"
+      ],
+      "file": "after-active-390.png"
+    },
+    {
+      "scenario": "period-7",
+      "width": 390,
+      "checks": [
+        "Dönem seçimi ve kontrol sayısı doğrulandı"
+      ],
+      "file": "period-7-390.png"
+    },
+    {
+      "scenario": "period-90",
+      "width": 390,
+      "checks": [
+        "Dönem seçimi ve kontrol sayısı doğrulandı"
+      ],
+      "file": "period-90-390.png"
+    },
+    {
+      "scenario": "period-30",
+      "width": 390,
+      "checks": [
+        "Dönem seçimi ve kontrol sayısı doğrulandı"
+      ],
+      "file": "period-30-390.png"
+    },
+    {
+      "scenario": "report-dialog",
+      "width": 390,
+      "checks": [
+        "Rapor penceresi ve PDF kaydet eylemi görünür"
+      ],
+      "file": "report-dialog-390.png"
+    },
+    {
+      "scenario": "three-priorities",
+      "width": 390,
+      "checks": [
+        "Üç öncelik türü var",
+        "Mobilde üçü de alt menünün üzerinde"
+      ],
+      "file": "three-priorities-390.png"
+    },
+    {
+      "scenario": "first-report",
+      "width": 390,
+      "checks": [
+        "Tek kayıt durumunda rapor çağrısı görünür"
+      ],
+      "file": "first-report-390.png"
+    },
+    {
+      "scenario": "first-report-dialog",
+      "width": 390,
+      "checks": [
+        "İlk rapor düğmesi raporu açtı"
+      ],
+      "file": "first-report-dialog-390.png"
+    },
+    {
+      "scenario": "warning-breakdown",
+      "width": 390,
+      "checks": [
+        "Uyarı ayrı gösteriliyor",
+        "Oran değişmedi: 11/12"
+      ],
+      "file": "warning-breakdown-390.png"
+    },
+    {
+      "scenario": "chart-rate",
+      "width": 390,
+      "checks": [
+        "Eksik günler sıfır oran olarak çizilmiyor",
+        "Mobilde tarih başındaki boş alan daraltıldı"
+      ],
+      "file": "chart-rate-390.png"
+    },
+    {
+      "scenario": "chart-volume",
+      "width": 390,
+      "checks": [
+        "Mobil hacim görünümü açıldı"
+      ],
+      "file": "chart-volume-390.png"
+    },
+    {
+      "scenario": "daily-values",
+      "width": 390,
+      "checks": [
+        "Veri yok ile %0 farklı gösteriliyor"
+      ],
+      "file": "daily-values-390.png"
+    },
+    {
+      "scenario": "after-inactive",
+      "width": 390,
+      "checks": [
+        "Yatay taşma yok",
+        "Mobil gezinmede Genel Bakış seçili",
+        "Mobil geçmiş bağlantısı metnin altında"
+      ],
+      "file": "after-inactive-390.png"
+    },
+    {
+      "scenario": "after-error",
+      "width": 390,
+      "checks": [
+        "Yatay taşma yok",
+        "Mobil gezinmede Genel Bakış seçili"
+      ],
+      "file": "after-error-390.png"
+    },
+    {
+      "scenario": "retry-success",
+      "width": 390,
+      "checks": [
+        "Yeniden deneme hatayı kaldırdı"
+      ],
+      "file": "retry-success-390.png"
+    },
+    {
+      "scenario": "after-empty",
+      "width": 1440,
+      "checks": [
+        "Yatay taşma yok",
+        "Mobil gezinmede Genel Bakış seçili",
+        "Boş aksiyon satırı yok",
+        "Örnek parça bağlantısı var"
+      ],
+      "file": "after-empty-1440.png"
+    },
+    {
+      "scenario": "sample-control",
+      "width": 1440,
+      "checks": [
+        "Üç örnek nokta",
+        "Virgüllü giriş",
+        "Tolerans dışı sonuç"
+      ],
+      "file": "sample-control-1440.png"
+    },
+    {
+      "scenario": "sample-report",
+      "width": 1440,
+      "checks": [
+        "Örnek rapor açıldı",
+        "API yazma isteği yok"
+      ],
+      "file": "sample-report-1440.png"
+    },
+    {
+      "scenario": "after-active",
+      "width": 1440,
+      "checks": [
+        "Yatay taşma yok",
+        "Mobil gezinmede Genel Bakış seçili"
+      ],
+      "file": "after-active-1440.png"
+    },
+    {
+      "scenario": "period-7",
+      "width": 1440,
+      "checks": [
+        "Dönem seçimi ve kontrol sayısı doğrulandı"
+      ],
+      "file": "period-7-1440.png"
+    },
+    {
+      "scenario": "period-90",
+      "width": 1440,
+      "checks": [
+        "Dönem seçimi ve kontrol sayısı doğrulandı"
+      ],
+      "file": "period-90-1440.png"
+    },
+    {
+      "scenario": "period-30",
+      "width": 1440,
+      "checks": [
+        "Dönem seçimi ve kontrol sayısı doğrulandı"
+      ],
+      "file": "period-30-1440.png"
+    },
+    {
+      "scenario": "report-dialog",
+      "width": 1440,
+      "checks": [
+        "Rapor penceresi ve PDF kaydet eylemi görünür"
+      ],
+      "file": "report-dialog-1440.png"
+    },
+    {
+      "scenario": "three-priorities",
+      "width": 1440,
+      "checks": [
+        "Üç öncelik türü var",
+        "Mobilde üçü de alt menünün üzerinde"
+      ],
+      "file": "three-priorities-1440.png"
+    },
+    {
+      "scenario": "first-report",
+      "width": 1440,
+      "checks": [
+        "Tek kayıt durumunda rapor çağrısı görünür"
+      ],
+      "file": "first-report-1440.png"
+    },
+    {
+      "scenario": "first-report-dialog",
+      "width": 1440,
+      "checks": [
+        "İlk rapor düğmesi raporu açtı"
+      ],
+      "file": "first-report-dialog-1440.png"
+    },
+    {
+      "scenario": "warning-breakdown",
+      "width": 1440,
+      "checks": [
+        "Uyarı ayrı gösteriliyor",
+        "Oran değişmedi: 11/12"
+      ],
+      "file": "warning-breakdown-1440.png"
+    },
+    {
+      "scenario": "chart-rate",
+      "width": 1440,
+      "checks": [
+        "Eksik günler sıfır oran olarak çizilmiyor",
+        "Mobilde tarih başındaki boş alan daraltıldı"
+      ],
+      "file": "chart-rate-1440.png"
+    },
+    {
+      "scenario": "daily-values",
+      "width": 1440,
+      "checks": [
+        "Veri yok ile %0 farklı gösteriliyor"
+      ],
+      "file": "daily-values-1440.png"
+    },
+    {
+      "scenario": "after-inactive",
+      "width": 1440,
+      "checks": [
+        "Yatay taşma yok",
+        "Mobil gezinmede Genel Bakış seçili",
+        "Mobil geçmiş bağlantısı metnin altında"
+      ],
+      "file": "after-inactive-1440.png"
+    },
+    {
+      "scenario": "after-error",
+      "width": 1440,
+      "checks": [
+        "Yatay taşma yok",
+        "Mobil gezinmede Genel Bakış seçili"
+      ],
+      "file": "after-error-1440.png"
+    },
+    {
+      "scenario": "retry-success",
+      "width": 1440,
+      "checks": [
+        "Yeniden deneme hatayı kaldırdı"
+      ],
+      "file": "retry-success-1440.png"
+    }
+  ]
+}

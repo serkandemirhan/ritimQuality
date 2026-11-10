@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { timingSafeEqual } from 'node:crypto';
 import { runNotificationBatch } from '../services/push.js';
+import {pool} from '../db/pool.js';
 
 export function validCronToken(header: string | undefined, secret: string | undefined): boolean {
   if (!secret || secret.length < 32 || !header) return false;
@@ -11,5 +12,5 @@ export function validCronToken(header: string | undefined, secret: string | unde
 export const cronRouter = Router();
 cronRouter.get('/notifications', async (req, res, next) => {
   if (!validCronToken(req.headers.authorization, process.env.CRON_SECRET)) { res.status(401).json({ error: 'Geçersiz görev yetkisi.' }); return; }
-  try { res.json(await runNotificationBatch()); } catch (error) { next(error); }
+  try { await pool.query("DELETE FROM request_limits WHERE expires_at < now()-interval '1 day'"); res.json(await runNotificationBatch()); } catch (error) { next(error); }
 });

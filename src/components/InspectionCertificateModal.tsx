@@ -1,241 +1,57 @@
-import {Modal, Button, StatusBadge} from './ui';
-import { MediaImage } from './MediaImage';
-import React, { useCallback, useEffect } from 'react';
-import { InspectionLog, ControlPlan, Product, TenantCompany } from '../types';
-import { Printer, Download, X, CheckCircle2, XCircle, AlertTriangle, ShieldCheck } from 'lucide-react';
+import {useCallback,useEffect,useMemo,useState} from 'react';
+import {Download,Printer} from 'lucide-react';
+import {controlLabel} from '../services/controlLabel';
+import {analyzeInspectionReport,reportRowStatusLabel,reportStatusLabel,type ReportMeasurementRow} from '../services/reportAnalysis';
+import {orderedCharacteristics} from '../services/measurementOrder';
+import {Modal,Button} from './ui';
+import {ApprovalSummary} from './ApprovalSummary';
+import {MediaImage} from './MediaImage';
+import type {ControlPlan,InspectionLog,Product,TenantCompany} from '../types';
 
-interface InspectionCertificateModalProps {
-  log: InspectionLog | null;
-  company?: TenantCompany;
-  product?: Product;
-  controlPlan?: ControlPlan;
-  onClose: () => void;
+interface InspectionCertificateModalProps {log:InspectionLog|null;isExample?:boolean;company?:TenantCompany;product?:Product;controlPlan?:ControlPlan;onClose:()=>void;}
+type Mode='standard'|'detailed';
+
+const format=(value:number|null,unit='')=>value===null?'—':`${new Intl.NumberFormat('tr-TR',{maximumFractionDigits:6}).format(value)}${unit?` ${unit}`:''}`;
+const displayValue=(row:ReportMeasurementRow)=>row.measuredValue===null||row.measuredValue===undefined?'—':Array.isArray(row.measuredValue)?row.measuredValue.join(', '):typeof row.measuredValue==='boolean'?(row.measuredValue?'Uygun':'Uygunsuz'):`${row.measuredValue}${row.unit&&row.measuredNumeric!==null?` ${row.unit}`:''}`;
+const tone=(status:string)=>status==='pass'||status==='conforming'?'pass':status==='fail'||status==='nonconforming'?'fail':status==='incomplete'?'incomplete':'neutral';
+
+function ToleranceIndicator({row}:{row:ReportMeasurementRow}){
+  if(row.measuredNumeric===null||row.lowerLimit===null||row.upperLimit===null)return <span className="rq-tolerance-unavailable">Sınır yok</span>;
+  const range=row.upperLimit-row.lowerLimit;
+  const raw=range>0?((row.measuredNumeric-row.lowerLimit)/range)*100:50;
+  const position=Math.max(-15,Math.min(115,raw));
+  const offScale=raw<0?'Alt sınırın altında':raw>100?'Üst sınırın üstünde':'';
+  return <div className="rq-tolerance-indicator" aria-label={`Tolerans aralığı ${format(row.lowerLimit,row.unit)} ile ${format(row.upperLimit,row.unit)}, ölçülen ${displayValue(row)}`}><div className="rq-tolerance-track"><i style={{left:`${position}%`}} className={row.status==='fail'?'fail':''}/></div><small>{offScale||`${format(row.lowerLimit)} — ${format(row.upperLimit)} ${row.unit}`}</small></div>;
 }
 
-export const InspectionCertificateModal: React.FC<InspectionCertificateModalProps> = ({
-  log, company,
-  product,
-  controlPlan,
-  onClose,
-}) => {
-  const handleClose = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
-  if (!log) return null;
-
-  const characteristics = controlPlan?.characteristics || [];
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const dateFormatted = new Date(log.timestamp).toLocaleString('tr-TR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-
-  return (
-    <Modal open={!!log} title="Kalite kontrol raporu" onClose={handleClose} className="rq-report-modal">
-        <div className="rq-report-actions rq-actions"><span className="rq-helper m-0">Yazdırma önizlemesi · {log.sessionCode}</span><Button id="btn-trigger-print" variant="primary" onClick={handlePrint}><Printer size={16}/>Yazdır / PDF Kaydet</Button><Button id="btn-close-certificate" onClick={handleClose}>Kapat</Button></div>
-        {/* Printable A4 Certificate Body */}
-        <div className="rq-report-paper">
-          {log.clientSyncStatus==='pending'&&<p className="rq-feedback rq-tone-warning" role="status">Yerel rapor · Gönderim bekliyor. Ölçümler cihazda kayıtlı; fotoğraf ve ölçüm gönderimi arka planda sürüyor.</p>}
-          {/* Certificate Header Block */}
-          <div className="border-2 border-slate-950 p-4 mb-4">
-            <div className="flex items-center justify-between border-b-2 border-slate-950 pb-3 mb-3">
-              <div>
-                <h1 className="text-xl font-black tracking-wider uppercase">
-                  {company?.legalName||company?.name||'Kalite Kontrol Raporu'}
-                </h1>
-                <p className="text-[11px] text-slate-600 font-semibold uppercase tracking-wide">
-                  {company?.facilityLocation||'Kalite kontrol kayıtları'}
-                </p>
-              </div>
-
-              <div className="text-right">
-                <div className="text-sm font-black uppercase text-slate-900 border border-slate-950 px-3 py-1 bg-slate-100 inline-block font-mono">
-                  RAPOR NO: {log.sessionCode}
-                </div>
-                <div className="text-[11px] text-slate-600 mt-1 font-mono">
-                  Tarih: {dateFormatted}
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center py-1 bg-slate-900 text-white font-bold uppercase tracking-widest text-xs mb-3">
-              SON MUAYENE & BOYUTSAL KALİTE KONTROL SERTİFİKASI (INSPECTION CERTIFICATE)
-            </div>
-
-            {/* Metadata Table */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-              <div className="border border-slate-300 p-2 bg-slate-50">
-                <span className="text-[10px] text-slate-500 font-mono block uppercase">Parça Kodu / Adı:</span>
-                <strong className="text-slate-950 font-bold">{log.productCode}</strong>
-                <div className="text-[11px] text-slate-700">{log.productName}</div>
-              </div>
-
-              <div className="border border-slate-300 p-2 bg-slate-50">
-                <span className="text-[10px] text-slate-500 font-mono block uppercase">Kontrol Planı Rev:</span>
-                <strong className="text-slate-950 font-bold">{log.controlPlanVersion}</strong>
-                <div className="text-[11px] text-slate-600">Plan: {controlPlan?.status==='active'?'Aktif':controlPlan?.status==='archived'?'Arşiv':controlPlan?.status==='draft'?'Taslak':'Belirtilmedi'}</div>
-              </div>
-
-              <div className="border border-slate-300 p-2 bg-slate-50">
-                <span className="text-[10px] text-slate-500 font-mono block uppercase">Parti / Şarj / İş Emri:</span>
-                <strong className="text-slate-950 font-bold font-mono">{log.lotNumber}</strong>
-                <div className="text-[11px] text-slate-600 font-mono">{log.orderNumber}</div>
-              </div>
-
-              <div className="border border-slate-300 p-2 bg-slate-50">
-                <span className="text-[10px] text-slate-500 font-mono block uppercase">Operatör / İstasyon:</span>
-                <strong className="text-slate-950 font-bold">{log.operatorName}</strong>
-                <div className="text-[11px] text-slate-600">{log.machineNo}</div>
-              </div>
-              <div className="border border-slate-300 p-2 bg-slate-50"><span className="text-[10px] text-slate-500 font-mono block uppercase">Ürün Rev. / Seri:</span><strong>{log.productRevision||'—'}</strong><div className="font-mono text-[11px]">{log.serialNumber||'—'}</div></div>
-              <div className="border border-slate-300 p-2 bg-slate-50"><span className="text-[10px] text-slate-500 font-mono block uppercase">Kaynak / Ekipman:</span><strong className="uppercase">{log.source||'manual'}</strong><div className="font-mono text-[11px]">{log.equipmentId||log.machineNo}</div></div>
-            </div>
-          </div>
-
-          {/* Technical Drawing Thumbnail with Pin Callouts */}
-          {controlPlan?.drawingImageUrl && (
-            <div className="border border-slate-300 p-3 mb-4 rounded bg-slate-50 flex flex-col items-center">
-              <span className="text-[10px] font-mono font-bold uppercase text-slate-600 mb-2">
-                Kontrol Planı Referans Teknik Resmi & Ölçüm Noktaları
-              </span>
-              <MediaImage src={controlPlan.drawingImageUrl} alt="Teknik Resim" className="max-h-48 object-contain border border-slate-400 bg-slate-950 rounded" referrerPolicy="no-referrer"/>
-            </div>
-          )}
-
-          {/* Detailed Measurement Matrix Table */}
-          {Array.from({length:Math.max(1,Math.ceil(log.samples.length/5))},(_,index)=>log.samples.slice(index*5,index*5+5)).map((reportSamples,batch)=><div key={batch} className="rq-report-table border border-slate-300 mb-4"><p className="rq-eyebrow p-2">Numuneler {reportSamples[0]?.sampleIndex||'—'} – {reportSamples.at(-1)?.sampleIndex||'—'}</p>
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-900 text-white font-mono text-[11px] uppercase">
-                  <th className="p-2 border-r border-slate-800">No</th>
-                  <th className="p-2 border-r border-slate-800">Karakteristik</th>
-                  <th className="p-2 border-r border-slate-800">Nominal</th>
-                  <th className="p-2 border-r border-slate-800">Tolerans [LSL~USL]</th>
-                  <th className="p-2 border-r border-slate-800">Ölçüm Cihazı</th>
-                  {reportSamples.map(s => (
-                    <th key={s.sampleIndex} className="p-2 text-center border-r border-slate-800">
-                      N#{s.sampleIndex}
-                    </th>
-                  ))}
-                  <th className="p-2 text-center">Sonuç</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-300 font-mono text-[11px]">
-                {characteristics.map(char => {
-                  let hasCharFail = false;
-                  return (
-                    <tr key={char.id} className="hover:bg-slate-50">
-                      <td className="p-2 font-bold border-r border-slate-300 text-center">
-                        #{char.pointNo}
-                      </td>
-                      <td className="p-2 font-sans font-bold border-r border-slate-300">
-                        {char.name}
-                      </td>
-                      <td className="p-2 border-r border-slate-300">
-                        {(char.type||'numeric')==='numeric'?`${char.nominal} ${char.unit}`:'Nitel Kontrol'}
-                      </td>
-                      <td className="p-2 border-r border-slate-300 text-slate-600">
-                        {(char.type||'numeric')==='numeric'?`[${char.lsl} ~ ${char.usl}]`:(char.rejectedOptions||[]).length?`NOK: ${(char.rejectedOptions||[]).join(', ')}`:'OK/NOK'}
-                      </td>
-                      <td className="p-2 border-r border-slate-300 text-[10px] text-slate-700">
-                        {char.tool}
-                      </td>
-
-                      {/* Sample values */}
-                      {reportSamples.map(s => {
-                        const val = s.values[char.id];
-                        const st = s.statuses[char.id];
-                        if (st === 'fail') hasCharFail = true;
-
-                        return (
-                          <td
-                            key={s.sampleIndex}
-                            className={`p-2 text-center font-bold border-r border-slate-300 ${
-                              st === 'pass'
-                                ? 'text-emerald-700'
-                                : st === 'warning'
-                                ? 'text-amber-700'
-                                : st === 'fail'
-                                ? 'bg-rose-100 text-rose-800 font-black'
-                                : 'text-slate-400'
-                            }`}
-                          >
-                            {val===null||val===undefined?'-':Array.isArray(val)?val.join(', '):val===true?'OK':val===false?'NOK':String(val)}
-                          </td>
-                        );
-                      })}
-
-                      <td className="p-2 text-center font-sans font-bold text-[10px]">
-                        {hasCharFail ? (
-                          <span className="text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-300">
-                            UYGUNSUZ
-                          </span>
-                        ) : (
-                          <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-300">
-                            UYGUN
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>)}
-
-          {/* Certificate Conclusion & Approval Signatures */}
-          <div className="border-2 border-slate-950 p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            {/* Overall Decision Stamp */}
-            <div className="flex flex-col items-center justify-center p-3 border-2 border-slate-950 bg-slate-50 text-center">
-              <span className="text-[10px] text-slate-500 uppercase font-mono mb-1">PARTİ KALİTE KARARI:</span>
-              <div className={`text-base font-black uppercase px-4 py-1.5 rounded border-2 ${
-                log.overallStatus === 'pass'
-                  ? 'border-emerald-700 text-emerald-800 bg-emerald-100'
-                  : log.overallStatus === 'warning'
-                  ? 'border-amber-700 text-amber-800 bg-amber-100'
-                  : 'border-rose-700 text-rose-800 bg-rose-100'
-              }`}>
-                {log.overallStatus === 'pass' ? '✔ UYGUN' : log.overallStatus === 'warning' ? '⚠ ŞARTLI KABUL' : '✖ UYGUNSUZ'}
-              </div>
-            </div>
-
-            {/* Inspector Signature Box */}
-            <div className="border border-slate-400 p-3 flex flex-col justify-between">
-              <div>
-                <span className="text-[10px] text-slate-500 uppercase font-mono block">Muayene Eden Kalite Kontrolör:</span>
-                <strong className="text-slate-950 text-xs mt-1 block">{log.operatorName}</strong>
-              </div>
-              <div className="pt-4 border-t border-slate-300 flex justify-between text-[10px] text-slate-500">
-                <span>İmza: ______________</span>
-                <span>Tarih: {log.timestamp.slice(0, 10)}</span>
-              </div>
-            </div>
-
-            {/* QA Supervisor Signature Box */}
-            <div className="border border-slate-400 p-3 flex flex-col justify-between">
-              <div>
-                <span className="text-[10px] text-slate-500 uppercase font-mono block">Kalite Güvence Müdürü / Onay:</span>
-                <strong className="text-slate-950 text-xs mt-1 block">__________________</strong>
-              </div>
-              <div className="pt-4 border-t border-slate-300 flex justify-between text-[10px] text-slate-500">
-                <span>İmza: ______________</span>
-                <span>Kaşe / Mühür</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 text-[10px] text-slate-500 text-center font-mono">
-            Bu belge elektronik ortamda Ritim Quality KOBİ Kalite Yönetim Sistemi tarafından üretilmiştir.
-          </div>
-        </div>
-    </Modal>
-  );
-};
+export function InspectionCertificateModal({log,company,isExample=false,product,controlPlan,onClose}:InspectionCertificateModalProps){
+  const [drawingReady,setDrawingReady]=useState(false);
+  const [mode,setMode]=useState<Mode>('standard');
+  useEffect(()=>{setDrawingReady(false);setMode('standard');},[log?.id,controlPlan?.drawingImageUrl]);
+  const close=useCallback(()=>onClose(),[onClose]);
+  const characteristics=useMemo(()=>orderedCharacteristics(log?.controlPlanSnapshot||controlPlan),[log,controlPlan]);
+  const analysis=useMemo(()=>log?analyzeInspectionReport(log,characteristics,isExample):null,[log,characteristics,isExample]);
+  if(!log||!analysis)return null;
+  const generatedAt=new Date(log.timestamp).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const reportNumber=controlLabel(log);
+  const handlePrint=()=>{if(controlPlan?.drawingImageUrl&&!drawingReady)return;window.print();};
+  const rowStatusByPoint=new Map<number,string>();
+  analysis.rows.forEach(row=>{const previous=rowStatusByPoint.get(row.pointNo);if(row.status==='fail'||!previous)rowStatusByPoint.set(row.pointNo,row.status);});
+  return <Modal open title="Kalite kontrol raporu" onClose={close} className="rq-report-modal">
+    <style>{`@page { size: A4 portrait; margin: 10mm 10mm 14mm; } @media print { .rq-report-paper { counter-reset: page; } }`}</style>
+    <div className="rq-report-actions rq-actions"><span className="rq-helper">{reportNumber} · yazdırma önizlemesi</span><div className="rq-report-mode" role="group" aria-label="Rapor görünümü"><Button aria-pressed={mode==='standard'} onClick={()=>setMode('standard')}>Standart</Button><Button aria-pressed={mode==='detailed'} onClick={()=>setMode('detailed')}>Detaylı</Button></div><Button id="btn-trigger-print" disabled={!!controlPlan?.drawingImageUrl&&!drawingReady} variant="primary" onClick={handlePrint}><Printer size={16}/>Yazdır / PDF Kaydet</Button></div>
+    <article className={`rq-report-paper rq-premium-report rq-report-${mode}`}>
+      {isExample&&<aside className="rq-report-demo-notice"><strong>DEMO RAPORU</strong><span>Bu rapor gösterim amaçlıdır. Üretim onayı veya resmi kalite kabul belgesi değildir.</span></aside>}
+      {!isExample&&log.clientSyncStatus==='pending'&&<aside className="rq-report-demo-notice"><strong>Yerel rapor</strong><span>Bu ölçüm cihazda kaydedildi; sunucu senkronizasyonu henüz tamamlanmadı.</span></aside>}
+      <header className="rq-report-header"><div><strong className="rq-report-brand">ritim<span>quality</span></strong><p>ÖLÇÜM VE KALİTE KONTROL RAPORU</p></div><dl><div><dt>Rapor no</dt><dd>{reportNumber}</dd></div><div><dt>Oluşturulma</dt><dd>{generatedAt}</dd></div><div><dt>Plan revizyonu</dt><dd>{log.controlPlanVersion||'—'}</dd></div><div><dt>Rapor durumu</dt><dd>{controlPlan?.status==='draft'?'Taslak':'Oluşturuldu'}</dd></div></dl></header>
+      <section className="rq-report-identification" aria-label="Parça ve izlenebilirlik bilgileri"><h2>Parça ve izlenebilirlik</h2><dl><div><dt>Parça</dt><dd>{log.productCode} · {log.productName}</dd></div>{product?.customer&&<div><dt>Müşteri</dt><dd>{product.customer}</dd></div>}<div><dt>Çizim / revizyon</dt><dd>{product?.code||log.productCode}{log.productRevision?` / ${log.productRevision}`:''}</dd></div>{product?.material&&<div><dt>Malzeme</dt><dd>{product.material}</dd></div>}<div><dt>Lot / iş emri</dt><dd>{log.lotNumber||'—'} / {log.orderNumber||'—'}</dd></div>{log.serialNumber&&<div><dt>Seri no</dt><dd>{log.serialNumber}</dd></div>}<div><dt>Muayene eden</dt><dd>{log.operatorName||'—'}</dd></div><div><dt>Muayene zamanı</dt><dd>{generatedAt}</dd></div><div><dt>Ölçüm ekipmanı</dt><dd>{log.equipmentId||'Belirtilmedi'}</dd></div>{log.machineNo&&<div><dt>İstasyon</dt><dd>{log.machineNo}</dd></div>}</dl></section>
+      <section className={`rq-overall-result rq-result-${tone(analysis.status)}`}><div><span>TEKNİK MUAYENE SONUCU</span><strong>{reportStatusLabel(analysis.status)}</strong><p>{analysis.status==='nonconforming'?'En az bir gerçek ölçüm tolerans dışında.':analysis.status==='incomplete'?'Zorunlu ölçümler tamamlanmadı.':analysis.status==='not_evaluated'?'Karar için kullanılabilir gerçek ölçüm yok.':'Tüm değerlendirilmiş gerçek ölçümler uygundur.'}</p></div><div className="rq-summary-cards"><div><span>Kontrol noktası</span><strong>{analysis.totalCharacteristics}</strong></div><div><span>Ölçülen</span><strong>{analysis.measuredCharacteristics}</strong></div><div><span>Uygun</span><strong>{analysis.conformingCharacteristics}</strong></div><div><span>Uygunsuz</span><strong>{analysis.nonconformingCharacteristics}</strong></div><div><span>Ölçülmedi</span><strong>{analysis.incompleteCharacteristics}</strong></div>{analysis.demoMeasurements>0&&<div><span>Demo kaydı</span><strong>{analysis.demoMeasurements}</strong></div>}</div></section>
+      <ApprovalSummary log={log}/>
+      {controlPlan?.drawingImageUrl&&<section className="rq-report-drawing"><div><h2>Teknik resim ve kontrol noktaları</h2><p>Çizim revizyonu: {log.productRevision||log.controlPlanVersion||'—'}</p></div><div className="rq-report-balloon-drawing"><MediaImage onLoad={()=>setDrawingReady(true)} src={controlPlan.drawingImageUrl} alt="Teknik resim ve numaralandırılmış kontrol noktaları" referrerPolicy="no-referrer"/>{!isExample&&controlPlan.balloonMode!=='embedded'&&characteristics.map(characteristic=><span key={characteristic.id} className={`rq-report-balloon ${tone(rowStatusByPoint.get(characteristic.pointNo)||'neutral')}`} style={{left:`${characteristic.pin.x}%`,top:`${characteristic.pin.y}%`}}>{characteristic.pointNo}</span>)}</div><div className="rq-drawing-legend"><span className="pass">Uygun</span><span className="fail">Uygunsuz</span><span className="neutral">Ölçülmedi / değerlendirilmedi</span></div></section>}
+      <section className="rq-report-results"><div className="rq-section-title"><div><h2>Ölçüm sonuçları</h2><p>{isExample?'Demo kayıtları teknik karara dahil edilmez.':'Yalnızca gerçek ölçümler teknik sonuca dahil edilir.'}</p></div><span>{analysis.rows.length} kayıt</span></div><div className="rq-report-table"><table><thead><tr><th>No</th><th>Karakteristik</th><th>Nominal</th><th>Alt sınır</th><th>Üst sınır</th><th>Ölçülen</th><th>Nominal sapma</th><th>Tolerans dışı sapma</th><th>Sonuç</th></tr></thead><tbody>{analysis.rows.map(row=><tr key={row.id} className={`rq-row-${tone(row.status)}${row.isDemo?' rq-row-demo':''}`}><td>#{row.pointNo}<small>N{row.sampleIndex}</small></td><td><strong>{row.characteristic}</strong>{row.note&&<small>{row.note}</small>}{row.isDemo&&<small>Demo kaydı</small>}</td><td>{format(row.nominal,row.unit)}</td><td>{format(row.lowerLimit,row.unit)}</td><td>{format(row.upperLimit,row.unit)}</td><td>{displayValue(row)}</td><td>{row.deviation===null?'—':format(row.deviation,row.unit)}</td><td>{row.outOfToleranceDeviation===null?'—':format(row.outOfToleranceDeviation,row.unit)}</td><td><span className={`rq-result-pill ${tone(row.status)}`}>{reportRowStatusLabel(row.status)}</span>{mode==='detailed'&&<ToleranceIndicator row={row}/>}</td></tr>)}</tbody></table></div></section>
+      {mode==='detailed'&&analysis.nonconformities.length>0&&<section className="rq-nonconformity-summary"><h2>Uygunsuzluk özeti</h2><div>{analysis.nonconformities.map(row=><article key={row.id}><strong>#{row.pointNo} · {row.characteristic}</strong><p>{format(row.nominal,row.unit)} nominal · {displayValue(row)} ölçülen</p><p>Sınırlar: {format(row.lowerLimit,row.unit)} — {format(row.upperLimit,row.unit)} · İhlal: +{format(row.outOfToleranceDeviation,row.unit)}</p>{row.note&&<p>Not: {row.note}</p>}</article>)}</div></section>}
+      {mode==='detailed'&&<section className="rq-report-traceability"><h2>Rapor durumu ve izlenebilirlik</h2><dl><div><dt>Teknik sonuç</dt><dd>{reportStatusLabel(analysis.status)}</dd></div><div><dt>Yönetici onayı</dt><dd>{log.approval?.status==='approved'?'Onaylandı':log.approval?.status==='rejected'?'Reddedildi':log.approval?.status==='pending'?'Onay bekliyor':'Onay gerekmiyor'}</dd></div>{log.approval?.reviewedBy&&<div><dt>İnceleyen</dt><dd>{log.approval.reviewedBy}</dd></div>}{log.approval?.reviewedAt&&<div><dt>İnceleme zamanı</dt><dd>{new Date(log.approval.reviewedAt).toLocaleString('tr-TR')}</dd></div>}<div><dt>Ölçüm kaynağı</dt><dd>{log.source||'manual'}</dd></div>{log.programName&&<div><dt>Program</dt><dd>{log.programName}</dd></div>}</dl></section>}
+      <footer className="rq-report-footer"><span>Ritim Quality · {company?.legalName||company?.name||'Kalite yönetim sistemi'}</span><span>Rapor no: {reportNumber} · Sayfa <span className="rq-page-number"/></span></footer>
+    </article>
+  </Modal>;
+}

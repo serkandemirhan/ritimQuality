@@ -1,0 +1,5 @@
+'use client';
+import {useState} from 'react';
+import {browserClient} from '@/lib/supabase/client';
+import {Button} from './ui/button';
+export function ExportHistory(){const[busy,setBusy]=useState(false),[message,setMessage]=useState('');return <div><Button variant="outline" disabled={busy} onClick={async()=>{setBusy(true);setMessage('');try{const records:unknown[]=[];for(let from=0;;from+=500){const{data,error}=await browserClient().from('site_inspections').select('id,created_at,sample_code,measurements').order('created_at').order('id').range(from,from+499);if(error)throw error;records.push(...data);if(data.length<500)break;}const url=URL.createObjectURL(new Blob([JSON.stringify({exportedAt:new Date().toISOString(),records},null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='ritim-ornek-kontrol-arsivi.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch{setMessage('Arşiv dışa aktarılamadı.');}finally{setBusy(false);}}}>{busy?'Hazırlanıyor…':'Tüm geçmişi JSON indir'}</Button>{message&&<p role="alert">{message}</p>}</div>;}

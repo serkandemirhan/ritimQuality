@@ -1,0 +1,16 @@
+import {readFile} from 'node:fs/promises';
+const findings=[];
+const check=(ok,name)=>findings.push({name,ok:Boolean(ok)});
+const remote=value=>{try{return new URL(value).protocol==='https:'&&!/localhost|127\.0\.0\.1/.test(new URL(value).hostname);}catch{return false;}};
+check(remote(process.env.APP_URL),'Application HTTPS address');
+check(remote(process.env.SUPABASE_URL),'Supabase address');
+check(process.env.MEDIA_STORAGE==='supabase','Private Supabase storage provider');
+check(process.env.DATABASE_SSL==='true','Verified database TLS');
+check((process.env.JWT_SECRET||'').length>=32,'Session signing secret');
+check((process.env.CRON_SECRET||'').length>=32,'Scheduled job secret');
+check(Boolean(process.env.DATABASE_URL),'Restricted runtime database URL');
+check(Boolean(process.env.SUPABASE_SECRET_KEY||process.env.SUPABASE_SERVICE_ROLE_KEY),'Server storage credential');
+const config=JSON.parse(await readFile('vercel.json','utf8'));
+check(config.functions?.['api/index.ts']?.maxDuration===60,'API execution configuration');
+console.log(JSON.stringify({checks:findings,billingConfigured:Boolean(process.env.STRIPE_SECRET_KEY&&process.env.STRIPE_WEBHOOK_SECRET),note:'No credentials are printed. Passing these checks does not replace live isolation, email, restore and payment acceptance tests.'},null,2));
+if(findings.some(f=>!f.ok))process.exitCode=1;

@@ -1,0 +1,2 @@
+import {defineConfig,devices} from '@playwright/test';
+export default defineConfig({testDir:'./tests',fullyParallel:false,timeout:30000,use:{baseURL:'http://localhost:3500',trace:'retain-on-failure'},projects:[{name:'desktop',use:{...devices['Desktop Chrome'],channel:'msedge'}},{name:'iphone',use:{...devices['iPhone 13'],defaultBrowserType:'chromium',channel:'msedge'}},{name:'android',use:{...devices['Pixel 7'],channel:'msedge'}}],webServer:{command:'npm run dev',url:'http://localhost:3500',reuseExistingServer:!process.env.CI,timeout:120000}});

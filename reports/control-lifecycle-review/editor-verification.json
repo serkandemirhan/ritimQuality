@@ -1,0 +1,16 @@
+{
+  "results": [
+    "PDF yüklemesi bitene kadar kaydetme kapalı; ilk sayfa görüntülendi.",
+    "Mevcut parçada Yeni plan ve Yeni revizyon çakışmadan açıldı.",
+    "Sürüklenen balon hem plan pinine hem görsel anotasyonuna aynı koordinatlarla yazıldı; mobil sekmeler çalışıyor."
+  ],
+  "versions": [
+    "v1.2",
+    "v1.1",
+    "v1.0"
+  ],
+  "pin": {
+    "x": 32,
+    "y": 24
+  }
+}

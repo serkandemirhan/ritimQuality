@@ -3,7 +3,7 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": { "api/index.ts": { "maxDuration": 60, "excludeFiles": "{on-premise,tests,tools,marketing,assets,.runtime,.npm-cache,dist-server}/**" } },
+  "functions": { "api/index.ts": { "maxDuration": 60, "includeFiles": "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs", "excludeFiles": "{on-premise,tests,tools,marketing,assets,.runtime,.npm-cache,dist-server,website}/**" } },
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }

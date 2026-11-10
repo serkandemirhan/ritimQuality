@@ -1,0 +1,51 @@
+:root {
+  --color-background: var(--ritim-soft, #f3f6f5);
+  --color-surface: var(--ritim-paper, #ffffff);
+  --color-foreground: var(--ritim-ink, #172b36);
+  --color-muted: var(--ritim-muted, #60737b);
+  --color-border: var(--ritim-border, #dce5e5);
+  --color-primary: var(--ritim-shell, #152f38);
+  --color-primary-foreground: #ffffff;
+  --color-accent: var(--ritim-accent, #c64c35);
+  --color-destructive: #b42336;
+  --color-success: var(--ritim-green, #287562);
+  --color-warning: #94600e;
+  --color-info: #285d9c;
+  --color-ring: #537f91;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  /* Backwards-compatible Ritim facade tokens. */
+  --rq-shell: var(--color-primary);
+  --rq-workspace: var(--color-background);
+  --rq-surface: var(--color-surface);
+  --rq-border: var(--color-border);
+  --rq-text: var(--color-foreground);
+  --rq-muted: var(--color-muted);
+  --rq-brand: var(--color-accent);
+  --rq-success: var(--color-success);
+  --rq-warning: var(--color-warning);
+  --rq-error: var(--color-destructive);
+  --rq-info: var(--color-info);
+  --rq-radius: var(--radius-lg);
+  --rq-font: var(--ritim-font, "Segoe UI", Arial, system-ui, sans-serif);
+}
+
+@theme inline {
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-foreground);
+  --color-primary: var(--color-primary);
+  --color-primary-foreground: var(--color-primary-foreground);
+  --color-muted: var(--color-muted);
+  --color-border: var(--color-border);
+  --color-destructive: var(--color-destructive);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-ring: var(--color-ring);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+}

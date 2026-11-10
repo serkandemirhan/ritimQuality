@@ -1,0 +1,616 @@
+TypeError: pdf.destroy is not a function
+İçeriğe geç
+Ritim Quality
+AKIŞ TESTİ — DENEME
+OPERASYON
+Genel Bakış
+Uygunsuzluklar
+Aksiyonlar
+Kontrol başlat
+CANLI
+KALİTE
+Kontrol kayıtları
+29
+Kişisel ayarlar
+Akış Testi — Deneme
+18
+EO
+Ritim Quality
+Kontrol kayıtları
+Kontrol kayıtları
+
+Geçmiş kontrolleri, sonuçları ve raporları görüntüleyin.
+
+Kayıtlı kontrol oturumları
+
+29
+
+Bugün: 29
+Uygun / uyarılı
+
+29
+
+Geçerli filtrelerdeki oturumlar
+Uygunsuz
+
+0
+
+Geçerli filtrelerdeki oturumlar
+Uygunluk oranı
+
+%100.0
+
+Uyarılı sonuçlar dahil
+Dışa Aktar
+29 / 29 kontrol oturumu
+Kaynak Özeti:
+MANUEL: 87
+ÖLÇÜM CİHAZI: 0
+DOSYADAN AKTARIM: 0
+CMM: 0
+Uygun: 29 / 29
+Tüm Parçalar
+PDF koordinat doğrulama
+PDF koordinat doğrulama
+PDF koordinat doğrulama
+PDF koordinat doğrulama
+Bağlantı Plakası — Akış Testi
+Tüm Durumlar
+Kabul (Uygun)
+Şartlı Kabul
+Tolerans Dışı (Red)
+Tüm Zamanlar
+Bugün
+Son 7 Gün
+Son 30 Gün
+Gelişmiş Filtreler
+Kontrol kayıtları
+KAYIT NO & TARİH	PARÇA BİLGİSİ	PLAN REV.	PARTİ / İŞ EMRİ	OPERATÖR / TEZGAH	NUMUNE	SONUÇ	SENKRONİZASYON	İŞLEMLER
+KNT-1029
+08.11.2026 14:34
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	android-1794144841109	
+ANDROID-LOT
+ANDROID-1794144845379
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1028
+08.11.2026 13:34
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	android-1794141243653	
+ANDROID-LOT
+ANDROID-1794141247482
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1027
+08.11.2026 13:32
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	android-1794141116154	
+ANDROID-LOT
+ANDROID-1794141121460
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1026
+08.11.2026 12:00
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794134947779	
+LOT-UI
+UI-390-1794135587509
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1025
+08.11.2026 11:59
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794134947779	
+LOT-UI
+UI-1440-1794135516795
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1024
+08.11.2026 11:51
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794134947779	
+LOT-UI
+UI-390-1794135056134
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1023
+08.11.2026 11:50
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794134947779	
+LOT-UI
+UI-1440-1794134983106
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1021
+08.11.2026 11:49
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794134947779	
+TEST-LOT
+TEST-İE-1794134953699
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1022
+08.11.2026 11:49
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794134947779	
+TEST-LOT
+TEST-İE-1794134953699
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1019
+08.11.2026 11:46
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794134638847	
+LOT-UI
+UI-390-1794134739933
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1018
+08.11.2026 11:45
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794134638847	
+LOT-UI
+UI-1440-1794134675306
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1016
+08.11.2026 11:44
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794134638847	
+TEST-LOT
+TEST-İE-1794134645056
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1017
+08.11.2026 11:44
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794134638847	
+TEST-LOT
+TEST-İE-1794134645056
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1020
+08.11.2026 11:44
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	approval-1794134800850	
+TEST-LOT
+TEST-İE-1794134645056
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1013
+08.11.2026 11:41
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794134460703	
+TEST-LOT
+TEST-İE-1794134466202
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1014
+08.11.2026 11:41
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794134460703	
+TEST-LOT
+TEST-İE-1794134466202
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1015
+08.11.2026 11:41
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	approval-1794134518830	
+TEST-LOT
+TEST-İE-1794134466202
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1012
+08.11.2026 10:52
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794131416687	
+LOT-UI
+UI-390-1794131552174
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1011
+08.11.2026 10:52
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794131416687	
+LOT-UI
+UI-1440-1794131495581
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1010
+08.11.2026 10:50
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794131416687	
+TEST-LOT
+TEST-İE-1794131422305
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1007
+08.11.2026 10:50
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794131416687	
+TEST-LOT
+TEST-İE-1794131422305
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1008
+08.11.2026 10:50
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	approval-1794131802179	
+TEST-LOT
+TEST-İE-1794131422305
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1009
+08.11.2026 10:50
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	approval-1794131931218	
+TEST-LOT
+TEST-İE-1794131422305
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1006
+08.11.2026 10:39
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794130613312	
+LOT-UI
+UI-390-1794130749290
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1005
+08.11.2026 10:38
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794130613312	
+LOT-UI
+UI-1440-1794130693091
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1003
+08.11.2026 10:37
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794130613312	
+TEST-LOT
+TEST-İE-1794130618753
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1004
+08.11.2026 10:37
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	test-1794130613312	
+TEST-LOT
+TEST-İE-1794130618753
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1002
+08.11.2026 09:39
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	v1.0	
+LOT-2026-002
+İE-2026-002-MOBİL
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+
+KNT-1001
+08.11.2026 09:34
+	
+Bağlantı Plakası — Akış Testi
+AKIS-001
+	v1.0	
+LOT-2026-001
+İE-2026-001
+	
+Ece Operatör
+CNC-01
+	1 Adet
+3 Nokta
+	
+Uygun	
+	
+Ritim Quality · v1.0 · Ritim Cloud
+Revizyon kontrollü kalite kayıtları
+Kalite kontrol raporu
+Yazdırma önizlemesi · KNT-1029
+Yazdır / PDF Kaydet
+Yönetici onayı
+Onaylandı
+
+Deniz Yönetici · 08.11.2026 14:35:27
+
+Gerekçe: Gerçek Android cihaz testinde çizim ve üç ölçüm sonucu incelendi.
+
+AKIŞ TESTİ — DENEME
+
+KALİTE KONTROL KAYITLARI
+
+RAPOR NO: KNT-1029
+Tarih: 08.11.2026 14:34
+SON MUAYENE VE BOYUTSAL KALİTE KONTROL RAPORU
+PARÇA KODU / ADI:
+AKIS-001
+Bağlantı Plakası — Akış Testi
+KONTROL PLANI REV:
+android-1794144841109
+Plan: Aktif
+PARTİ / ŞARJ / İŞ EMRİ:
+ANDROID-LOT
+ANDROID-1794144845379
+OPERATÖR / İSTASYON:
+Ece Operatör
+CNC-01
+ÜRÜN REV. / SERİ:
+—
+—
+KAYNAK / EKİPMAN:
+MANUEL
+CNC-01
+KONTROL PLANI REFERANS TEKNİK RESMİ & ÖLÇÜM NOKTALARI
+
+Numuneler 1 – 1
+
+NO	KARAKTERİSTİK	NOMİNAL	TOLERANS [LSL~USL]	ÖLÇÜM CİHAZI	N#1	SONUÇ
+#1	Uzunluk	100 mm	[99.9 ~ 100.1]	Dijital Kumpas 0.01	100.02	UYGUN
+#2	Genişlik	50 mm	[49.9 ~ 50.1]	Dijital Kumpas 0.01	49.98	UYGUN
+#3	Delik çapı	10 mm	[9.95 ~ 10.05]	Dijital Kumpas 0.01	10.01	UYGUN
+PARTİ KALİTE KARARI:
+✔ UYGUN
+MUAYENE EDEN KALİTE KONTROLÖR:
+Ece Operatör
+İmza: ______________
+Tarih: 2026-11-08
+KALİTE GÜVENCE MÜDÜRÜ / ONAY:
+__________________
+İmza: ______________
+Kaşe / Mühür
+Bu belge elektronik ortamda Ritim Quality KOBİ Kalite Yönetim Sistemi tarafından üretilmiştir.

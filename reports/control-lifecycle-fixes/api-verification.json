@@ -1,0 +1,15 @@
+{
+  "at": "2026-11-08T09:50:56.881Z",
+  "checks": [
+    "Ayrık balonlu yeni kontrol planı kaydedildi.",
+    "Aynı sürümün ikinci plan olarak kaydı reddediliyor.",
+    "Ölçüm isteği sonuç kaydı olmadan kapatılamıyor.",
+    "Başka kullanıcı atanmış isteği tamamlayamıyor.",
+    "Yanlış parti ile ölçüm kaydı reddediliyor.",
+    "Ölçüm ve görev birlikte tamamlandı; tekrar gönderim ikinci bildirim üretmedi.",
+    "Aynı görev ikinci ölçümle kapatılamıyor.",
+    "Görev ve onay gerektirmeyen ölçüm de yöneticiye bildiriliyor."
+  ],
+  "taskId": "aca31577-c44c-452a-8885-f53e6a4c7c86",
+  "inspectionId": "c1d9cc73-e9c2-4d48-844a-61153df122c5"
+}

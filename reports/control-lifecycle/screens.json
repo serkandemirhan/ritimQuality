@@ -1,0 +1,307 @@
+[
+  {
+    "stage": "Parça bilgileri ve teknik resim yükleme",
+    "file": "01-yonetici-parca-ve-resim-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Parça bilgileri ve teknik resim yükleme",
+    "file": "01-yonetici-parca-ve-resim-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Parça kaydı",
+    "file": "02-yonetici-parca-kaydedildi-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Parça kaydı",
+    "file": "02-yonetici-parca-kaydedildi-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Kaydedilen teknik resim",
+    "file": "02b-yonetici-teknik-resim-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Kaydedilen teknik resim",
+    "file": "02b-yonetici-teknik-resim-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Üç ölçüm noktası ve toleransların elle tanımlanması",
+    "file": "03-yonetici-manuel-plan-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Üç ölçüm noktası ve toleransların elle tanımlanması",
+    "file": "03-yonetici-manuel-plan-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Aktif kontrol planı",
+    "file": "04-yonetici-plan-aktif-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Aktif kontrol planı",
+    "file": "04-yonetici-plan-aktif-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Yönetici görevi operatöre atıyor",
+    "file": "05-yonetici-gorev-atama-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Yönetici görevi operatöre atıyor",
+    "file": "05-yonetici-gorev-atama-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Atanan görev",
+    "file": "06-yonetici-gorev-atandi-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Atanan görev",
+    "file": "06-yonetici-gorev-atandi-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Operatörün aldığı görev bildirimi",
+    "file": "07-operator-bildirim-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Operatörün aldığı görev bildirimi",
+    "file": "07-operator-bildirim-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Operatör görevi başlatıyor",
+    "file": "08-operator-gorev-basladi-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Operatör görevi başlatıyor",
+    "file": "08-operator-gorev-basladi-390.png",
+    "width": 390
+  },
+  {
+    "stage": "İş emri, parti, seri ve istasyon bilgileri",
+    "file": "09-operator-kontrol-hazirlik-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "İş emri, parti, seri ve istasyon bilgileri",
+    "file": "09-operator-kontrol-hazirlik-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Masaüstünde başlayan ölçüm oturumu",
+    "file": "10-operator-olcum-basladi-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Masaüstünde başlayan ölçüm oturumu",
+    "file": "10-operator-olcum-basladi-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Uzunluk: 100,02 mm",
+    "file": "11-operator-olcum-1-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Uzunluk: 100,02 mm",
+    "file": "11-operator-olcum-1-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Genişlik: 49,98 mm",
+    "file": "11-operator-olcum-2-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Genişlik: 49,98 mm",
+    "file": "11-operator-olcum-2-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Delik çapı: 10,01 mm",
+    "file": "11-operator-olcum-3-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Delik çapı: 10,01 mm",
+    "file": "11-operator-olcum-3-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Ölçümler sunucuya kaydedildi",
+    "file": "12-operator-olcum-kaydedildi-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Ölçümler sunucuya kaydedildi",
+    "file": "12-operator-olcum-kaydedildi-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Operatörün kontrol raporu",
+    "file": "13-operator-rapor-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Operatörün kontrol raporu",
+    "file": "13-operator-rapor-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Ölçüm bitti; görev hâlâ açık",
+    "file": "14-operator-olcum-sonrasi-gorev-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Ölçüm bitti; görev hâlâ açık",
+    "file": "14-operator-olcum-sonrasi-gorev-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Operatör görevi ayrıca tamamlıyor",
+    "file": "15-operator-gorev-tamamlama-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Operatör görevi ayrıca tamamlıyor",
+    "file": "15-operator-gorev-tamamlama-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Tamamlanan görev",
+    "file": "16-operator-gorev-tamamlandi-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Tamamlanan görev",
+    "file": "16-operator-gorev-tamamlandi-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Yöneticinin aldığı onay bildirimi",
+    "file": "17-yonetici-onay-bildirimi-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Yöneticinin aldığı onay bildirimi",
+    "file": "17-yonetici-onay-bildirimi-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Yönetici onay kuyruğu",
+    "file": "18-yonetici-onay-kuyrugu-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Yönetici onay kuyruğu",
+    "file": "18-yonetici-onay-kuyrugu-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Yönetici ölçüm detayını inceliyor",
+    "file": "19-yonetici-olcum-detayi-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Yönetici ölçüm detayını inceliyor",
+    "file": "19-yonetici-olcum-detayi-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Yönetici raporu açıyor",
+    "file": "20-yonetici-rapor-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Yönetici raporu açıyor",
+    "file": "20-yonetici-rapor-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Gerekçeli kalite onayı",
+    "file": "21-yonetici-onay-karari-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Gerekçeli kalite onayı",
+    "file": "21-yonetici-onay-karari-390.png",
+    "width": 390
+  },
+  {
+    "stage": "İlk kontrol onaylandı",
+    "file": "22-yonetici-onaylandi-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "İlk kontrol onaylandı",
+    "file": "22-yonetici-onaylandi-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Operatöre dönen onay bildirimi",
+    "file": "23-operator-onay-bildirimi-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Operatöre dönen onay bildirimi",
+    "file": "23-operator-onay-bildirimi-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Telefon arayüzünde ikinci kontrol hazırlığı",
+    "file": "24-telefon-hazirlik-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Gerçek mobil arayüz: uzunluk girişi",
+    "file": "25-telefon-tus-takimi-1-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Gerçek mobil arayüz: genişlik girişi",
+    "file": "25-telefon-tus-takimi-2-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Gerçek mobil arayüz: delik çapı girişi",
+    "file": "25-telefon-tus-takimi-3-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Mobil ölçüm raporu",
+    "file": "26-telefon-tamamlama-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Mobil kontrol yönetici kuyruğuna ulaştı",
+    "file": "27-yonetici-mobil-kontrol-geldi-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Mobil kontrol yönetici kuyruğuna ulaştı",
+    "file": "27-yonetici-mobil-kontrol-geldi-390.png",
+    "width": 390
+  },
+  {
+    "stage": "Her iki kontrol onaylandı",
+    "file": "28-yonetici-iki-kontrol-onayli-1440.png",
+    "width": 1440
+  },
+  {
+    "stage": "Her iki kontrol onaylandı",
+    "file": "28-yonetici-iki-kontrol-onayli-390.png",
+    "width": 390
+  }
+]

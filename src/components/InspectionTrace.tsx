@@ -1,3 +1,4 @@
+import {controlLabel} from '../services/controlLabel';
 import React, {useEffect, useState} from 'react';
 import type {InspectionLog} from '../types';
 import {SaasApi} from '../services/api';
@@ -24,7 +25,7 @@ export function InspectionTrace({log}:{log:InspectionLog}) {
     {id:'order',title:'İş emri',detail:log.orderNumber},
     {id:'lot',title:'Parti / seri',detail:[log.lotNumber,log.serialNumber].filter(Boolean).join(' · ')},
     {id:'station',title:'İstasyon / operatör',detail:[log.machineNo,log.operatorName].filter(Boolean).join(' · ')},
-    {id:'inspection',title:'Kontrol oturumu',detail:log.sessionCode,time:new Date(log.timestamp).toLocaleString('tr-TR')},
+    {id:'inspection',title:'Kontrol oturumu',detail:controlLabel(log),time:new Date(log.timestamp).toLocaleString('tr-TR')},
     ...(relations?.cases||[]).filter(item=>item.inspection_id===log.id).map(item=>({id:'case:'+item.id,title:'Uygunsuzluk · '+(states[item.state]||item.state),detail:item.title})),
     ...(relations?.approvals||[]).filter(item=>item.inspection_id===log.id).map((item,index)=>({id:'approval:'+index,title:'Onay · '+(states[item.status]||item.status),detail:item.reason||'Gerekçe belirtilmedi'})),
   ].filter(item=>!!item.detail);

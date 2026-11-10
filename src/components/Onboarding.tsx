@@ -1,20 +1,22 @@
-import { Card, Button } from './ui';
-import React, {useEffect,useState} from 'react';
-import {SaasApi} from '../services/api';
-import type {Product,ControlPlan,User,InspectionLog} from '../types';
+import {ArrowRight,Check,FileText} from 'lucide-react';
+import type {Product,ControlPlan} from '../types';
 import type {NavTab} from './Navbar';
 
-export function Onboarding({products,plans,users,logs,onNavigate}:{products:Product[];plans:ControlPlan[];users:User[];logs:InspectionLog[];onNavigate:(tab:NavTab)=>void}) {
-  const key='quality:onboarding:'+SaasApi.scope();
-  const complete=logs.length>0&&products.length>0&&plans.some(p=>p.isActive&&p.status==='active')&&users.some(u=>u.role==='operator'&&u.status==='active');
-  const [dismissed,setDismissed]=useState(()=>localStorage.getItem(key)==='complete');
-  useEffect(()=>{if(complete){localStorage.setItem(key,'complete');setDismissed(true);}},[complete,key]);
-  const steps:{label:string;description:string;tab:NavTab;done:boolean}[]=[
-    {label:'1. İlk parçayı oluştur',description:'Parça kodu, teknik resim ve malzemeyi ekleyin.',tab:'products',done:products.length>0},
-    {label:'2. Kontrol planını hazırla',description:'Gerçek ölçüm noktalarını ve toleransları girip planı aktifleştirin.',tab:'control-plans',done:plans.some(p=>p.isActive&&p.status==='active')},
-    {label:'3. Operatör hesabını ekle',description:'Üretim ekibine kendi hesabıyla erişim verin.',tab:'users',done:users.some(u=>u.role==='operator'&&u.status==='active')},
-    {label:'4. İlk kontrolü kaydet',description:'Parti ve iş emriyle ölçüm yapıp sunucu kaydını doğrulayın.',tab:'operator',done:logs.length>0},
-  ];
-  if(complete||dismissed)return null;
-  return <Card className="mb-6"><h2 className="font-bold">İlk kontrole başlayalım</h2><div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{steps.map(step=><Button key={step.tab} onClick={()=>onNavigate(step.tab)} className="flex-col items-start text-left"><span className="block font-bold">{step.done?'✓ ':''}{step.label}</span><span className="mt-1 block text-sm text-slate-600">{step.description}</span></Button>)}</div></Card>;
+export function Onboarding({products,plans,canManage,canInspect,onNavigate,onTrySample}:{products:Product[];plans:ControlPlan[];canManage:boolean;canInspect:boolean;onNavigate:(tab:NavTab)=>void;onTrySample:()=>void}) {
+  const hasProduct=products.length>0;
+  const ready=plans.some(p=>p.isActive&&p.status==='active'&&products.some(product=>product.id===p.productId));
+  const step=ready?2:hasProduct?1:0;
+  const available=ready?canInspect:canManage;
+  const actions=['İlk parçayı ekle','Kontrol planını hazırla','Kontrol başlat'];
+  const tabs:NavTab[]=['products','control-plans','operator'];
+  return <section className="ov-start" aria-labelledby="ov-start-title">
+    <div className="ov-start-copy"><span className="ov-kicker">ÇİZİMDEN İLK RAPORUNUZA</span>
+      <h2 id="ov-start-title">{step===0?'İlk kontrolünüzü hazırlayalım.':step===1?'Parçanız hazır. Sırada kontrol planı.':'İlk ölçümünüz için hazırsınız.'}</h2>
+      <p>{step===0?'Önce parçanızı ekleyin. Ardından teknik resminizden kontrol planı hazırlayın ve ölçümünüzü kaydedin.':step===1?'Teknik resminizden ölçüleri ve toleransları çıkarın, taslağı inceleyip planınızı etkinleştirin.':'Aktif kontrol planınızı seçin, ölçüm değerlerini girin. Sonuçlarınız ve raporunuz burada birikmeye başlayacak.'}</p>
+      {available?<button className="ov-primary" onClick={()=>onNavigate(tabs[step])}>{actions[step]}<ArrowRight size={17}/></button>:<p className="ov-access">{canInspect?'Başlamak için firma yöneticinizin bir kontrol planını etkinleştirmesi gerekiyor.':'İlk kontrol kaydedildiğinde sonuçları bu ekrandan inceleyebilirsiniz.'}</p>}
+      {step===1&&canManage&&<small>PDF’den taslak çıkarabilir veya planı elle oluşturabilirsiniz.</small>}
+      {canInspect&&<button className="ov-text-button ov-try-sample" onClick={onTrySample}>Örnek parçayla dene <ArrowRight size={15}/></button>}
+    </div>
+    <div className="ov-start-guide"><FileText size={26} strokeWidth={1.5}/><p>Bir kez hazırlayın.<br/><strong>Her kontrolde aynı düzenle ilerleyin.</strong></p><ol>{['Parça','Kontrol planı','Ölçüm ve rapor'].map((label,i)=><li key={label} aria-current={i===step?'step':undefined} className={i<step?'is-done':''}><span>{i<step?<Check size={14}/>:i+1}</span><div>{label}<small>{i<step?'Tamamlandı':i===step?'Sıradaki adım':'Sonraki adım'}</small></div></li>)}</ol></div>
+  </section>;
 }

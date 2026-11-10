@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+playwright-report/
+test-results/
+*.tsbuildinfo
+.env*
+!.env.example
+public/pdf.worker.min.mjs
+public/sample-drawing.pdf
+public/demo-plate.pdf
+public/ocr/
+
+.vercel
+.env*

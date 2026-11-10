@@ -1,0 +1,13 @@
+{
+  "at": "2026-11-08T14:25:20.578Z",
+  "checks": [
+    "Çalışma zamanı rolü superuser değil; RLS atlama yetkisi yok.",
+    "products: diğer firmanın kayıtları okunamıyor, kendi kaydı erişilebilir.",
+    "control_plans: diğer firmanın kayıtları okunamıyor, kendi kaydı erişilebilir.",
+    "inspection_logs: diğer firmanın kayıtları okunamıyor, kendi kaydı erişilebilir.",
+    "Diğer firmanın parçası güncellenemiyor.",
+    "Diğer firma adına kayıt ekleme RLS tarafından reddediliyor.",
+    "Sekiz temel tabloda RLS ve FORCE RLS etkin."
+  ],
+  "rolledBack": true
+}

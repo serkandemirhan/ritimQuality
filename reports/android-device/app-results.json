@@ -1,0 +1,38 @@
+{
+  "events": [
+    {
+      "screenshot": "07-uygulama-giris",
+      "overflow": false
+    },
+    {
+      "screenshot": "08-sifre-yardim",
+      "overflow": false
+    },
+    {
+      "screenshot": "09-operator-isler",
+      "overflow": false
+    },
+    {
+      "screenshot": "10-operator-tamamlanan",
+      "overflow": false
+    },
+    {
+      "screenshot": "11-operator-rapor",
+      "overflow": false
+    },
+    {
+      "screenshot": "09-admin-isler",
+      "overflow": false
+    },
+    {
+      "screenshot": "10-admin-tamamlanan",
+      "overflow": false
+    },
+    {
+      "screenshot": "11-admin-rapor",
+      "overflow": false
+    }
+  ],
+  "errors": [],
+  "scope": "Mevcut izole test çalışma alanında iki rolün görev geçmişi ve raporları. Yeni kontrol oluşturulmadı; gerçek müşteri verisi değiştirilmedi."
+}

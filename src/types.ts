@@ -3,7 +3,7 @@ export type CharacteristicType = 'numeric' | 'ok_nok' | 'visual' | 'single_selec
 export type EvidencePolicy = 'none' | 'optional' | 'required_on_fail' | 'always_required' | 'photo_required' | 'media_required' | 'document_required';
 export type MeasurementSource = 'manual' | 'gauge' | 'import' | 'cmm';
 
-export type MeasurementUnit = 'mm' | 'µm' | '°' | 'N' | 'Ra' | 'kg' | 'bar' | 'adet';
+export type MeasurementUnit = 'mm' | 'inch' | 'µm' | '°' | 'N' | 'Ra' | 'kg' | 'bar' | 'adet';
 
 export type MeasurementTool = 
   | 'Dijital Kumpas 0.01'
@@ -31,6 +31,7 @@ export type ImageAnnotation =
 export interface CharacteristicImageLink { id:string;characteristicId:string;imageId:string;annotations:ImageAnnotation[]; }
 
 export interface Characteristic {
+  extraction?: Record<string, unknown>;
   id: string;
   pointNo: number; // 1, 2, 3...
   name: string; // e.g. "Dış Çap (ØA)", "Toplam Boy (L)"
@@ -63,6 +64,8 @@ export interface Characteristic {
 }
 
 export interface ControlPlan {
+  balloonMode?: 'overlay'|'embedded';
+  drawingAnalysis?: {originalUrl:string;pageCount:number;analyzedPage:number;notes:string[];model:string;durationMs?:number;usage?:unknown};
   requiresApproval?: boolean;
   id: string;
   productId: string;
@@ -115,7 +118,13 @@ export interface SampleMeasurement {
   pointNotes?: Record<string, string>;
 }
 
+export interface InspectionRequest { taskId:string; planId:string; planVersion:string; orderNumber:string; lotNumber:string; sampleCount:number; }
+
 export interface InspectionLog {
+  controlNumber?: string;
+  requiresReview?: boolean;
+  approval?: {status:'approved'|'rejected'|'pending'|'not_required';reviewedBy?:string;reviewedAt?:string;reason?:string};
+  taskId?: string;
   clientSyncStatus?: 'pending';
   mobileMeasurement?: unknown;
   draftId?: string;
@@ -144,6 +153,13 @@ export interface InspectionLog {
   failedPointsCount: number;
   warningPointsCount: number;
   timestamp: string;
+  timing?: {
+    startedAt: string;
+    completedAt: string;
+    elapsedSeconds: number;
+    activeSeconds: number;
+    offlineSeconds?: number;
+  };
   notes?: string;
   samples: SampleMeasurement[];
 }

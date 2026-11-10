@@ -1,0 +1,256 @@
+Error: locator.click: Error: strict mode violation: getByRole('dialog').getByRole('button', { name: 'Kapat', exact: true }) resolved to 2 elements:
+    1) <button title="Kapat" type="button" aria-label="Kapat" class="rq-button rq-button-secondary rq-icon-button">…</button> aka getByRole('button', { name: 'Kapat', description: 'Kapat' })
+    2) <button type="button" id="btn-close-certificate" class="rq-button rq-button-secondary">Kapat</button> aka getByText('Kapat', { exact: true })
+
+Call log:
+[2m  - waiting for getByRole('dialog').getByRole('button', { name: 'Kapat', exact: true })[22m
+
+İçeriğe geç
+Akış Testi — Deneme
+17
+EO
+Genel Bakış
+Kontrol başlat
+İşler
+Diğer
+Ritim Quality
+Aksiyonlar
+Aksiyonlar
+
+Atanan görevler ve planlanan kontroller.
+
+Açık uygunsuzluk
+
+0
+
+Bekleyen onay
+
+0
+
+Geciken görev
+
+0
+
+Uygunsuzluklar
+Görevler
+Açık
+Tamamlanan
+Atanmış görevler
+GÖREV / İLİŞKİLER
+ÖNCELİK
+SORUMLU
+TERMİN
+DURUM
+İŞLEMLER
+Kontrol isteği UI-390-1794135587509
+KNT-1026 · 08.11.2026 14:00:28
+test-1794134947779 · UI-390-1794135587509 · LOT-UI · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+12.11.2026 19:00:00
+Tamamlandı
+Kontrol isteği UI-1440-1794135516795
+KNT-1025 · 08.11.2026 13:59:16
+test-1794134947779 · UI-1440-1794135516795 · LOT-UI · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+12.11.2026 19:00:00
+Tamamlandı
+Kontrol isteği UI-390-1794135056134
+KNT-1024 · 08.11.2026 13:51:31
+test-1794134947779 · UI-390-1794135056134 · LOT-UI · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+12.11.2026 19:00:00
+Tamamlandı
+Kontrol isteği UI-1440-1794134983106
+KNT-1023 · 08.11.2026 13:50:20
+test-1794134947779 · UI-1440-1794134983106 · LOT-UI · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+12.11.2026 19:00:00
+Tamamlandı
+Otomatik akış doğrulama
+KNT-1021 · 08.11.2026 13:49:28
+test-1794134947779 · TEST-İE-1794134953699 · TEST-LOT · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+09.11.2026 13:49:13
+Tamamlandı
+Kontrol isteği UI-390-1794134739933
+KNT-1019 · 08.11.2026 13:46:10
+test-1794134638847 · UI-390-1794134739933 · LOT-UI · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+12.11.2026 19:00:00
+Tamamlandı
+Kontrol isteği UI-1440-1794134675306
+KNT-1018 · 08.11.2026 13:45:08
+test-1794134638847 · UI-1440-1794134675306 · LOT-UI · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+12.11.2026 19:00:00
+Tamamlandı
+Otomatik akış doğrulama
+KNT-1016 · 08.11.2026 13:44:16
+test-1794134638847 · TEST-İE-1794134645056 · TEST-LOT · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+09.11.2026 13:44:05
+Tamamlandı
+Otomatik akış doğrulama
+KNT-1013 · 08.11.2026 13:41:16
+test-1794134460703 · TEST-İE-1794134466202 · TEST-LOT · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+09.11.2026 13:41:06
+Tamamlandı
+Kontrol isteği UI-390-1794131552174
+KNT-1012 · 08.11.2026 12:53:06
+test-1794131416687 · UI-390-1794131552174 · LOT-UI · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+12.11.2026 19:00:00
+Tamamlandı
+Kontrol isteği UI-1440-1794131495581
+KNT-1011 · 08.11.2026 12:52:06
+test-1794131416687 · UI-1440-1794131495581 · LOT-UI · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+12.11.2026 19:00:00
+Tamamlandı
+Otomatik akış doğrulama
+KNT-1010 · 08.11.2026 12:50:37
+test-1794131416687 · TEST-İE-1794131422305 · TEST-LOT · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+09.11.2026 12:50:22
+Tamamlandı
+Kontrol isteği UI-390-1794130749290
+KNT-1006 · 08.11.2026 12:39:40
+test-1794130613312 · UI-390-1794130749290 · LOT-UI · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+12.11.2026 19:00:00
+Tamamlandı
+Kontrol isteği UI-1440-1794130693091
+KNT-1005 · 08.11.2026 12:38:46
+test-1794130613312 · UI-1440-1794130693091 · LOT-UI · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+12.11.2026 19:00:00
+Tamamlandı
+Otomatik akış doğrulama
+KNT-1003 · 08.11.2026 12:37:09
+test-1794130613312 · TEST-İE-1794130618753 · TEST-LOT · 1 numune
+Raporu aç
+AKIS-001
+Normal
+Ece Operatör
+09.11.2026 12:36:58
+Tamamlandı
+AKIS-001 ilk parça kontrolü · İE-2026-001
+Kontrol kaydı · 08.11.2026 11:35:20
+AKIS-001
+Yüksek
+Ece Operatör
+10.11.2026 19:00:00
+Tamamlandı
+Ritim Quality · v1.0 · Ritim Cloud
+Revizyon kontrollü kalite kayıtları
+Kalite kontrol raporu
+Yazdır / PDF Kaydet
+Kapat
+Sonuç özeti
+Uygun
+
+3 kontrol noktası · 0 uygunsuz · 0 uyarılı
+
+Ölçüm sonuçlarına git ↓
+Numune 1
+#1 Uzunluk
+Uygun
+
+Ölçülen
+100.02 mm
+
+Nominal 100 · Sınırlar 99.9 – 100.1 mm
+#2 Genişlik
+Uygun
+
+Ölçülen
+49.98 mm
+
+Nominal 50 · Sınırlar 49.9 – 50.1 mm
+#3 Delik çapı
+Uygun
+
+Ölçülen
+10.01 mm
+
+Nominal 10 · Sınırlar 9.95 – 10.05 mm
+AKIŞ TESTİ — DENEME
+
+KALİTE KONTROL KAYITLARI
+
+RAPOR NO: KNT-1026
+Tarih: 08.11.2026 14:00
+SON MUAYENE VE BOYUTSAL KALİTE KONTROL RAPORU
+PARÇA KODU / ADI:
+AKIS-001
+Bağlantı Plakası — Akış Testi
+KONTROL PLANI REV:
+test-1794134947779
+Plan: Aktif
+PARTİ / ŞARJ / İŞ EMRİ:
+LOT-UI
+UI-390-1794135587509
+OPERATÖR / İSTASYON:
+Ece Operatör
+CNC-01
+ÜRÜN REV. / SERİ:
+—
+—
+KAYNAK / EKİPMAN:
+MANUEL
+CNC-01
+KONTROL PLANI REFERANS TEKNİK RESMİ & ÖLÇÜM NOKTALARI
+PARTİ KALİTE KARARI:
+✔ UYGUN
+MUAYENE EDEN KALİTE KONTROLÖR:
+Ece Operatör
+İmza: ______________
+Tarih: 2026-11-08
+KALİTE GÜVENCE MÜDÜRÜ / ONAY:
+__________________
+İmza: ______________
+Kaşe / Mühür
+Bu belge elektronik ortamda Ritim Quality KOBİ Kalite Yönetim Sistemi tarafından üretilmiştir.

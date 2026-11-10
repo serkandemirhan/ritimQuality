@@ -1,0 +1,12 @@
+{
+  "at": "2026-11-08T14:45:23.936Z",
+  "events": [
+    "POST bağlantı hatasında ölçüm, kullanıcı/firma kapsamlı bekleyen kayıtta korundu.",
+    "Sayfa yenilendikten sonra bekleyen ölçüm kaybolmadı.",
+    "Arayüzden yeniden gönderme ve çift tıklama tek kayıt üretti; değerler korundu, bekleyen kayıt temizlendi."
+  ],
+  "taskId": "7de08985-8979-4672-abf2-7c37b3487425",
+  "inspectionId": "f7063b32-4fa4-46d7-a13f-eff7ab39ffdc",
+  "controlNumber": "KNT-1005",
+  "scope": "Gerçek canlı API; yalnızca ilk POST bağlantısı tarayıcı testinde kesildi. Tam internet kesintisi veya uygulamanın çevrimdışı açılışı test edilmedi."
+}

@@ -1,0 +1,23 @@
+{
+  "at": "2026-11-08T13:39:57.840Z",
+  "checks": [
+    {
+      "physical": false,
+      "record": "KNT-1029",
+      "detailOrder": [
+        "#1 Uzunluk",
+        "#2 Genişlik",
+        "#3 Delik çapı"
+      ],
+      "approval": "Yönetici onayı\nOnaylandı\n\nDeniz Yönetici · 08.11.2026 14:35:27\n\nGerekçe: Gerçek Android cihaz testinde çizim ve üç ölçüm sonucu incelendi.",
+      "values": [
+        "100.02",
+        "49.98",
+        "10.01"
+      ],
+      "closeButtons": 1
+    }
+  ],
+  "pdf": "onayli-kontrol-raporu.pdf",
+  "pdfGeneratedBy": "Canlı uygulamanın yazdırma görünümünden masaüstü Chromium PDF çıktısı; Android yerel yazdırma değil."
+}
