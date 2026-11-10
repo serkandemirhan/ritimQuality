@@ -40,7 +40,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
   const [companyForm, setCompanyForm] = useState<TenantCompany>({ ...company });
 
   const activePlan = SUBSCRIPTION_PLANS.find(p => p.id === company.planId) || SUBSCRIPTION_PLANS[1];
-  const subscriptionLabel = company.subscriptionStatus === 'active' ? 'Abonelik Aktif' : company.subscriptionStatus === 'trial' ? 'Deneme Sürümü' : company.subscriptionStatus === 'past_due' ? 'Ödeme Gecikmiş' : 'Abonelik İptal';
+  const subscriptionLabel = company.unlimitedPilot?'Sınırsız Deneme Hesabı':company.subscriptionStatus === 'active' ? 'Abonelik Aktif' : company.subscriptionStatus === 'trial' ? 'Deneme Sürümü' : company.subscriptionStatus === 'past_due' ? 'Ödeme Gecikmiş' : 'Abonelik İptal';
 
   const handleCopyLicense = () => {
     navigator.clipboard.writeText(company.licenseKey);
@@ -71,17 +71,17 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
   };
 
   return <div className="space-y-6">
-    <Card><div className="rq-chart-heading"><div><Badge tone={company.subscriptionStatus==='active'?'success':company.subscriptionStatus==='trial'?'info':'warning'}>{subscriptionLabel}</Badge><h2 className="rq-section-title mt-3">{company.name}</h2><p className="rq-helper">{[company.industry,company.facilityLocation].filter(Boolean).join(' · ')}</p></div><div><span className="rq-helper">Mevcut plan</span><h3 className="rq-section-title">{activePlan.name}</h3><p className="rq-helper">{company.billingPeriod==='annual'?'Yıllık faturalandırma':'Aylık faturalandırma'}</p></div></div>
-      <dl className="rq-detail-grid"><div><dt>Abonelik kimliği</dt><dd className="flex items-center gap-2">{company.licenseKey||'—'}{company.licenseKey&&<IconButton label="Abonelik kimliğini kopyala" onClick={handleCopyLicense}>{copiedLicense?<Check size={16}/>:<Copy size={16}/>}</IconButton>}</dd></div><div><dt>Yenileme tarihi</dt><dd>{company.subscriptionRenewsAt||'—'}</dd></div></dl>
-      <PageActions className="mt-4"><Button onClick={()=>setIsEditingCompany(true)}>Şirket & Fatura Bilgileri</Button><Button disabled={!billing?.portalAvailable} onClick={()=>void SaasApi.openBillingPortal().catch(error=>setCheckoutError(error instanceof Error?error.message:'Fatura portalı açılamadı.'))}>Ödeme & Faturaları Yönet</Button></PageActions>
+    <Card><div className="rq-chart-heading"><div><Badge tone={company.subscriptionStatus==='active'?'success':company.subscriptionStatus==='trial'?'info':'warning'}>{subscriptionLabel}</Badge><h2 className="rq-section-title mt-3">{company.name}</h2><p className="rq-helper">{[company.industry,company.facilityLocation].filter(Boolean).join(' · ')}</p></div><div><span className="rq-helper">Mevcut plan</span><h3 className="rq-section-title">{company.unlimitedPilot?'Sınırsız pilot erişimi':activePlan.name}</h3><p className="rq-helper">{company.unlimitedPilot?'Kullanıcı, kontrol planı ve numune kotası yok':company.billingPeriod==='annual'?'Yıllık faturalandırma':'Aylık faturalandırma'}</p></div></div>
+      <dl className="rq-detail-grid"><div><dt>Abonelik kimliği</dt><dd className="flex items-center gap-2">{company.licenseKey||'—'}{company.licenseKey&&<IconButton label="Abonelik kimliğini kopyala" onClick={handleCopyLicense}>{copiedLicense?<Check size={16}/>:<Copy size={16}/>}</IconButton>}</dd></div><div><dt>Yenileme tarihi</dt><dd>{company.unlimitedPilot?'Süre sınırı yok':company.subscriptionRenewsAt||'—'}</dd></div></dl>
+      <PageActions className="mt-4"><Button onClick={()=>setIsEditingCompany(true)}>Şirket & Fatura Bilgileri</Button><Button disabled={company.unlimitedPilot||!billing?.portalAvailable} onClick={()=>void SaasApi.openBillingPortal().catch(error=>setCheckoutError(error instanceof Error?error.message:'Fatura portalı açılamadı.'))}>Ödeme & Faturaları Yönet</Button></PageActions>
     </Card>
     <section aria-label="Abonelik kullanımı"><h2 className="rq-section-title mb-4">Kota ve kullanım</h2><div className="rq-metrics-row">
-      <UsageMeter label="Kontrol planı" value={controlPlanCount} limit={activePlan.maxControlPlans}/>
-      <UsageMeter label="Aktif kullanıcı" value={userCount} limit={activePlan.maxOperators}/>
-      <UsageMeter label="Aylık numune" value={monthlyMeasurementCount} limit={activePlan.maxMonthlyMeasurements}/>
+      <UsageMeter label="Kontrol planı" value={controlPlanCount} limit={activePlan.maxControlPlans} unlimited={company.unlimitedPilot}/>
+      <UsageMeter label="Aktif kullanıcı" value={userCount} limit={activePlan.maxOperators} unlimited={company.unlimitedPilot}/>
+      <UsageMeter label="Aylık numune" value={monthlyMeasurementCount} limit={activePlan.maxMonthlyMeasurements} unlimited={company.unlimitedPilot}/>
     </div></section>
     {checkoutError&&<p role="alert" className="rq-feedback rq-tone-danger">{checkoutError}</p>}
-    <section className="space-y-5"><div className="rq-chart-heading"><div><h2 className="rq-section-title">Abonelik planları</h2><p className="rq-helper">Çalışma alanınız için planları ve kullanım sınırlarını karşılaştırın.</p></div><Tabs label="Faturalandırma dönemi" value={billingPeriod} onChange={value=>setBillingPeriod(value as 'monthly'|'annual')} items={[{id:'monthly',label:'Aylık ödeme'},{id:'annual',label:'Yıllık ödeme'}]}/></div>
+    {!company.unlimitedPilot&&<section className="space-y-5"><div className="rq-chart-heading"><div><h2 className="rq-section-title">Abonelik planları</h2><p className="rq-helper">Çalışma alanınız için planları ve kullanım sınırlarını karşılaştırın.</p></div><Tabs label="Faturalandırma dönemi" value={billingPeriod} onChange={value=>setBillingPeriod(value as 'monthly'|'annual')} items={[{id:'monthly',label:'Aylık ödeme'},{id:'annual',label:'Yıllık ödeme'}]}/></div>
       <div className="rq-plan-comparison">{SUBSCRIPTION_PLANS.map(plan=>{
         const isCurrent=company.planId===plan.id&&company.subscriptionStatus==='active';
         const price=billingPeriod==='annual'?Math.round(plan.annualPrice/12):plan.monthlyPrice;
@@ -93,7 +93,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
           <Button variant={isCurrent?'secondary':'primary'} disabled={isCurrent||checkoutPlan!==null||!billing?.availablePlans.includes(plan.id)} loading={checkoutPlan===plan.id} onClick={()=>void handlePlanChange(plan.id)}>{isCurrent?'Kullanılan aktif plan':checkoutPlan===plan.id?'Ödeme sayfası açılıyor…':!billing?.availablePlans.includes(plan.id)?'Satın alma henüz açık değil':'Bu Pakete Geç'}</Button>
         </Card>;
       })}</div>
-    </section>
+    </section>}
     <Modal open={isEditingCompany} title="Şirket & Fatura Bilgilerini Düzenle" onClose={()=>setIsEditingCompany(false)} busy={savingCompany}>
       <form onSubmit={handleSaveCompany} className="space-y-5"><fieldset disabled={savingCompany} className="space-y-5">
         <FormSection title="Şirket kimliği"><Field label="Şirket kısa adı"><Input required value={companyForm.name} onChange={event=>setCompanyForm({...companyForm,name:event.target.value})}/></Field><Field label="Resmi şirket ünvanı"><Input required value={companyForm.legalName} onChange={event=>setCompanyForm({...companyForm,legalName:event.target.value})}/></Field></FormSection>

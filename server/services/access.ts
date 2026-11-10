@@ -1,12 +1,15 @@
 import type pg from 'pg';
+import {hasUnlimitedPilot} from './pilotAccess.js';
 import { PLAN_LIMITS, type PlanId } from '../config/plans.js';
 
-export async function assertSubscription(client: pg.PoolClient, tenantId: string): Promise<PlanId> {
+async function subscriptionAccess(client: pg.PoolClient, tenantId: string): Promise<{planId:PlanId;unlimited:boolean}> {
   const result = await client.query(
-    `SELECT plan_id, subscription_status, trial_ends_at, billing_source, manual_license_ends_at FROM tenants WHERE id = $1`,
+    `SELECT slug, pilot_unlimited, platform_suspended, plan_id, subscription_status, trial_ends_at, billing_source, manual_license_ends_at FROM tenants WHERE id = $1`,
     [tenantId],
   );
   const tenant = result.rows[0];
+  if(tenant?.platform_suspended)throw Object.assign(Error('Firma hesabı geçici olarak durduruldu.'),{status:403});
+  if(tenant&&hasUnlimitedPilot(tenant))return {planId:tenant.plan_id,unlimited:true};
   const trialValid = tenant?.subscription_status === 'trial' && new Date(tenant.trial_ends_at) > new Date();
   if (tenant?.billing_source === 'manual' && (!tenant.manual_license_ends_at || new Date(tenant.manual_license_ends_at).getTime() <= Date.now())) throw Object.assign(new Error('Manuel lisans süresi dolmuş.'), {status:402});
   if (!tenant || (!trialValid && tenant.subscription_status !== 'active')) {
@@ -14,7 +17,11 @@ export async function assertSubscription(client: pg.PoolClient, tenantId: string
     Object.assign(error, { status: 402 });
     throw error;
   }
-  return tenant.plan_id;
+  return {planId:tenant.plan_id,unlimited:false};
+}
+
+export async function assertSubscription(client:pg.PoolClient,tenantId:string):Promise<PlanId>{
+  return (await subscriptionAccess(client,tenantId)).planId;
 }
 
 export async function assertQuota(
@@ -24,7 +31,8 @@ export async function assertQuota(
   requestedAmount = 1,
 ): Promise<void> {
   await client.query('SELECT id FROM tenants WHERE id=$1 FOR UPDATE',[tenantId]);
-  const planId = await assertSubscription(client, tenantId);
+  const {planId,unlimited} = await subscriptionAccess(client,tenantId);
+  if(unlimited)return;
   const limits = PLAN_LIMITS[planId];
   const sql = resource === 'controlPlans'
     ? 'SELECT count(*)::int count FROM control_plans WHERE tenant_id = $1'

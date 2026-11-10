@@ -92,7 +92,7 @@ export const SaasApi = {
   bootstrap: () => request<{
     company: Record<string, unknown>; users: Record<string, unknown>[];
     products: unknown[]; controlPlans: unknown[]; inspectionLogs: unknown[];
-    currentUserId: string;
+    currentUserId: string; platformAdmin?: boolean;
     usage: { control_plans: number; users: number; monthly_measurements: number };
   }>('/bootstrap'),
   saveProduct: (value: { id: string }) => request(`/products/${encodeURIComponent(value.id)}`, { method: 'PUT', body: JSON.stringify(value) }),
@@ -145,3 +145,6 @@ export const SaasApi = {
     window.location.assign(result.url);
   },
 };
+
+/** Shared authenticated transport for the separate platform console. */
+export const platformRequest=request;

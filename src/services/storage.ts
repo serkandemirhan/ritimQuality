@@ -44,6 +44,7 @@ export const StorageService = {
     const data = await SaasApi.bootstrap();
     const raw = data.company as Record<string, unknown>;
     const company: TenantCompany = {
+      unlimitedPilot:raw.unlimited_pilot===true,
       id: String(raw.id), name: String(raw.name || ''), legalName: String(raw.legal_name || raw.name || ''),
       taxNumber: String(raw.tax_number || ''), taxOffice: String(raw.tax_office || ''), industry: String(raw.industry || ''),
       facilityLocation: String(raw.facility_location || ''), contactEmail: String(raw.contact_email || ''),
@@ -55,6 +56,7 @@ export const StorageService = {
       createdAt: String(raw.created_at || new Date().toISOString()),
     };
     const users: User[] = data.users.map(rawUser => ({
+      platformAdmin:data.platformAdmin===true&&String(rawUser.id)===String(data.currentUserId),
       id: String(rawUser.id), name: String(rawUser.name), email: String(rawUser.email), role: rawUser.role as User['role'],
       department: String(rawUser.department || ''), stationOrMachine: rawUser.station_or_machine ? String(rawUser.station_or_machine) : undefined,
       status: rawUser.status as User['status'], lastLogin: String(rawUser.last_login_at || ''),

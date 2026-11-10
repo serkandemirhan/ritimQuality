@@ -21,9 +21,15 @@
     "test:revisions": "tsx tests/sales-revisions.test.ts",
     "test:mobile-measurement": "tsx tests/mobile-measurement.test.ts",
     "test:mobile-measurement:browser": "node tests/mobile-measurement-browser.mjs",
-    "test:report-analysis": "tsx tests/report-analysis.test.ts"
+    "test:report-analysis": "tsx tests/report-analysis.test.ts",
+    "test:spc": "tsx --test tests/spc-regression.test.ts",
+    "test:report-sharing": "tsx --test tests/report-pdf.test.ts tests/pilot-access.test.ts",
+    "platform:identify": "tsx tools/platform-identify.ts",
+    "test:platform": "tsx --test tests/platform-admin.test.ts",
+    "test:platform:integration": "npm run build:api && node tests/platform-integration.cjs"
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "1.1.1",
     "@radix-ui/react-slot": "1.5.0",
     "@supabase/supabase-js": "^2.116.0",
     "@tailwindcss/vite": "^4.1.14",

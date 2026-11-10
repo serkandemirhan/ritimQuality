@@ -13,7 +13,7 @@ DO $$ DECLARE table_name text; api_role text; sequence_name text; BEGIN
   FOREACH table_name IN ARRAY ARRAY[
     'tenants','users','products','control_plans','inspection_logs','audit_logs','stripe_events',
     'measurement_results','media_evidence','plants','departments','stations','quality_cases','inspection_approvals',
-    'quality_tasks','quality_notifications','push_subscriptions','inspection_drafts','account_tokens','request_limits'
+    'quality_tasks','quality_notifications','push_subscriptions','inspection_drafts','account_tokens','request_limits','platform_audit_events','platform_packages','platform_package_rows','platform_package_files'
   ] LOOP
     EXECUTE format('REVOKE ALL ON TABLE public.%I FROM PUBLIC',table_name);
     FOREACH api_role IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
@@ -23,10 +23,12 @@ DO $$ DECLARE table_name text; api_role text; sequence_name text; BEGIN
     END LOOP;
     EXECUTE format('GRANT SELECT,INSERT,UPDATE,DELETE ON TABLE public.%I TO qualitrack_app',table_name);
   END LOOP;
-  FOREACH sequence_name IN ARRAY ARRAY['audit_logs_id_seq','measurement_results_id_seq','quality_notifications_id_seq'] LOOP
+  FOREACH sequence_name IN ARRAY ARRAY['audit_logs_id_seq','measurement_results_id_seq','quality_notifications_id_seq','platform_audit_events_id_seq'] LOOP
     EXECUTE format('GRANT USAGE,SELECT ON SEQUENCE public.%I TO qualitrack_app',sequence_name);
   END LOOP;
 END $$;
 REVOKE UPDATE,DELETE ON public.audit_logs FROM qualitrack_app;
 REVOKE DELETE ON public.inspection_logs FROM qualitrack_app;
 -- No grants to the migration history, storage schema, or other applications' tables.
+
+REVOKE UPDATE,DELETE ON public.platform_audit_events FROM qualitrack_app;

@@ -85,3 +85,29 @@ Eski `.data/media` dosyaları otomatik taşınmaz. Canlı geçmiş aktarılacaks
 7. Mobil gerçek cihazlar; QR, kamera ve push izni. Cron yetkisiz çağrı 401 döndürmeli.
 
 Kaynaklar: [Vercel Node Functions](https://vercel.com/docs/functions/runtimes/node-js), [Vercel payload limitleri](https://vercel.com/docs/functions/limitations), [Vercel cron planları](https://vercel.com/docs/cron-jobs/usage-and-pricing), [Supabase bağlantıları](https://supabase.com/docs/guides/database/connecting-to-postgres), [Supabase imzalı yükleme](https://supabase.com/docs/reference/javascript/file-buckets-createsigneduploadurl).
+
+## Sınırsız fabrika pilotu
+
+Yalnız seçilen deneme hesaplarında kullanıcı, kontrol planı/revizyon ve aylık numune kotaları ile deneme/lisans süresi denetimini kaldırmak için **sunucu** ortamına gerçek çalışma alanı adlarını girin:
+
+```text
+UNLIMITED_PILOT_WORKSPACES=fabrika-a,fabrika-b
+```
+
+Bu adlar örnektir; gerçek iki fabrikanın girişte kullandığı adlarla değiştirilmelidir. Değişken `VITE_` öneki almaz ve tarayıcıdan değiştirilemez. Vercel Production ortamına tanımlandıktan sonra yeni sürüm yayımlanmalıdır. Boş değer hiçbir hesaba sınırsız erişim vermez. Yeni veritabanı migration'ı gerekmez; diğer hesapların paket/süre kuralları değişmez. Listeye alınan hesapta Abonelik ekranı “Sınırsız Deneme Hesabı”, “Süre sınırı yok” ve sınırsız kullanım sayaçlarını gösterir. Yetkiyi kaldırmak için adı listeden çıkarıp yeniden yayımlayın.
+
+Bu özellik dosya yükleme boyutu, istek güvenliği, kullanıcı rolleri veya firmalar arası veri izolasyonunu kaldırmaz. Gerçek fabrika hesapları henüz belirlenmediğinden örnek ortam dosyalarında liste boş bırakılmıştır.
+
+## Rapor PDF indirme ve paylaşma
+
+Ölçüm raporunda **PDF indir** doğrudan aranabilir, Türkçe karakterleri destekleyen PDF üretir. **Paylaş**, PDF hazırlandıktan sonra cihazın dosya paylaşım menüsünü açar; kullanıcı WhatsApp, e-posta veya başka bir hedef seçer. Dosya paylaşımı desteklenmiyorsa PDF indirilir. Paylaşımı iptal etmek hata değildir; bir mesajın karşı tarafa teslim edildiği iddia edilmez. Herhangi bir alıcıya otomatik mesaj gönderilmez ve herkese açık rapor bağlantısı oluşturulmaz.
+
+PDF; rapor kimliği, parça/lot/iş emri, plan revizyonu, ölçüm sonuçları ve notları, yönetici onayı, varsa yerel/senkronlanmamış veya demo uyarısı, teknik resim ve kontrol işaretlerini içerir. Uzun tablolar sayfalara bölünür. Teknik resim bekleniyor veya PDF hazırlığı başarısızsa indirme/paylaşma hazır duruma gelmez; yeniden deneme sunulur. Normal yazdırma seçeneği korunur.
+
+[Web Share dokümantasyonu](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/share): dosya paylaşımı cihaz/tarayıcı desteğine ve kullanıcı dokunuşuna bağlıdır. PDF bu nedenle önceden hazırlanır ve paylaşım doğrudan düğme olayında başlatılır.
+
+Testler: `npm run test:report-sharing`; yerel review sunucusu üzerinde `node tests/report-sharing-browser.cjs` (Playwright gerekir; gerekirse `PLAYWRIGHT_MODULE` ile mevcut modül yolu verilir). Tarayıcı testleri paylaşım hedefini taklit eder; gerçek WhatsApp gönderimi yapmaz.
+
+## Merkezi platform yönetimi
+
+`/platform` adresindeki merkezi panel; firma/kullanıcı yönetimi, kalıcı sınırsız pilot erişimi, veri export'u, şifreli yedek ve önizlemeli eksik kayıt kurtarma sağlar. Önce `016_platform_admin` migration'ı, ardından yalnız size ait kullanıcı kimliğini içeren `PLATFORM_ADMIN_USER_IDS` sunucu ayarı ve yeni yayın gerekir. Normal müşteri `admin` rolü merkezi yetki vermez. [Kurulum ve kapsam](PLATFORM_ADMIN.md).

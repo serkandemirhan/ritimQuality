@@ -202,3 +202,7 @@ body:has(.quality-session) { padding-bottom:0; }
  .rq-operator-workspace .measurement-evidence summary{min-height:38px;list-style:none}
  .rq-operator-workspace .measurement-evidence summary::-webkit-details-marker{display:none}
 }
+
+@media print { .rq-report-export-status { display:none!important; } }
+
+.rq-report-export-status { padding:10px 14px; font-size:12px; }

@@ -2,7 +2,7 @@ import { PageHeader, Button, Card, DataTable, SearchInput, TableToolbar, StatusB
 import { EmptyState } from './EmptyState';
 import { SaasApi } from '../services/api';
 import { MediaImage } from './MediaImage';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Product, ControlPlan, InspectionLog } from '../types';
 import { StorageService } from '../services/storage';
 import { SHAFT_BUSHING_SVG, FLANGE_BODY_SVG, CONNECTOR_HOUSING_SVG } from '../data/mockData';
@@ -60,9 +60,25 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
   const [description, setDescription] = useState<string>('');
   const [drawingUrl, setDrawingUrl] = useState<string>(SHAFT_BUSHING_SVG);
 
+  const initialForm=useRef('');
+  const formSnapshot=JSON.stringify({code,name,customer,revision,material,category,description,drawingUrl});
+  const dirty=isAddModalOpen&&initialForm.current!==formSnapshot;
+  const confirmDiscard=()=>!dirty||window.confirm('Kaydedilmemiş değişiklikler var. Değişikliklerden vazgeçilsin mi?');
+  const requestClose=()=>{if(saving||uploading)return;if(confirmDiscard())setIsAddModalOpen(false);};
+  useEffect(()=>{
+    if(!isAddModalOpen)return;
+    const unload=(event:BeforeUnloadEvent)=>{if(dirty||saving||uploading){event.preventDefault();event.returnValue='';}};
+    const navigate=(event:Event)=>{if(saving||uploading||!confirmDiscard())event.preventDefault();};
+    window.addEventListener('beforeunload',unload);
+    window.addEventListener('ritim-measurement-navigate',navigate);
+    return()=>{window.removeEventListener('beforeunload',unload);window.removeEventListener('ritim-measurement-navigate',navigate);};
+  },[isAddModalOpen,dirty,saving,uploading]);
+
   const handleOpenAdd = () => {
+    const newCode=`PRD-${new Date().getFullYear()}-${String(Math.floor(Math.random()*900)+100)}`;
+    initialForm.current=JSON.stringify({code:newCode,name:'',customer:'',revision:'A',material:'16MnCr5 Çelik',category:'Talaşlı İmalat (CNC)',description:'',drawingUrl:SHAFT_BUSHING_SVG});
     setEditingProduct(null);
-    setCode(`PRD-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`);
+    setCode(newCode);
     setName('');
     setCustomer('');
     setRevision('A');
@@ -74,6 +90,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
   };
 
   const handleOpenEdit = (p: Product) => {
+    initialForm.current=JSON.stringify({code:p.code,name:p.name,customer:p.customer,revision:p.revision||'A',material:p.material,category:p.category,description:p.description,drawingUrl:p.defaultDrawingUrl});
     setEditingProduct(p);
     setCode(p.code);
     setName(p.name);
@@ -218,7 +235,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
         </div>
       )}
 
-      <Modal open={isAddModalOpen} busy={saving||uploading} title={editingProduct?'Parça bilgilerini düzenle':'Yeni parça'} onClose={()=>setIsAddModalOpen(false)}>
+      <Modal open={isAddModalOpen} busy={saving||uploading} title={editingProduct?'Parça bilgilerini düzenle':'Yeni parça'} onClose={requestClose}>
         <form onSubmit={handleSaveProduct}>
           <FormSection title="Temel bilgiler" description="Parçayı tanımlayan kod, ad ve teknik resim revizyonu.">
             <Field label="Parça kodu *"><Input required value={code} onChange={e=>setCode(e.target.value)} placeholder="PRD-2026-001" className="rq-technical"/></Field>
@@ -236,7 +253,7 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
             <Field label="PDF veya teknik resim yükle"><Input disabled={uploading||saving} type="file" accept="image/*,application/pdf" onChange={handleDrawingUpload}/></Field>
             {drawingUrl&&<MediaImage src={drawingUrl} alt="Seçilen teknik resim" className="h-28 w-full rounded-lg bg-slate-950 object-contain"/>}
           </FormSection>
-          <p role="status" className="rq-helper">{uploading?'Teknik resim yükleniyor. Kaydetmek için yüklemenin bitmesini bekleyin.':''}</p><PageActions><Button disabled={saving||uploading} onClick={()=>setIsAddModalOpen(false)}>İptal</Button><Button variant="primary" disabled={uploading} loading={saving} type="submit">{editingProduct?'Güncelle':'Parçayı kaydet'}</Button></PageActions>
+          <p role="status" className="rq-helper">{uploading?'Teknik resim yükleniyor. Kaydetmek için yüklemenin bitmesini bekleyin.':''}</p><PageActions><Button disabled={saving||uploading} onClick={requestClose}>İptal</Button><Button variant="primary" disabled={uploading} loading={saving} type="submit">{editingProduct?'Güncelle':'Parçayı kaydet'}</Button></PageActions>
         </form>
       </Modal>
     </div>

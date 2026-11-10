@@ -1,5 +1,5 @@
-import {useCallback,useEffect,useMemo,useState} from 'react';
-import {Download,Printer} from 'lucide-react';
+import {useCallback,useEffect,useMemo,useState,useRef} from 'react';
+import {Download,Printer,Share2} from 'lucide-react';
 import {controlLabel} from '../services/controlLabel';
 import {analyzeInspectionReport,reportRowStatusLabel,reportStatusLabel,type ReportMeasurementRow} from '../services/reportAnalysis';
 import {orderedCharacteristics} from '../services/measurementOrder';
@@ -27,6 +27,33 @@ function ToleranceIndicator({row}:{row:ReportMeasurementRow}){
 export function InspectionCertificateModal({log,company,isExample=false,product,controlPlan,onClose}:InspectionCertificateModalProps){
   const [drawingReady,setDrawingReady]=useState(false);
   const [mode,setMode]=useState<Mode>('standard');
+  const paper=useRef<HTMLElement>(null);
+  const [exportAttempt,setExportAttempt]=useState(0);
+  const [prepared,setPrepared]=useState<{key:object;file:File}|null>(null);
+  const [exportError,setExportError]=useState('');
+  const [shareMessage,setShareMessage]=useState('');
+  const [sharing,setSharing]=useState(false);
+  const exportInput=useMemo(()=>({log,company,product,controlPlan,isExample,detailed:mode==='detailed'}),[log,company,product,controlPlan,isExample,mode]);
+  const file=prepared?.key===exportInput?prepared.file:null;
+  useEffect(()=>{
+    let live=true;setPrepared(null);setExportError('');setShareMessage('');
+    if(!exportInput.log||(controlPlan?.drawingImageUrl&&!drawingReady))return;
+    void import('../services/reportExport').then(module=>module.prepareReportFile({...exportInput,log:exportInput.log!},paper.current?.querySelector<HTMLImageElement>('.rq-report-balloon-drawing img')||undefined))
+      .then(file=>{if(live)setPrepared({key:exportInput,file});})
+      .catch(()=>{if(live)setExportError('PDF hazırlanamadı. Bağlantıyı ve teknik resmi kontrol edip yeniden deneyin.');});
+    return()=>{live=false;};
+  },[exportInput,drawingReady,exportAttempt]);
+  const download=()=>{if(!file)return;void import('../services/reportExport').then(module=>{module.downloadReportFile(file);setShareMessage('PDF indirme isteği oluşturuldu. Dosyayı WhatsApp veya e-posta ile gönderebilirsiniz.');}).catch(()=>setExportError('PDF indirilemedi. Yeniden deneyin.'));};
+  const share=()=>{
+    if(!file||sharing)return;
+    if(!navigator.share||!navigator.canShare?.({files:[file]})){download();return;}
+    setSharing(true);setShareMessage('');
+    // The file is prepared in advance: native sharing must start in this click gesture.
+    void navigator.share({files:[file],title:'Ritim Quality · Kalite kontrol raporu'})
+      .then(()=>setShareMessage('PDF cihazın paylaşım menüsüne aktarıldı.'))
+      .catch(error=>{if(error?.name!=='AbortError')setShareMessage('Paylaşım açılamadı. PDF indir düğmesiyle dosyayı kaydedip gönderebilirsiniz.');})
+      .finally(()=>setSharing(false));
+  };
   useEffect(()=>{setDrawingReady(false);setMode('standard');},[log?.id,controlPlan?.drawingImageUrl]);
   const close=useCallback(()=>onClose(),[onClose]);
   const characteristics=useMemo(()=>orderedCharacteristics(log?.controlPlanSnapshot||controlPlan),[log,controlPlan]);
@@ -37,10 +64,11 @@ export function InspectionCertificateModal({log,company,isExample=false,product,
   const handlePrint=()=>{if(controlPlan?.drawingImageUrl&&!drawingReady)return;window.print();};
   const rowStatusByPoint=new Map<number,string>();
   analysis.rows.forEach(row=>{const previous=rowStatusByPoint.get(row.pointNo);if(row.status==='fail'||!previous)rowStatusByPoint.set(row.pointNo,row.status);});
-  return <Modal open title="Kalite kontrol raporu" onClose={close} className="rq-report-modal">
+  return <Modal open title="Kalite kontrol raporu" busy={sharing} onClose={close} className="rq-report-modal">
     <style>{`@page { size: A4 portrait; margin: 10mm 10mm 14mm; } @media print { .rq-report-paper { counter-reset: page; } }`}</style>
-    <div className="rq-report-actions rq-actions"><span className="rq-helper">{reportNumber} · yazdırma önizlemesi</span><div className="rq-report-mode" role="group" aria-label="Rapor görünümü"><Button aria-pressed={mode==='standard'} onClick={()=>setMode('standard')}>Standart</Button><Button aria-pressed={mode==='detailed'} onClick={()=>setMode('detailed')}>Detaylı</Button></div><Button id="btn-trigger-print" disabled={!!controlPlan?.drawingImageUrl&&!drawingReady} variant="primary" onClick={handlePrint}><Printer size={16}/>Yazdır / PDF Kaydet</Button></div>
-    <article className={`rq-report-paper rq-premium-report rq-report-${mode}`}>
+    <div className="rq-report-actions rq-actions"><span className="rq-helper">{reportNumber} · yazdırma önizlemesi</span><div className="rq-report-mode" role="group" aria-label="Rapor görünümü"><Button aria-pressed={mode==='standard'} onClick={()=>setMode('standard')}>Standart</Button><Button aria-pressed={mode==='detailed'} onClick={()=>setMode('detailed')}>Detaylı</Button></div><Button disabled={!file||sharing} onClick={download}><Download size={16}/>PDF indir</Button><Button disabled={!file||sharing} loading={sharing} onClick={share}><Share2 size={16}/>Paylaş</Button><Button id="btn-trigger-print" disabled={!!controlPlan?.drawingImageUrl&&!drawingReady} variant="primary" onClick={handlePrint}><Printer size={16}/>Yazdır / PDF Kaydet</Button></div>
+    <div className="rq-report-export-status" aria-live="polite">{exportError?<p role="alert">{exportError} <Button onClick={()=>setExportAttempt(value=>value+1)}>PDF hazırlamayı tekrar dene</Button></p>:!file?<p className="rq-helper">PDF hazırlanıyor…</p>:<p className="rq-helper">PDF hazır. Paylaş ile cihazınızdaki WhatsApp, e-posta veya diğer uygulamaları seçebilirsiniz.</p>}{shareMessage&&<p role="status" className="rq-helper">{shareMessage}</p>}</div>
+    <article ref={paper} className={`rq-report-paper rq-premium-report rq-report-${mode}`}>
       {isExample&&<aside className="rq-report-demo-notice"><strong>DEMO RAPORU</strong><span>Bu rapor gösterim amaçlıdır. Üretim onayı veya resmi kalite kabul belgesi değildir.</span></aside>}
       {!isExample&&log.clientSyncStatus==='pending'&&<aside className="rq-report-demo-notice"><strong>Yerel rapor</strong><span>Bu ölçüm cihazda kaydedildi; sunucu senkronizasyonu henüz tamamlanmadı.</span></aside>}
       <header className="rq-report-header"><div><strong className="rq-report-brand">ritim<span>quality</span></strong><p>ÖLÇÜM VE KALİTE KONTROL RAPORU</p></div><dl><div><dt>Rapor no</dt><dd>{reportNumber}</dd></div><div><dt>Oluşturulma</dt><dd>{generatedAt}</dd></div><div><dt>Plan revizyonu</dt><dd>{log.controlPlanVersion||'—'}</dd></div><div><dt>Rapor durumu</dt><dd>{controlPlan?.status==='draft'?'Taslak':'Oluşturuldu'}</dd></div></dl></header>

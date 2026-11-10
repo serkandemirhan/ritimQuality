@@ -1,3 +1,4 @@
+import {platformRouter} from './routes/platform.js';
 import express from 'express';
 import { ZodError } from 'zod';
 import { authRouter } from './routes/auth.js';
@@ -25,6 +26,7 @@ app.use(express.json({ limit: process.env.VERCEL ? '3mb' : '10mb' }));
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 app.use('/api/cron', cronRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/platform',platformRouter);
 app.use('/api', drawingAnalysisRouter);
 app.use('/api', workflowRouter);
 app.use('/api', pushRouter);

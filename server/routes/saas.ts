@@ -1,3 +1,5 @@
+import {isPlatformAdmin} from '../middleware/platform.js';
+import {hasUnlimitedPilot} from '../services/pilotAccess.js';
 import { completeInspectionRequest } from '../services/inspectionRequest.js';
 import { createInspectionWorkflow } from '../services/workflow.js';
 import { inspectionRulesSchema, inspectionSignature, validateInspection, planSchema, assertRevisionUnchanged, conflict } from '../services/inspectionValidation.js';
@@ -20,7 +22,7 @@ saasRouter.get('/bootstrap', async (req, res, next) => {
     const data = await withTenant(tenantId, async client => {
       const tenant = await client.query(`SELECT id, slug, name, legal_name, tax_number, tax_office, industry, facility_location,
           contact_email, contact_phone, plan_id, subscription_status, billing_period, subscription_renews_at,
-          trial_ends_at, created_at FROM tenants WHERE id = $1`, [tenantId]);
+          trial_ends_at, pilot_unlimited, created_at FROM tenants WHERE id = $1`, [tenantId]);
       const users = await client.query(`SELECT id, name, email, role, department, station_or_machine, status, last_login_at
           FROM users WHERE tenant_id = $1 ORDER BY name`, [tenantId]);
       const products = await client.query('SELECT payload FROM products WHERE tenant_id = $1 ORDER BY created_at DESC', [tenantId]);
@@ -32,8 +34,8 @@ saasRouter.get('/bootstrap', async (req, res, next) => {
           (SELECT COALESCE(sum(jsonb_array_length(payload->'samples')), 0)::int FROM inspection_logs
             WHERE tenant_id = $1 AND voided_at IS NULL AND occurred_at >= date_trunc('month', now())) monthly_measurements`, [tenantId]);
       return {
-        currentUserId: req.auth!.userId,
-        company: tenant.rows[0], users: users.rows,
+        currentUserId: req.auth!.userId,platformAdmin:isPlatformAdmin(req.auth!.userId),
+        company: {...tenant.rows[0],unlimited_pilot:hasUnlimitedPilot(tenant.rows[0]||{})}, users: users.rows,
         products: products.rows.map(row => row.payload),
         controlPlans: controlPlans.rows.map(row => row.payload),
         inspectionLogs: logs.rows.map(row => ({...row.payload,controlNumber:row.control_number,approval:row.approval})),
@@ -241,6 +243,7 @@ saasRouter.post('/users', requireRole('admin'), async (req, res, next) => {
   try {
     const input = z.object({ id:z.string().min(1).max(120),name:z.string().min(2),email:z.string().email(),password:z.string().min(10).max(128).optional(),role:z.enum(['admin','quality_engineer','operator','auditor']),department:z.string().default(''),stationOrMachine:z.string().optional(),status:z.enum(['active','suspended']).default('active') }).parse(req.body);
     const { tenantId, userId } = req.auth!;
+    if(isPlatformAdmin(input.id)&&!isPlatformAdmin(userId))throw Object.assign(Error('Platform yöneticisi hesabı değiştirilemez.'),{status:403});
     const user = await withTenant(tenantId, async client => {
       const existing = (await client.query('SELECT * FROM users WHERE tenant_id=$1 AND id=$2', [tenantId,input.id])).rows[0];
       if (!existing) await assertQuota(client, tenantId, 'users'); else await assertSubscription(client, tenantId);
@@ -265,7 +268,8 @@ saasRouter.post('/users', requireRole('admin'), async (req, res, next) => {
 
 saasRouter.delete('/users/:id', requireRole('admin'), async (req, res, next) => {
   try {
-    const id=idSchema.parse(req.params.id); const {tenantId,userId}=req.auth!;
+    const id=idSchema.parse(req.params.id);
+    if(isPlatformAdmin(id))throw Object.assign(Error('Platform yöneticisi hesabı silinemez.'),{status:403}); const {tenantId,userId}=req.auth!;
     if (id===userId) { res.status(409).json({error:'Kendi hesabınızı silemezsiniz.'}); return; }
     await withTenant(tenantId, async client => {
       await assertSubscription(client,tenantId);
