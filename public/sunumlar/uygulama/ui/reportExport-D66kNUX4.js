@@ -1,4 +1,4 @@
-import{x as O1,H as k1,J as P1,n as mv,K as E1,L as I1}from"./index-DieJcStT.js";const D1="/sunumlar/uygulama/assets/LiberationSans-Regular-cbskN6YR.ttf",B1="/sunumlar/uygulama/assets/LiberationSans-Bold-BPt4bU5Z.ttf";/*! *****************************************************************************
+import{x as O1,H as k1,J as P1,n as mv,K as E1,L as I1}from"./index-DieJcStT.js";const D1="/sunumlar/uygulama/ui/LiberationSans-Regular-cbskN6YR.ttf",B1="/sunumlar/uygulama/ui/LiberationSans-Bold-BPt4bU5Z.ttf";/*! *****************************************************************************
 Copyright (c) Microsoft Corporation.
 
 Permission to use, copy, modify, and/or distribute this software for any
