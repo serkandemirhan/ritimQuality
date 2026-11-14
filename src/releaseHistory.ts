@@ -1,6 +1,13 @@
 /** Release dates describe production publication, not the time a feature was implemented. */
 export const releaseHistory = [
   {
+    version: '1.2.0',
+    date: '2026-11-14' as string | null,
+    status: 'published' as const,
+    databaseVersion: '016_platform_admin',
+    changes: ['Platform yönetiminde firma listesi tek satırlı ve daha kompakt hale getirildi.', 'Platform girişinde çalışma alanı isteme sorunu giderildi.'],
+  },
+  {
     version: '1.1.0',
     date: '2026-11-14' as string | null,
     status: 'published' as const,
