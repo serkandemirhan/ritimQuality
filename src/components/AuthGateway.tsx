@@ -4,6 +4,7 @@ import {SaasApi} from '../services/api';
 import './auth.css';
 type Mode='login'|'register'|'forgot'|'reset'|'verify';
 export const AuthGateway:React.FC<React.PropsWithChildren>=({children})=>{
+  const platformLogin=location.pathname==='/platform'||location.pathname.startsWith('/platform/');
   const [mode,setMode]=useState<Mode>(()=>{
     const value=new URLSearchParams(location.search).get('auth');
     return ['register','forgot','reset','verify'].includes(value||'')?value as Mode:'login';
@@ -27,7 +28,7 @@ export const AuthGateway:React.FC<React.PropsWithChildren>=({children})=>{
     event.preventDefault();if(loading)return;setError('');setMessage('');setLoading(true);
     try {
       if(mode==='login'||mode==='register'){
-        if(mode==='register')await SaasApi.register(form);else await SaasApi.login(form);
+        if(mode==='register')await SaasApi.register(form);else if(platformLogin)await SaasApi.platformLogin({email:form.email,password:form.password});else await SaasApi.login(form);
         setAuthenticated(true);
       }else if(redemption){
         if(mode==='reset'&&form.password!==form.confirm)throw new Error('Şifreler eşleşmiyor.');
@@ -48,7 +49,7 @@ export const AuthGateway:React.FC<React.PropsWithChildren>=({children})=>{
     minLength={key==='password'&&mode!=='login'?10:undefined} maxLength={key==='password'||key==='confirm'?72: key==='workspace'?49:254}
     pattern={key==='workspace'?'[a-z0-9][a-z0-9\\-]{2,48}':undefined} autoCapitalize={key==='workspace'||key==='email'?'none':undefined}
     onChange={e=>setForm({...form,[key]:key==='workspace'?e.target.value.toLowerCase().trim():e.target.value})}/></label>;
-  return <div className="rq-auth-page"><aside className="rq-auth-story"><a href="https://www.getritim.com/quality" className="rq-auth-brand" aria-label="Ritim Quality ana sayfa"><Factory size={26}/>ritim <small>quality</small></a><div className="rq-auth-story-content"><span>ÇİZİMDEN RAPORA</span><h1>Her ölçümün<br/>bir yeri olsun.</h1><p>Teknik resimden kontrol planına, ilk ölçümden son rapora. Kalitenin her adımı aynı çalışma alanında.</p><div className="rq-auth-journey" aria-label="Kalite kontrol adımları">{['Teknik resim','Kontrol planı','Ölçüm raporu'].map((step,i)=><div key={step}><b>0{i+1}</b><span>{step}</span><Check size={14}/></div>)}</div></div><p><ShieldCheck size={18}/> Firmaya özel çalışma alanı</p></aside><main className="rq-auth-main"><div className="rq-auth-card"><div className="rq-auth-icon" aria-hidden="true"><LockKeyhole size={23}/></div><span className="rq-auth-eyebrow">{mode==='register'?'EKİBİNİZ İÇİN YENİ BİR BAŞLANGIÇ':'RİTİM QUALITY · HESABINIZ'}</span><h2>{titles[mode]}</h2><p>{descriptions[mode]}</p>
+  return <div className="rq-auth-page"><aside className="rq-auth-story"><a href="https://www.getritim.com/quality" className="rq-auth-brand" aria-label="Ritim Quality ana sayfa"><Factory size={26}/>ritim <small>quality</small></a><div className="rq-auth-story-content"><span>ÇİZİMDEN RAPORA</span><h1>Her ölçümün<br/>bir yeri olsun.</h1><p>Teknik resimden kontrol planına, ilk ölçümden son rapora. Kalitenin her adımı aynı çalışma alanında.</p><div className="rq-auth-journey" aria-label="Kalite kontrol adımları">{['Teknik resim','Kontrol planı','Ölçüm raporu'].map((step,i)=><div key={step}><b>0{i+1}</b><span>{step}</span><Check size={14}/></div>)}</div></div><p><ShieldCheck size={18}/> Firmaya özel çalışma alanı</p></aside><main className="rq-auth-main"><div className="rq-auth-card"><div className="rq-auth-icon" aria-hidden="true"><LockKeyhole size={23}/></div><span className="rq-auth-eyebrow">{mode==='register'?'EKİBİNİZ İÇİN YENİ BİR BAŞLANGIÇ':'RİTİM QUALITY · HESABINIZ'}</span><h2>{platformLogin&&mode==='login'?'Platform y?netimine giri?':titles[mode]}</h2><p>{platformLogin&&mode==='login'?'Platform y?neticisi hesab?n?zla giri? yap?n.':descriptions[mode]}</p>
     <form onSubmit={submit}><fieldset disabled={loading}>
       {mode==='register'&&<>{field('companyName','Firma adı','text','organization')}{field('name','Ad soyad','text','name')}</>}
       {!redemption&&<>{field('workspace','Çalışma alanı','text','organization-title')}<small>Örnek: ornek-fabrika. Girişte bu adı kullanacaksınız.</small>{field('email','E-posta adresi','email','username')}</>}

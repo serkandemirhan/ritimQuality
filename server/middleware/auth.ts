@@ -26,8 +26,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   if (!token) { res.status(401).json({ error: 'Oturum açmanız gerekiyor.' }); return; }
   try {
     const claims = jwt.verify(token, jwtSecret()) as AuthClaims;
-    const result = await withTenant(claims.tenantId, client => client.query('SELECT role,status,session_version FROM users WHERE tenant_id=$1 AND id=$2', [claims.tenantId, claims.userId]));
+    const result = await withTenant(claims.tenantId, client => client.query('SELECT u.role,u.status,u.session_version,t.platform_suspended FROM users u JOIN tenants t ON t.id=u.tenant_id WHERE u.tenant_id=$1 AND u.id=$2', [claims.tenantId, claims.userId]));
     const user = result.rows[0];
+    if(user?.platform_suspended){res.status(403).json({error:'Firma hesabı platform yöneticisi tarafından durduruldu.'});return;}
     if (!user || user.status !== 'active') { res.status(401).json({error:'Kullanıcı hesabı aktif değil.'}); return; }
     if ((claims.sessionVersion ?? 0) !== user.session_version) { res.status(401).json({error:'Şifreniz değişti. Lütfen yeniden giriş yapın.'}); return; }
     req.auth = {userId:claims.userId, tenantId:claims.tenantId, role:user.role};

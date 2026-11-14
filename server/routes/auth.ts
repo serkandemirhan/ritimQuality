@@ -104,6 +104,33 @@ authRouter.post('/login', requestLimit('login',60), async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+authRouter.post('/platform-login', requestLimit('platform-login', 60), async (req, res, next) => {
+  try {
+    const input = z.object({email:z.string().email().max(254), password:z.string().min(1).max(72)}).parse(req.body);
+    const email = input.email.toLowerCase();
+    if (!await consumeLimit('platform-login-account', email, 20, 900)) {
+      res.status(429).json({error:'?ok fazla giri? denemesi. L?tfen 15 dakika sonra tekrar deneyin.'}); return;
+    }
+    const ids = [...new Set((process.env.PLATFORM_ADMIN_USER_IDS || '').split(',').map(id => id.trim()).filter(Boolean))];
+    const matches: Array<{id:string;tenant_id:string;password_hash:string;role:import('../middleware/auth.js').Role;status:string;session_version:number}> = [];
+    if (ids.length) {
+      const tenants = await pool.query('SELECT id FROM tenants WHERE NOT platform_suspended');
+      for (const tenant of tenants.rows) {
+        const rows = await withTenant(tenant.id, client => client.query(
+          'SELECT id,tenant_id,password_hash,role,status,session_version FROM users WHERE tenant_id=$1 AND id = ANY($2::text[]) AND lower(email)=$3',
+          [tenant.id, ids, email]));
+        matches.push(...rows.rows);
+      }
+    }
+    const user = matches.length === 1 ? matches[0] : undefined;
+    if (!user || user.status !== 'active' || !(await bcrypt.compare(input.password, user.password_hash))) {
+      res.status(401).json({error:'E-posta veya ?ifre hatal? ya da platform eri?iminiz yok.'}); return;
+    }
+    await withTenant(user.tenant_id, client => client.query('UPDATE users SET last_login_at=now() WHERE tenant_id=$1 AND id=$2',[user.tenant_id,user.id]).then(() => undefined));
+    res.json({token:signToken({userId:user.id,tenantId:user.tenant_id,role:user.role,sessionVersion:user.session_version})});
+  } catch (error) { next(error); }
+});
+
 authRouter.get('/me', requireAuth, async (req, res, next) => {
   try {
     const { tenantId, userId } = req.auth!;

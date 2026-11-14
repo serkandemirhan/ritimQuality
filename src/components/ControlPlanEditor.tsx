@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 
 const DrawingAnalysis=lazy(()=>import('./DrawingAnalysis').then(module=>({default:module.DrawingAnalysis})));
+const stableValue=(value:unknown):unknown=>Array.isArray(value)?value.map(stableValue):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>[k,stableValue(v)])):value;
 
 interface ControlPlanEditorProps {
   initialProductId?: string;
@@ -65,6 +66,15 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
   const [isSavedBanner, setIsSavedBanner] = useState<boolean>(false);
   const [detailOpen, setDetailOpen] = useState(Boolean(initialProductId));
   const [searchTerm, setSearchTerm] = useState('');
+  const [focusMode,setFocusMode]=useState(false);
+  const [revisionUsage,setRevisionUsage]=useState<{id:string;used:boolean;token:string}|null>(null);
+  const [usageError,setUsageError]=useState('');
+  useEffect(()=>{
+    if(!selectedPlanId){setRevisionUsage(null);return;}
+    let live=true;setRevisionUsage(null);setUsageError('');
+    void SaasApi.controlPlanRevisionUsage(selectedPlanId).then(result=>{if(!live)return;const local=controlPlans.find(plan=>plan.id===selectedPlanId);if(!local||JSON.stringify(stableValue(local))!==JSON.stringify(stableValue(result.payload))){setUsageError('Plan başka bir kullanıcı tarafından güncellendi. Düzenlemeden önce sayfayı yenileyin.');return;}setRevisionUsage({id:selectedPlanId,used:result.used,token:result.token});}).catch(()=>{if(live)setUsageError('Plan kullanım durumu alınamadı. Düzenlemek için sayfayı yenileyin.');});
+    return ()=>{live=false;};
+  },[selectedPlanId]);
 
   useEffect(() => {
     if (selectedProductId && !products.some(product => product.id === selectedProductId)) {
@@ -99,6 +109,13 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
 
   const productPlans = controlPlans.filter(cp => cp.productId === selectedProductId);
   const currentProduct = products.find(p => p.id === selectedProductId);
+  const updatePlan=(next:ControlPlan)=>{
+    if(revisionUsage?.id===next.id&&revisionUsage.used){
+      const version=nextPlanVersion(controlPlans.filter(p=>p.productId===next.productId).map(p=>p.version));
+      const draft={...next,id:`draft-${crypto.randomUUID()}`,version,isActive:false,status:'draft' as const,revisionDate:new Date().toISOString().slice(0,10),revisionNote:`${next.version} revizyonundan oluşturuldu.`,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+      setCurrentPlan(draft);
+    }else setCurrentPlan(next);
+  };
 
   // Pin Move handler on Drawing Canvas
   const handlePinMove = (characteristicId: string, newPin: PinCoordinate) => {
@@ -209,7 +226,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    await StorageService.saveControlPlan(newRevision);
+    await StorageService.saveControlPlan(newRevision,{expected:'missing'});
     requestedPlan.current=newRevision.id;
     onSavePlan(newRevision);
     setSelectedPlanId(newRevision.id);
@@ -236,7 +253,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
       author: 'Kalite Sorumlusu',
       approvedBy: '',
       drawingImageUrl: currentProduct.defaultDrawingUrl || SHAFT_BUSHING_SVG,
-      defaultSampleCount: 5,
+      defaultSampleCount: 1,
       characteristics: [
         {
           id: `char-${Date.now()}-1`,
@@ -259,7 +276,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    await StorageService.saveControlPlan(newPlan);
+    await StorageService.saveControlPlan(newPlan,{expected:'missing'});
     requestedPlan.current=newPlan.id;
     onSavePlan(newPlan);
     setSelectedPlanId(newPlan.id);
@@ -274,8 +291,15 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
     setSaving(true);
     try {
     if (!currentPlan) return;
-    await StorageService.saveControlPlan(currentPlan);
+    const original=controlPlans.find(plan=>plan.id===currentPlan.id);
+    const expected=original?revisionUsage?.id===currentPlan.id?revisionUsage.token:undefined:'missing';
+    if(!expected)throw new Error('Planın güncel sürümü doğrulanamadı. Sayfayı yenileyin.');
+    await StorageService.saveControlPlan(currentPlan,{expected});
+    requestedPlan.current=currentPlan.id;
+    setSelectedPlanId(currentPlan.id);
     onSavePlan(currentPlan);
+    setRevisionUsage(null);
+    try{const usage=await SaasApi.controlPlanRevisionUsage(currentPlan.id);setRevisionUsage({id:currentPlan.id,...usage});setUsageError('');}catch{setUsageError('Plan kaydedildi; güncel sürüm bilgisi alınamadı. Devam etmek için sayfayı yenileyin.');}
     setIsSavedBanner(true);
     setTimeout(() => setIsSavedBanner(false), 3000);
   
@@ -323,22 +347,38 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
 
   const storedPlan=controlPlans.find(plan=>plan.id===currentPlan?.id);
   const unsaved=!!currentPlan&&JSON.stringify(currentPlan)!==JSON.stringify(storedPlan);
-  return <div className="space-y-4">
+  const publishPlan=async()=>{
+    if(!currentPlan||!storedPlan||unsaved||saving||uploading||revisionUsage?.id!==currentPlan.id)return;
+    const active=controlPlans.find(plan=>plan.productId===currentPlan.productId&&plan.isActive);
+    if(!confirm(`${currentPlan.version} yayınlanacak${active&&active.id!==currentPlan.id?`; ${active.version} artık aktif olmayacak`:''}. Devam edilsin mi?`))return;
+    setSaving(true);
+    try{
+      const published={...currentPlan,isActive:true,status:'active' as const};
+      await StorageService.saveControlPlan(published,{expected:revisionUsage.token,active:active?.id||'none'});
+      requestedPlan.current=published.id;setCurrentPlan(published);onSavePlan(published);
+      setRevisionUsage(null);
+      try{const usage=await SaasApi.controlPlanRevisionUsage(published.id);setRevisionUsage({id:published.id,...usage});setUsageError('');}catch{setUsageError('Plan yayınlandı; güncel sürüm bilgisi alınamadı. Devam etmek için sayfayı yenileyin.');}
+    }catch(error){StorageService.reportSyncError(error);alert(error instanceof Error?error.message:'Plan yayınlanamadı.');}finally{setSaving(false);}
+  };
+  return <div className={`space-y-4${focusMode?' rq-plan-focus-view':''}`}>
     <PageHeader title={currentProduct?.name||'Kontrol planı'} description="Kontrol noktaları, teknik resimler ve revizyon yönetimi." breadcrumb={<Breadcrumb items={[{label:'Kontrol planları',onClick:()=>setDetailOpen(false)},{label:currentProduct?.code||'Ürün'}]}/>} summary={currentPlan&&<><span className="rq-technical">{currentProduct?.code} · {currentPlan.version}</span><StatusBadge status={currentPlan.status}/><Badge tone={unsaved?'warning':'neutral'}>{unsaved?'Kaydedilmemiş değişiklikler':'Kaydedildi'}</Badge><span>{currentPlan.characteristics.length} kontrol noktası</span></>} actions={<>
       {currentPlan?.isActive&&onInspect&&<Button onClick={()=>onInspect(currentPlan.productId)}>Ölçüme başla</Button>}
-      <Button disabled={saving||uploading} onClick={handleCreateBlankPlan}><Plus size={14}/>Yeni plan</Button>
+      <Button aria-pressed={focusMode} onClick={()=>setFocusMode(!focusMode)}>{focusMode?'Odak modundan çık':'Çizime odaklan'}</Button>
+      {currentPlan&&!currentPlan.isActive&&<Button disabled={unsaved||saving||uploading||revisionUsage?.id!==currentPlan.id} onClick={publishPlan}>Planı yayınla</Button>}
+      <details className="rq-plan-actions"><summary>Diğer işlemler ▾</summary><div><Button disabled={saving||uploading} onClick={handleCreateBlankPlan}><Plus size={14}/>Yeni plan</Button>
       <Button disabled={saving||!currentProduct} onClick={()=>setAnalysisOpen(true)}><Sparkles size={14}/>PDF’den plan oluştur</Button>
-      {currentPlan&&<><Button disabled={saving||uploading} onClick={handleCreateNewRevision}><Copy size={14}/>Yeni revizyon</Button><Button id="btn-save-control-plan" variant="primary" loading={saving} disabled={uploading} onClick={handleSaveCurrentPlan}><Save size={14}/>Değişiklikleri kaydet</Button></>}
+      {currentPlan&&<Button disabled={saving||uploading} onClick={handleCreateNewRevision}><Copy size={14}/>Yeni revizyon</Button>}</div></details>
+      {currentPlan&&<Button id="btn-save-control-plan" variant="primary" loading={saving} disabled={uploading||(!revisionUsage&&!!storedPlan)} onClick={handleSaveCurrentPlan}><Save size={14}/>Değişiklikleri kaydet</Button>}
     </>}/>
     {analysisOpen&&currentProduct&&<Suspense fallback={<p role="status">PDF inceleme ekranı hazırlanıyor…</p>}><DrawingAnalysis key={currentProduct.id} product={currentProduct} onClose={()=>setAnalysisOpen(false)} onProductUpdated={onProductUpdated} onCreated={plan=>{requestedPlan.current=plan.id;onSavePlan(plan);setSelectedPlanId(plan.id);setCurrentPlan(plan);setAnalysisOpen(false);}}/></Suspense>}
     {currentPlan?.drawingAnalysis&&<details className="rq-card"><summary>PDF kaynak ve analiz bilgileri</summary><p>{currentPlan.drawingAnalysis.pageCount} sayfa · İncelenen sayfa: {currentPlan.drawingAnalysis.analyzedPage}</p><ul>{currentPlan.drawingAnalysis.notes.map((note,i)=><li key={i}>{note}</li>)}</ul><Button onClick={()=>void SaasApi.openEvidence(currentPlan.drawingAnalysis!.originalUrl.replace(/^media:/,'').split('#')[0])}>Kaynak PDF’yi aç</Button></details>}
     <details className="rq-card rq-plan-context"><summary>Ürün / revizyon seçimi ve plan durumu <span className="rq-technical">{currentPlan?.version} · {currentPlan?.revisionDate}</span></summary><div className="mt-4 grid gap-4 lg:grid-cols-2"><Field label="Parça / ürün"><Select value={selectedProductId} onChange={e=>setSelectedProductId(e.target.value)}>{products.map(product=><option key={product.id} value={product.id}>{product.code} · {product.name}</option>)}</Select></Field><Field label="Kontrol planı revizyonu"><Select value={selectedPlanId} onChange={e=>handleSelectPlan(e.target.value)}>{productPlans.map(plan=><option key={plan.id} value={plan.id}>{plan.version} · {PLAN_STATUS_LABELS[plan.status]}</option>)}</Select></Field></div>
-      {currentPlan&&<div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3"><div className="rq-actions"><StatusBadge status={currentPlan.status}/>{!currentPlan.isActive&&<Button disabled={saving||uploading} onClick={async()=>{try{const active={...currentPlan,isActive:true,status:'active' as const};await StorageService.saveControlPlan(active);setCurrentPlan(active);onSavePlan(active);}catch(error){alert(error instanceof Error?error.message:'Plan aktifleştirilemedi.');}}}>Aktif varsayılan yap</Button>}{currentPlan.status!=='archived'&&<Button disabled={saving||uploading} onClick={async()=>{if(!confirm('Bu plan arşivlenecek. Devam edilsin mi?'))return;setSaving(true);try{const stored=controlPlans.find(p=>p.id===currentPlan.id);if(!stored)return;const archived={...stored,status:'archived' as const,isActive:false};await StorageService.saveControlPlan(archived);setCurrentPlan(archived);onSavePlan(archived);}catch(error){StorageService.reportSyncError(error);}finally{setSaving(false);}}}>Arşivle</Button>}</div><span className="rq-helper m-0">{currentPlan.author} · <span className="rq-technical">{currentPlan.revisionDate}</span></span></div>}
+      {currentPlan&&<div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3"><div className="rq-actions"><StatusBadge status={currentPlan.status}/>{currentPlan.status!=='archived'&&<Button disabled={saving||uploading} onClick={async()=>{if(!confirm('Bu plan arşivlenecek. Devam edilsin mi?'))return;setSaving(true);try{const stored=controlPlans.find(p=>p.id===currentPlan.id);if(!stored)return;const archived={...stored,status:'archived' as const,isActive:false};if(revisionUsage?.id!==stored.id)throw new Error('Plan s\u00fcr\u00fcm\u00fc do\u011frulanamad\u0131.');await StorageService.saveControlPlan(archived,{expected:revisionUsage.token});setRevisionUsage(null);setCurrentPlan(archived);onSavePlan(archived);const usage=await SaasApi.controlPlanRevisionUsage(archived.id);setRevisionUsage({id:archived.id,...usage});}catch(error){StorageService.reportSyncError(error);}finally{setSaving(false);}}}>Arşivle</Button>}</div><span className="rq-helper m-0">{currentPlan.author} · <span className="rq-technical">{currentPlan.revisionDate}</span></span></div>}
       {isSavedBanner&&<p role="status" className="mt-3 text-sm text-emerald-700">Kontrol planı ve ölçüm noktaları kaydedildi.</p>}
     </details>
     {!currentPlan&&currentProduct&&<EmptyState title="İlk kontrol planınızı hazırlayın" description="Bu ürün için toleransları ve ölçüm noktalarını tanımlayın." label="İlk kontrol planını oluştur" action={()=>void handleCreateBlankPlan()}/>}
-    {currentPlan&&currentProduct&&<><fieldset disabled={saving||uploading}><CharacteristicWorkspace onUploadingChange={setUploading} product={currentProduct} plan={currentPlan} onChange={setCurrentPlan} onProductUpdated={onProductUpdated}/></fieldset>
-      <details className="rq-card"><summary className="cursor-pointer rq-section-title">Revizyon bilgileri</summary><div className="mt-5"><FormSection title="Revizyon ve kalite bilgileri"><Field label="Revizyon tarihi"><Input type="date" value={currentPlan.revisionDate} onChange={e=>setCurrentPlan({...currentPlan,revisionDate:e.target.value})}/></Field><Field label="Hazırlayan"><Input value={currentPlan.author} onChange={e=>setCurrentPlan({...currentPlan,author:e.target.value})}/></Field><Field label="Onaylayan"><Input value={currentPlan.approvedBy} onChange={e=>setCurrentPlan({...currentPlan,approvedBy:e.target.value})}/></Field><Field label="Varsayılan numune"><NumberInput min={1} max={100} value={currentPlan.defaultSampleCount||5} onChange={e=>setCurrentPlan({...currentPlan,defaultSampleCount:Math.max(1,Number(e.target.value)||1)})}/></Field><Field label="Revizyon notu"><Textarea value={currentPlan.revisionNote} onChange={e=>setCurrentPlan({...currentPlan,revisionNote:e.target.value})}/></Field></FormSection></div></details>
+    {usageError&&<p role="alert">{usageError}</p>}{revisionUsage?.used&&currentPlan?.id===revisionUsage.id&&<p role="status" className="rq-feedback rq-tone-info">Bu plan kullanılmış veya açık bir göreve bağlı. Düzenleme yeni taslak revizyon oluşturur; yayınlanana kadar mevcut plan aktif kalır.</p>}{currentPlan?.id.startsWith('draft-')&&unsaved&&<p role="status" className="rq-feedback rq-tone-info">Değişiklikler yeni taslak revizyonda hazırlanıyor. Önce kaydedin, ardından planı aktifleştirin.</p>}{currentPlan&&currentProduct&&<><fieldset disabled={saving||uploading||(!revisionUsage&&!!storedPlan)}><CharacteristicWorkspace onUploadingChange={setUploading} product={currentProduct} plan={currentPlan} onChange={updatePlan} onProductUpdated={onProductUpdated}/></fieldset>
+      <details className="rq-card"><summary className="cursor-pointer rq-section-title">Revizyon bilgileri</summary><fieldset disabled={saving||uploading||(!revisionUsage&&!!storedPlan)}><div className="mt-5"><FormSection title="Revizyon ve kalite bilgileri"><Field label="Revizyon tarihi"><Input type="date" value={currentPlan.revisionDate} onChange={e=>updatePlan({...currentPlan,revisionDate:e.target.value})}/></Field><Field label="Çizim revizyonu" hint="Teknik resim üzerindeki revizyonu girin; bilinmiyorsa boş bırakın."><Input value={currentPlan.drawingRevision||''} onChange={e=>updatePlan({...currentPlan,drawingRevision:e.target.value})}/></Field><Field label="Hazırlayan"><Input value={currentPlan.author} onChange={e=>updatePlan({...currentPlan,author:e.target.value})}/></Field><Field label="Onaylayan"><Input value={currentPlan.approvedBy} onChange={e=>updatePlan({...currentPlan,approvedBy:e.target.value})}/></Field><Field label="Önerilen numune sayısı"><NumberInput min={1} max={100} value={currentPlan.defaultSampleCount||1} onChange={e=>updatePlan({...currentPlan,defaultSampleCount:Math.max(1,Number(e.target.value)||1)})}/></Field><Field label="Revizyon notu"><Textarea value={currentPlan.revisionNote} onChange={e=>updatePlan({...currentPlan,revisionNote:e.target.value})}/></Field></FormSection></div></fieldset></details>
     </>}
   </div>;
 };

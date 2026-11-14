@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { withTenant } from '../db/pool.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { supabaseStorage, usesSupabaseStorage } from '../services/mediaStorage.js';
+import { assertMediaContent } from '../services/mediaContent.js';
 export const mediaRouter=Router();
 mediaRouter.use(requireAuth);
 const mediaRoot = resolve(process.env.MEDIA_ROOT || '.data/media');
@@ -18,6 +19,7 @@ mediaRouter.post('/media', requireRole('admin','quality_engineer','operator'), a
     if(!match||match[1]!==input.mimeType){res.status(400).json({error:'Geçersiz medya içeriği.'});return;}
     const data=Buffer.from(match[2],'base64');
     if(!data.length||data.length>8*1024*1024){res.status(413).json({error:'Dosya boyutu 8 MB sınırını aşıyor.'});return;}
+    await assertMediaContent(data,input.mimeType,input.kind);
     const extension=input.mimeType==='image/jpeg'?'.jpg':input.mimeType==='image/png'?'.png':input.mimeType==='image/webp'?'.webp':input.mimeType==='video/mp4'?'.mp4':input.mimeType==='application/pdf'?'.pdf':'.bin';
     const id=input.id||randomUUID(); const storageName=`${req.auth!.tenantId}-${id}${extension}`;
     await mkdir(mediaRoot,{recursive:true});

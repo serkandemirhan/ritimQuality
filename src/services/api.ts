@@ -1,5 +1,5 @@
 import { hasValidSession, pendingStore, sessionScope } from './pendingInspections';
-import type { BillingPeriod, SubscriptionPlanId } from '../types';
+import type { BillingPeriod, SubscriptionPlanId, ControlPlan } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 const TOKEN_KEY = 'qualitrack_access_token';
@@ -79,6 +79,11 @@ export const SaasApi = {
   logout: async () => {
     try { await request('/push/subscriptions',{method:'DELETE'}); const registration=await navigator.serviceWorker?.getRegistration();await (await registration?.pushManager.getSubscription())?.unsubscribe(); } catch { /* The local session must still be closed when offline. */ }
     localStorage.removeItem(TOKEN_KEY); for(const key of Object.keys(localStorage)) if(key.startsWith('qualitrack_') && !key.includes(':pending:') && !key.includes(':draft:') && !key.includes(':preferences:') && key !== TOKEN_KEY) localStorage.removeItem(key); },
+  platformLogin: async (input: {email:string;password:string}) => {
+    const result = await request<{token:string}>('/auth/platform-login', {method:'POST',body:JSON.stringify(input)});
+    localStorage.setItem(TOKEN_KEY, result.token);
+    return result;
+  },
   login: async (input: AuthInput) => {
     const result = await request<{ token: string }>('/auth/login', { method: 'POST', body: JSON.stringify(input) });
     localStorage.setItem(TOKEN_KEY, result.token);
@@ -92,12 +97,14 @@ export const SaasApi = {
   bootstrap: () => request<{
     company: Record<string, unknown>; users: Record<string, unknown>[];
     products: unknown[]; controlPlans: unknown[]; inspectionLogs: unknown[];
-    currentUserId: string;
+    currentUserId: string; platformAdmin?: boolean;
     usage: { control_plans: number; users: number; monthly_measurements: number };
   }>('/bootstrap'),
   saveProduct: (value: { id: string }) => request(`/products/${encodeURIComponent(value.id)}`, { method: 'PUT', body: JSON.stringify(value) }),
   deleteProduct: (id: string) => request(`/products/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  saveControlPlan: (value: { id: string }) => request(`/control-plans/${encodeURIComponent(value.id)}`, { method: 'PUT', body: JSON.stringify(value) }),
+  saveControlPlan: (value: { id: string }, guard?:{expected:string;active?:string}) => request<ControlPlan>(`/control-plans/${encodeURIComponent(value.id)}`, { method: 'PUT', body: JSON.stringify(value),headers:guard?{'X-Plan-Expected':guard.expected,...guard.active!==undefined?{'X-Active-Plan-Expected':guard.active}:{}}:{} }),
+  controlPlanPublication: (id:string) => request<{publishedAt:string|null;publishedBy:string|null}>(`/control-plans/${encodeURIComponent(id)}/publication`),
+  controlPlanRevisionUsage: (id:string) => request<{used:boolean;token:string;payload:unknown}>(`/control-plans/${encodeURIComponent(id)}/revision-usage`),
   deleteControlPlan: (id: string) => request(`/control-plans/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   saveInspectionLog: (value: { id: string; mobileMeasurement?: unknown; draftId?: string }) => {
     const payload = value.mobileMeasurement && value.draftId ? { ...value, draftId: undefined } : value;
@@ -145,3 +152,6 @@ export const SaasApi = {
     window.location.assign(result.url);
   },
 };
+
+/** Shared authenticated transport for the separate platform console. */
+export const platformRequest=request;

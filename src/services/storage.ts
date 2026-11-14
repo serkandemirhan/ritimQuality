@@ -44,6 +44,7 @@ export const StorageService = {
     const data = await SaasApi.bootstrap();
     const raw = data.company as Record<string, unknown>;
     const company: TenantCompany = {
+      unlimitedPilot:raw.unlimited_pilot===true,
       id: String(raw.id), name: String(raw.name || ''), legalName: String(raw.legal_name || raw.name || ''),
       taxNumber: String(raw.tax_number || ''), taxOffice: String(raw.tax_office || ''), industry: String(raw.industry || ''),
       facilityLocation: String(raw.facility_location || ''), contactEmail: String(raw.contact_email || ''),
@@ -55,6 +56,7 @@ export const StorageService = {
       createdAt: String(raw.created_at || new Date().toISOString()),
     };
     const users: User[] = data.users.map(rawUser => ({
+      platformAdmin:data.platformAdmin===true&&String(rawUser.id)===String(data.currentUserId),
       id: String(rawUser.id), name: String(rawUser.name), email: String(rawUser.email), role: rawUser.role as User['role'],
       department: String(rawUser.department || ''), stationOrMachine: rawUser.station_or_machine ? String(rawUser.station_or_machine) : undefined,
       status: rawUser.status as User['status'], lastLogin: String(rawUser.last_login_at || ''),
@@ -210,16 +212,16 @@ export const StorageService = {
     return plans.find(cp => cp.isActive && cp.status === 'active');
   },
 
-  saveControlPlan: async (plan: ControlPlan): Promise<void> => {
+  saveControlPlan: async (plan: ControlPlan,guard?:{expected:string;active?:string}): Promise<void> => {
     if (!SaasApi.hasSession()) throw new Error('Oturum açmanız gerekiyor.');
-    await SaasApi.saveControlPlan(plan);
+    const saved=await SaasApi.saveControlPlan(plan,guard);
     let plans = StorageService.getControlPlans();
     
     // If this plan is set to active, unset other plans for this product
     if (plan.isActive) {
       plans = plans.map(p => {
         if (p.productId === plan.productId && p.id !== plan.id) {
-          return { ...p, isActive: false };
+          return p.isActive ? { ...p, isActive: false, status:p.status==='active'?'archived':p.status } : p;
         }
         return p;
       });
@@ -227,13 +229,9 @@ export const StorageService = {
 
     const index = plans.findIndex(p => p.id === plan.id);
     if (index >= 0) {
-      plans[index] = { ...plan, updatedAt: new Date().toISOString() };
+      plans[index] = saved;
     } else {
-      plans.unshift({
-        ...plan,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
+      plans.unshift(saved);
     }
     localStorage.setItem(STORAGE_KEYS.CONTROL_PLANS, JSON.stringify(plans));
 

@@ -4,6 +4,18 @@ import { validateInspection, assertRevisionUnchanged, inspectionSignature } from
 const plan={id:'p1',productId:'part1',version:'v1.0',status:'active',isActive:true,characteristics:[{id:'diameter',pointNo:1,name:'Çap',nominal:10,lsl:9,usl:11}]};
 const input={id:'i1',productId:'part1',controlPlanId:'p1',controlPlanVersion:'v1.0',sampleCount:1,lotNumber:'LOT-1',orderNumber:'WO-1',samples:[{sampleIndex:1,values:{diameter:12},statuses:{diameter:'pass'}}]};
 const actor={id:'u1',name:'Operator'};
+test('classic numeric path enforces shared precision, negative and resolution rules without rounding',()=>{
+ const withPoint=(fields:Record<string,unknown>)=>({...plan,characteristics:[{...plan.characteristics[0],...fields}]});
+ const withValue=(value:number)=>({...input,samples:[{sampleIndex:1,values:{diameter:value}}]});
+ assert.throws(()=>validateInspection(withValue(10.001),withPoint({precision:2}),actor),/ondalık/);
+ assert.doesNotThrow(()=>validateInspection(withValue(10.01),withPoint({precision:2}),actor));
+ assert.throws(()=>validateInspection(withValue(-.05),withPoint({nominal:0,lsl:-1,usl:1,allowNegative:false}),actor),/negatif/);
+ assert.throws(()=>validateInspection(withValue(10.03),withPoint({resolution:.05}),actor),/çözünürlüğü/);
+ assert.doesNotThrow(()=>validateInspection(withValue(10.05),withPoint({resolution:.05}),actor));
+ for(const value of [0,1e-7,-1e-7])assert.doesNotThrow(()=>validateInspection(withValue(value),withPoint({nominal:0,lsl:-1,usl:1,precision:8}),actor));
+ assert.doesNotThrow(()=>validateInspection(withValue(1e-7),withPoint({nominal:0,lsl:-1,usl:1,precision:8,policy:{requireComment:false}}),actor));
+ assert.throws(()=>validateInspection(withValue(1e-7),withPoint({nominal:0,lsl:-1,usl:1,precision:6}),actor),/ondalık/);
+});
 test('optional point notes survive validation and remain bound to known points',()=>{
  const samples=[{sampleIndex:1,values:{diameter:12},pointNotes:{diameter:'Yüzeyde çizik'}}];
  assert.equal(validateInspection({...input,samples},plan,actor).samples[0].pointNotes?.diameter,'Yüzeyde çizik');

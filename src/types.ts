@@ -22,7 +22,7 @@ export interface PinCoordinate {
   y: number; // 0-100%
 }
 
-export interface ProductImage { id:string; name:string; url:string; mimeType?:string; }
+export interface ProductImage { id:string; name:string; url:string; mimeType?:string; revision?:string; }
 export type ImageAnnotation =
   | {id:string;type:'pin';x:number;y:number;label?:string;color?:string}
   | {id:string;type:'measurement_line';startX:number;startY:number;endX:number;endY:number;label?:string;color?:string}
@@ -77,6 +77,7 @@ export interface ControlPlan {
   author: string;
   approvedBy: string;
   drawingImageUrl: string;
+  drawingRevision?: string;
   defaultSampleCount?: number;
   characteristics: Characteristic[];
   characteristicImageLinks?: CharacteristicImageLink[];
@@ -178,15 +179,18 @@ export interface SPCMetric {
   min: number;
   max: number;
   range: number;
-  cp: number;
-  cpk: number;
-  cpu: number;
-  cpl: number;
-  pp: number;
-  ppk: number;
+  cp: number | null;
+  cpk: number | null;
+  cpu: number | null;
+  cpl: number | null;
+  pp: number | null;
+  ppk: number | null;
   outOfSpecCount: number;
   outOfSpecRate: number; // Percentage 0 - 100
-  capabilityStatus: 'excellent' | 'capable' | 'acceptable' | 'incapable';
+  capabilityStatus: 'excellent' | 'capable' | 'acceptable' | 'incapable' | 'unavailable';
+  capabilityUnavailableReason: string | null;
+  precision?: number;
+  xbarRUnavailableReason: string | null;
   historyValues: {
     timestamp: string;
     lotNumber: string;
@@ -216,7 +220,7 @@ export interface SPCMetric {
     rUcl: number;
     rLcl: number;
     points: { timestamp: string; mean: number; range: number }[];
-  };
+  } | null;
   imr: {
     individualUcl: number;
     individualLcl: number;
@@ -233,6 +237,7 @@ export interface SPCMetric {
 export type UserRole = 'admin' | 'quality_engineer' | 'operator' | 'auditor';
 
 export interface User {
+  platformAdmin?: boolean;
   id: string;
   name: string;
   email: string;
@@ -262,6 +267,7 @@ export interface SubscriptionPlan {
 }
 
 export interface TenantCompany {
+  unlimitedPilot?: boolean;
   id: string;
   name: string;
   legalName: string;

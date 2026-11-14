@@ -1,228 +1,78 @@
-import { Characteristic, ControlPlan, InspectionLog, SPCMetric } from '../types';
+import type { Characteristic, ControlPlan, InspectionLog, SampleMeasurement, SPCMetric } from '../types';
+import {formatSpcMeasurement} from './spcFormat';
+
+export interface SPCFilters { startDate?:string; endDate?:string; operator?:string; lotNumber?:string; machineNo?:string; }
+
+/** Every consumer uses the exact product, plan and immutable revision scope. */
+export function selectPlanLogs(plan:ControlPlan,logs:InspectionLog[]):InspectionLog[]{
+  return logs.filter(log=>log.productId===plan.productId&&log.controlPlanId===plan.id&&log.controlPlanVersion===plan.version);
+}
+function validValue(sample:SampleMeasurement,id:string):number|null{
+  const value=sample.values[id],status=sample.statuses[id];
+  return typeof value==='number'&&Number.isFinite(value)&&['pass','warning','fail'].includes(status)?value:null;
+}
+const average=(values:number[])=>values.reduce((sum,value)=>sum+value,0)/values.length;
+const extremes=(values:number[])=>values.reduce((result,value)=>({min:Math.min(result.min,value),max:Math.max(result.max,value)}),{min:Infinity,max:-Infinity});
+const ratio=(numerator:number,denominator:number):number|null=>{if(!(denominator>0))return null;const value=numerator/denominator;return Number.isFinite(value)?value:null;};
+const constants:Record<number,{a2:number;d3:number;d4:number}>={2:{a2:1.88,d3:0,d4:3.267},3:{a2:1.023,d3:0,d4:2.574},4:{a2:.729,d3:0,d4:2.282},5:{a2:.577,d3:0,d4:2.114},6:{a2:.483,d3:0,d4:2.004},7:{a2:.419,d3:.076,d4:1.924},8:{a2:.373,d3:.136,d4:1.864},9:{a2:.337,d3:.184,d4:1.816},10:{a2:.308,d3:.223,d4:1.777}};
 
 export const SPCEngine = {
-  calculateMetric: (
-    char: Characteristic,
-    logs: InspectionLog[],
-    filterOptions?: {
-      startDate?: string;
-      endDate?: string;
-      operator?: string;
-      lotNumber?: string;
-      machineNo?: string;
-    }
-  ): SPCMetric | null => {
-    // 1. Filter logs
-    let filteredLogs = logs.filter(l => {
-      // Check if this log has measurements for this characteristic
-      const hasValue = l.samples.some(s => typeof s.values[char.id] === 'number');
-      return hasValue;
+  calculateMetric:(char:Characteristic,logs:InspectionLog[],filters:SPCFilters={}):SPCMetric|null=>{
+    if(!Number.isFinite(char.usl)||!Number.isFinite(char.lsl)||char.usl<=char.lsl)return null;
+    const groups=logs.filter(log=>
+      (!filters.startDate||new Date(log.timestamp)>=new Date(filters.startDate))&&
+      (!filters.endDate||new Date(log.timestamp)<=new Date(filters.endDate))&&
+      (!filters.operator||log.operatorName===filters.operator)&&
+      (!filters.lotNumber||log.lotNumber===filters.lotNumber)&&
+      (!filters.machineNo||log.machineNo===filters.machineNo)
+    ).slice().sort((a,b)=>new Date(a.timestamp).getTime()-new Date(b.timestamp).getTime())
+      .map(log=>({log,samples:log.samples.flatMap(sample=>{const value=validValue(sample,char.id);return value===null?[]:[{sample,value}];})}))
+      .filter(group=>group.samples.length>0);
+    const historyValues:SPCMetric['historyValues']=groups.flatMap(({log,samples})=>samples.map(({sample,value})=>({
+      timestamp:log.timestamp,lotNumber:log.lotNumber,operator:log.operatorName,sampleIndex:sample.sampleIndex,value,
+      status:value<char.lsl||value>char.usl?'fail':sample.statuses[char.id]==='warning'?'warning':'pass'
+    })));
+    const values=historyValues.map(point=>point.value),count=values.length;
+    if(!count)return null;
+    const mean=average(values),{min,max}=extremes(values),range=max-min;
+    const stdDev=count>1?Math.sqrt(values.reduce((sum,value)=>sum+(value-mean)**2,0)/(count-1)):0;
+    let withinSquares=0,withinDof=0;
+    const subgroupPoints=groups.map(({log,samples})=>{
+      const subgroup=samples.map(item=>item.value),groupMean=average(subgroup),limits=extremes(subgroup);
+      if(subgroup.length>1){withinSquares+=subgroup.reduce((sum,value)=>sum+(value-groupMean)**2,0);withinDof+=subgroup.length-1;}
+      return {timestamp:log.timestamp,mean:groupMean,range:limits.max-limits.min,size:subgroup.length};
     });
-
-    if (filterOptions) {
-      if (filterOptions.startDate) {
-        filteredLogs = filteredLogs.filter(l => new Date(l.timestamp) >= new Date(filterOptions.startDate!));
-      }
-      if (filterOptions.endDate) {
-        filteredLogs = filteredLogs.filter(l => new Date(l.timestamp) <= new Date(filterOptions.endDate!));
-      }
-      if (filterOptions.operator) {
-        filteredLogs = filteredLogs.filter(l => l.operatorName === filterOptions.operator);
-      }
-      if (filterOptions.lotNumber) {
-        filteredLogs = filteredLogs.filter(l => l.lotNumber === filterOptions.lotNumber);
-      }
-      if (filterOptions.machineNo) {
-        filteredLogs = filteredLogs.filter(l => l.machineNo === filterOptions.machineNo);
-      }
-    }
-
-    // 2. Extract values and chronological history
-    const historyValues: SPCMetric['historyValues'] = [];
-    const values: number[] = [];
-
-    // Sort by timestamp ascending for trend analysis
-    filteredLogs
-      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-      .forEach(log => {
-        log.samples.forEach(sample => {
-          const val = sample.values[char.id];
-          if (typeof val === 'number' && !isNaN(val)) {
-            values.push(val);
-            const status = sample.statuses[char.id] || (val >= char.lsl && val <= char.usl ? 'pass' : 'fail');
-            historyValues.push({
-              timestamp: log.timestamp,
-              lotNumber: log.lotNumber,
-              operator: log.operatorName,
-              sampleIndex: sample.sampleIndex,
-              value: val,
-              status: status === 'empty' ? 'pass' : status,
-            });
-          }
-        });
-      });
-
-    const count = values.length;
-    if (count < 2 || !Number.isFinite(char.usl) || !Number.isFinite(char.lsl) || char.usl <= char.lsl) return null;
-
-    // 3. Calculate Mean (Ortalama)
-    const sum = values.reduce((acc, curr) => acc + curr, 0);
-    const mean = sum / count;
-
-    // 4. Calculate Standard Deviation (Standart Sapma s)
-    let stdDev = 0;
-    if (count > 1) {
-      const squaredDiffs = values.reduce((acc, curr) => acc + Math.pow(curr - mean, 2), 0);
-      stdDev = Math.sqrt(squaredDiffs / (count - 1));
-    } else {
-      stdDev = 0.0001; // Avoid division by zero
-    }
-
-    // Protect against zero stdDev
-    if (stdDev === 0) return null;
-    const effectiveStdDev = stdDev;
-
-    // 5. Min, Max, Range
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const range = max - min;
-
-    let withinSquaredDiffs=0; let withinDegreesOfFreedom=0;
-    filteredLogs.forEach(log=>{const subgroup=log.samples.map(sample=>sample.values[char.id]).filter((value):value is number=>typeof value==='number');if(subgroup.length>1){const subgroupMean=subgroup.reduce((sum,value)=>sum+value,0)/subgroup.length;withinSquaredDiffs+=subgroup.reduce((sum,value)=>sum+(value-subgroupMean)**2,0);withinDegreesOfFreedom+=subgroup.length-1;}});
-    const withinStdDev=withinDegreesOfFreedom>0?Math.sqrt(withinSquaredDiffs/withinDegreesOfFreedom):effectiveStdDev;
-    if(withinDegreesOfFreedom>0 && withinStdDev===0)return null;
-    const effectiveWithinStdDev=withinStdDev;
-
-    // 6. Capability Indices (Cp, Cpk, Cpu, Cpl, Pp, Ppk)
-    const tolerance = char.usl - char.lsl;
-    const cp = tolerance / (6 * effectiveWithinStdDev);
-    const cpu = (char.usl - mean) / (3 * effectiveWithinStdDev);
-    const cpl = (mean - char.lsl) / (3 * effectiveWithinStdDev);
-    const cpk = Math.min(cpu, cpl);
-
-    // Pp / Ppk (Total standard deviation)
-    const totalSquaredDiffs = values.reduce((acc, curr) => acc + Math.pow(curr - mean, 2), 0);
-    const populationStdDev = stdDev;
-    const pp = tolerance / (6 * populationStdDev);
-    const ppu = (char.usl - mean) / (3 * populationStdDev);
-    const ppl = (mean - char.lsl) / (3 * populationStdDev);
-    const ppk = Math.min(ppu, ppl);
-
-    // 7. Out of Spec Count & Rate
-    const outOfSpecCount = values.filter(v => v < char.lsl || v > char.usl).length;
-    const outOfSpecRate = (outOfSpecCount / count) * 100;
-
-    const subgroupPoints=filteredLogs.map(log=>{
-      const subgroup=log.samples.map(sample=>sample.values[char.id]).filter((value):value is number=>typeof value==='number');
-      if(!subgroup.length)return null;
-      const subgroupMean=subgroup.reduce((sum,value)=>sum+value,0)/subgroup.length;
-      return {timestamp:log.timestamp,mean:subgroupMean,range:Math.max(...subgroup)-Math.min(...subgroup),size:subgroup.length};
-    }).filter((point):point is {timestamp:string;mean:number;range:number;size:number}=>Boolean(point));
-    const subgroupSize=Math.max(1,Math.round(subgroupPoints.reduce((sum,point)=>sum+point.size,0)/(subgroupPoints.length||1)));
-    const constants:Record<number,{a2:number;d3:number;d4:number}>={2:{a2:1.88,d3:0,d4:3.267},3:{a2:1.023,d3:0,d4:2.574},4:{a2:.729,d3:0,d4:2.282},5:{a2:.577,d3:0,d4:2.114},6:{a2:.483,d3:0,d4:2.004},7:{a2:.419,d3:.076,d4:1.924},8:{a2:.373,d3:.136,d4:1.864},9:{a2:.337,d3:.184,d4:1.816},10:{a2:.308,d3:.223,d4:1.777}};
-    const constant=constants[Math.min(10,Math.max(2,subgroupSize))]||constants[5];
-    const xbarbar=subgroupPoints.reduce((sum,point)=>sum+point.mean,0)/(subgroupPoints.length||1);
-    const rbar=subgroupPoints.reduce((sum,point)=>sum+point.range,0)/(subgroupPoints.length||1);
+    const withinStdDev=withinDof>0?Math.sqrt(withinSquares/withinDof):stdDev;
+    const tolerance=char.usl-char.lsl,cp=ratio(tolerance,6*withinStdDev),cpu=ratio(char.usl-mean,3*withinStdDev),cpl=ratio(mean-char.lsl,3*withinStdDev);
+    const cpk=cpu===null||cpl===null?null:Math.min(cpu,cpl);
+    const pp=ratio(tolerance,6*stdDev),ppu=ratio(char.usl-mean,3*stdDev),ppl=ratio(mean-char.lsl,3*stdDev),ppk=ppu===null||ppl===null?null:Math.min(ppu,ppl);
+    const capabilityUnavailableReason=cpk!==null?null:count<2?'Süreç yeteneği için en az iki geçerli ölçüm gereklidir.':'Alt grup / ölçüm yayılımı sıfır; Cp ve Cpk hesaplanamadı. Ölçüm çözünürlüğünü ve tekrarları inceleyin.';
+    const capabilityStatus:SPCMetric['capabilityStatus']=cpk===null?'unavailable':cpk>=1.67?'excellent':cpk>=1.33?'capable':cpk>=1?'acceptable':'incapable';
+    const outOfSpecCount=values.filter(value=>value<char.lsl||value>char.usl).length;
     const movingRanges=values.slice(1).map((value,index)=>Math.abs(value-values[index]));
-    const movingRangeAverage=movingRanges.reduce((sum,value)=>sum+value,0)/(movingRanges.length||1);
-
-    // 8. Capability Status Category
-    let capabilityStatus: SPCMetric['capabilityStatus'] = 'incapable';
-    if (cpk >= 1.67) {
-      capabilityStatus = 'excellent';
-    } else if (cpk >= 1.33) {
-      capabilityStatus = 'capable';
-    } else if (cpk >= 1.00) {
-      capabilityStatus = 'acceptable';
-    } else {
-      capabilityStatus = 'incapable';
-    }
-
-    // 9. Control Limits for X-bar chart (3 Sigma limits)
-    const ucl = Number((mean + 2.66 * movingRangeAverage).toFixed(4));
-    const lcl = Number((mean - 2.66 * movingRangeAverage).toFixed(4));
-    const cl = Number(mean.toFixed(4));
-
-    // 10. Generate Histogram Bins with Gaussian distribution fit
-    const binCount = 9;
-    const dataMin = Math.min(min, char.lsl - effectiveStdDev);
-    const dataMax = Math.max(max, char.usl + effectiveStdDev);
-    const binWidth = (dataMax - dataMin) / binCount || 0.01;
-
-    const histogramBins: SPCMetric['histogramBins'] = [];
-    for (let i = 0; i < binCount; i++) {
-      const binStart = dataMin + i * binWidth;
-      const binEnd = binStart + binWidth;
-      const midpoint = (binStart + binEnd) / 2;
-
-      const binItems = values.filter(v => (i === binCount - 1 ? (v >= binStart && v <= binEnd) : (v >= binStart && v < binEnd)));
-      const isOutOfSpec = midpoint < char.lsl || midpoint > char.usl;
-
-      histogramBins.push({
-        rangeLabel: `${binStart.toFixed(3)} - ${binEnd.toFixed(3)}`,
-        midpoint: Number(midpoint.toFixed(3)),
-        count: binItems.length,
-        isOutOfSpec,
-      });
-    }
-
-    return {
-      characteristicId: char.id,
-      characteristicName: char.name,
-      pointNo: char.pointNo,
-      unit: char.unit,
-      nominal: char.nominal,
-      usl: char.usl,
-      lsl: char.lsl,
-      count,
-      mean: Number(mean.toFixed(4)),
-      stdDev: Number(stdDev.toFixed(4)),
-      min: Number(min.toFixed(4)),
-      max: Number(max.toFixed(4)),
-      range: Number(range.toFixed(4)),
-      cp: Number(cp.toFixed(2)),
-      cpk: Number(cpk.toFixed(2)),
-      cpu: Number(cpu.toFixed(2)),
-      cpl: Number(cpl.toFixed(2)),
-      pp: Number(pp.toFixed(2)),
-      ppk: Number(ppk.toFixed(2)),
-      outOfSpecCount,
-      outOfSpecRate: Number(outOfSpecRate.toFixed(2)),
-      capabilityStatus,
-      historyValues,
-      histogramBins,
-      controlLimits: {
-        ucl,
-        lcl,
-        cl,
-      },
-      xbarR: {
-        subgroupCount: subgroupPoints.length, subgroupSize,
-        xbarbar: Number(xbarbar.toFixed(4)), rbar: Number(rbar.toFixed(4)),
-        xbarUcl: Number((xbarbar + constant.a2 * rbar).toFixed(4)), xbarLcl: Number((xbarbar - constant.a2 * rbar).toFixed(4)),
-        rUcl: Number((constant.d4 * rbar).toFixed(4)), rLcl: Number((constant.d3 * rbar).toFixed(4)),
-        points: subgroupPoints.map(point => ({ timestamp: point.timestamp, mean: Number(point.mean.toFixed(4)), range: Number(point.range.toFixed(4)) })),
-      },
-      imr: {
-        individualUcl: Number((mean + 2.66 * movingRangeAverage).toFixed(4)), individualLcl: Number((mean - 2.66 * movingRangeAverage).toFixed(4)),
-        movingRangeAverage: Number(movingRangeAverage.toFixed(4)), movingRangeUcl: Number((3.267 * movingRangeAverage).toFixed(4)),
-        points: historyValues.map((point, index) => ({ timestamp: point.timestamp, value: point.value, movingRange: index === 0 ? null : Number(Math.abs(point.value - historyValues[index - 1].value).toFixed(4)) })),
-      },
+    const movingRangeAverage=movingRanges.length?average(movingRanges):0;
+    const ucl=mean+2.66*movingRangeAverage,lcl=mean-2.66*movingRangeAverage;
+    const sizes=new Set(subgroupPoints.map(point=>point.size)),subgroupSize=subgroupPoints[0].size;
+    const constant=sizes.size===1?constants[subgroupSize]:undefined;
+    const xbarRUnavailableReason=subgroupPoints.length<2?'X̄-R için en az iki alt grup gereklidir.':sizes.size!==1?'Alt grup boyutları farklı. X̄-R hesaplanmadı; I-MR analizini kullanın.':subgroupSize===1?'Tek numuneli oturumlar için I-MR analizi kullanılır.':!constant?'X̄-R yalnızca eşit büyüklükte 2–10 numuneli alt gruplar için desteklenir.':null;
+    const xbarbar=average(subgroupPoints.map(point=>point.mean)),rbar=average(subgroupPoints.map(point=>point.range));
+    const dataMin=Math.min(min,char.lsl-stdDev),dataMax=Math.max(max,char.usl+stdDev),binWidth=(dataMax-dataMin)/9;
+    const histogramBins:SPCMetric['histogramBins']=Array.from({length:9},(_,i)=>{
+      const start=dataMin+i*binWidth,end=i===8?dataMax:dataMin+(i+1)*binWidth,midpoint=start+(end-start)/2;
+      return {rangeLabel:formatSpcMeasurement(start,char)+' – '+formatSpcMeasurement(end,char),midpoint,
+        count:values.filter(value=>value>=start&&(i===8?value<=end:value<end)).length,isOutOfSpec:midpoint<char.lsl||midpoint>char.usl};
+    });
+    return {characteristicId:char.id,characteristicName:char.name,pointNo:char.pointNo,unit:char.unit,precision:char.precision,nominal:char.nominal,lsl:char.lsl,usl:char.usl,
+      count,mean,stdDev,min,max,range,cp,cpk,cpu,cpl,pp,ppk,capabilityStatus,capabilityUnavailableReason,outOfSpecCount,outOfSpecRate:outOfSpecCount/count*100,
+      historyValues,histogramBins,controlLimits:{ucl,lcl,cl:mean},xbarRUnavailableReason,
+      xbarR:xbarRUnavailableReason||!constant?null:{subgroupCount:subgroupPoints.length,subgroupSize,xbarbar,rbar,xbarUcl:xbarbar+constant.a2*rbar,xbarLcl:xbarbar-constant.a2*rbar,rUcl:constant.d4*rbar,rLcl:constant.d3*rbar,points:subgroupPoints.map(({timestamp,mean,range})=>({timestamp,mean,range}))},
+      imr:{individualUcl:ucl,individualLcl:lcl,movingRangeAverage,movingRangeUcl:3.267*movingRangeAverage,points:historyValues.map((point,index)=>({timestamp:point.timestamp,value:point.value,movingRange:index===0?null:movingRanges[index-1]}))}
     };
   },
-
-  // Calculate SPC metrics for all characteristics of a control plan
-  calculateAllForPlan: (plan: ControlPlan, logs: InspectionLog[]): SPCMetric[] => {
-    const metrics: SPCMetric[] = [];
-    plan.characteristics.forEach(char => {
-      const metric = SPCEngine.calculateMetric(char, logs.filter(log=>log.controlPlanId===plan.id && log.controlPlanVersion===plan.version));
-      if (metric) {
-        metrics.push(metric);
-      }
-    });
-    return metrics;
+  calculateAllForPlan:(plan:ControlPlan,logs:InspectionLog[]):SPCMetric[]=>{
+    const scoped=selectPlanLogs(plan,logs);
+    return plan.characteristics.flatMap(char=>{const metric=SPCEngine.calculateMetric(char,scoped);return metric?[metric]:[];});
   },
-
   // Generate automated industrial quality diagnosis & recommendation
   generateDiagnosis: (metric: SPCMetric): {
     title: string;
@@ -230,6 +80,7 @@ export const SPCEngine = {
     action: string;
     severity: 'success' | 'warning' | 'danger' | 'info';
   } => {
+    if(metric.cpk===null||metric.cp===null)return {title:'Süreç yeteneği hesaplanamadı',summary:metric.capabilityUnavailableReason||'Yeterli yayılım yok.',action:'Numune geçmişini ve ölçüm çözünürlüğünü inceleyin.',severity:'info'};
     const offset = metric.mean - metric.nominal;
     const isShiftedHigh = offset > (metric.usl - metric.nominal) * 0.4;
     const isShiftedLow = offset < -(metric.nominal - metric.lsl) * 0.4;
@@ -246,8 +97,8 @@ export const SPCEngine = {
         const direction = isShiftedHigh ? 'üst toleransa doğru (+)' : 'alt toleransa doğru (-)';
         return {
           title: 'Yetenekli Ancak Merkez Kayması Var',
-          summary: `Cp = ${metric.cp.toFixed(2)}, Cpk = ${metric.cpk.toFixed(2)}. Süreç toleransları karşılayabiliyor ancak ortalama ${direction} ${Math.abs(offset).toFixed(3)} ${metric.unit} sapmış.`,
-          action: `Tezgah takım boyu / ofsetini (Work Offset) ${isShiftedHigh ? '-' : '+'}${Math.abs(offset).toFixed(3)} ${metric.unit} ayarlayarak ortalamayı nominale çekiniz.`,
+          summary: `Cp = ${metric.cp.toFixed(2)}, Cpk = ${metric.cpk.toFixed(2)}. Süreç toleransları karşılayabiliyor ancak ortalama ${direction} ${formatSpcMeasurement(Math.abs(offset),metric)} ${metric.unit} sapmış.`,
+          action: `Tezgah takım boyu / ofsetini (Work Offset) ${isShiftedHigh ? '-' : '+'}${formatSpcMeasurement(Math.abs(offset),metric)} ${metric.unit} ayarlayarak ortalamayı nominale çekiniz.`,
           severity: 'warning',
         };
       }

@@ -81,11 +81,27 @@ export function validateInspection(input: Record<string, unknown>, rawPlan: unkn
     for (const c of plan.characteristics) {
       const value = sample.values[c.id];
       let status: 'pass' | 'warning' | 'fail' = 'pass';
+      let evaluatedNumeric: ReturnType<typeof evaluateMeasurement> | undefined;
       if (mobile || c.type === 'boolean' || c.type === 'text' || c.type === 'visual' && value === 'SUSPECT') {
         const evaluated = evaluateMeasurement(c as MeasurementDefinition, typeof value === 'number' ? String(value) : value as string | string[]);
         status = evaluated.result === 'pass' ? 'pass' : evaluated.result === 'fail' ? 'fail' : 'warning';
       } else if (c.type === 'numeric') {
         if (typeof value !== 'number' || !Number.isFinite(value)) conflict(`#${c.pointNo}: sayısal ölçüm zorunludur.`);
+        // JSON numbers may use exponent notation. Expand without rounding before
+        // applying the same precision, sign and resolution rules as mobile input.
+        const [mantissa, exponent] = String(value).split('e');
+        let raw = mantissa;
+        if (exponent !== undefined) {
+          const sign = mantissa.startsWith('-') ? '-' : '';
+          const unsigned = mantissa.replace('-', '');
+          const digits = unsigned.replace('.', '');
+          const position = (unsigned.split('.')[0].length) + Number(exponent);
+          raw = sign + (position <= 0 ? '0.' + '0'.repeat(-position) + digits
+            : position >= digits.length ? digits + '0'.repeat(position - digits.length)
+            : digits.slice(0, position) + '.' + digits.slice(position));
+        }
+        try { evaluatedNumeric = evaluateMeasurement(c as MeasurementDefinition, raw); }
+        catch (error) { conflict(`#${c.pointNo}: ${(error as Error).message}`); }
         status = c.lsl!=null&&value<c.lsl || c.usl!=null&&value>c.usl ? 'fail' : c.lsl!=null&&c.usl!=null&&Math.min(value - c.lsl, c.usl - value) <= (c.usl - c.lsl) * .12 ? 'warning' : 'pass';
       } else if (c.type === 'ok_nok' || c.type === 'visual') {
         if (![true, false, 'OK', 'NOK'].includes(value as boolean | string)) conflict(`#${c.pointNo}: OK/NOK seçin.`);
@@ -98,7 +114,7 @@ export function validateInspection(input: Record<string, unknown>, rawPlan: unkn
       if ((['always_required','photo_required','media_required','document_required'].includes(c.evidencePolicy) || c.evidencePolicy === 'required_on_fail' && status === 'fail') && !sample.evidence?.[c.id]?.length)
         conflict(`#${c.pointNo}: kanıt dosyası zorunludur.`);
       if(!mobile&&c.policy){
-        const evaluated=evaluateMeasurement(c as MeasurementDefinition,typeof value==='number'?String(value):value===true?'OK':value===false?'NOK':value as string|string[]);
+        const evaluated=evaluatedNumeric||evaluateMeasurement(c as MeasurementDefinition,typeof value==='number'?String(value):value===true?'OK':value===false?'NOK':value as string|string[]);
         const errors=evidenceErrors(c as MeasurementDefinition,evaluated.result,(sample.evidence?.[c.id]||[]).map(e=>({mimeType:typeof e.mimeType==='string'?e.mimeType:''})),sample.pointNotes?.[c.id]||'',sample.pointReasons?.[c.id]||'');
         if(c.policy.requireInstrument&&!input.equipmentId)errors.push('Ölçüm aleti zorunludur.');
         if(c.policy.liveCaptureRequired)errors.push('Doğrulanmış canlı çekim desteği gerekli.');
@@ -117,13 +133,13 @@ export function validateInspection(input: Record<string, unknown>, rawPlan: unkn
     failedPointsCount: failed, warningPointsCount: warning, overallStatus: failed ? 'fail' : warning ? 'warning' : 'pass' };
 }
 
-const attemptSchema=z.object({id:z.string().uuid(),sample:z.number().int().min(1).max(5),characteristic:z.string(),raw:z.union([z.string(),z.array(z.string())]),mode:z.enum(['absolute','delta']),value:z.union([z.number(),z.string(),z.array(z.string())]),canonical:z.string().optional(),result:z.string(),comment:z.string().max(2000),reason:z.string().max(2000),retryReason:z.string().max(2000),photos:z.array(z.string().uuid()),previousAttemptId:z.string().uuid().optional(),operatorId:z.string(),measuredAt:z.string().datetime(),source:z.string(),instrumentId:z.string()});
+const attemptSchema=z.object({id:z.string().uuid(),sample:z.number().int().min(1).max(100),characteristic:z.string(),raw:z.union([z.string(),z.array(z.string())]),mode:z.enum(['absolute','delta']),value:z.union([z.number(),z.string(),z.array(z.string())]),canonical:z.string().optional(),result:z.string(),comment:z.string().max(2000),reason:z.string().max(2000),retryReason:z.string().max(2000),photos:z.array(z.string().uuid()),previousAttemptId:z.string().uuid().optional(),operatorId:z.string(),measuredAt:z.string().datetime(),source:z.string(),instrumentId:z.string()});
 function validateMobileAttempts(input:Record<string,unknown>,plan:z.infer<typeof planSchema>,rawPlan:unknown,actor:{id:string;name:string}) {
   const mobile=z.object({version:z.literal(1),attempts:z.array(attemptSchema).min(1).max(10000)}).parse(input.mobileMeasurement);
   const snapshot=input.controlPlanSnapshot as Record<string,unknown>;
   const content=(p:Record<string,unknown>)=>Object.fromEntries(Object.entries(p||{}).filter(([key])=>!['status','isActive','updatedAt'].includes(key)));
   if(canonical(content(snapshot))!==canonical(content(rawPlan as Record<string,unknown>)))conflict('Plan revizyonunun içeriği değişti. Yerel ölçümler korunuyor; kalite yetkilisine başvurun.');
-  const samples=z.array(z.object({sampleIndex:z.number(),values:z.record(valueSchema),evidence:z.record(z.array(z.object({id:z.string(),mimeType:z.string()}))).optional()})).max(5).parse(input.samples);
+  const samples=z.array(z.object({sampleIndex:z.number(),values:z.record(valueSchema),evidence:z.record(z.array(z.object({id:z.string(),mimeType:z.string()}))).optional()})).max(100).parse(input.samples);
   const latest=new Map<string,z.infer<typeof attemptSchema>>();const ids=new Set<string>();const usedPhotos=new Set<string>();
   for(const a of mobile.attempts){
     const c=plan.characteristics.find(c=>c.id===a.characteristic);const sample=samples.find(s=>s.sampleIndex===a.sample);

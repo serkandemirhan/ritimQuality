@@ -1,3 +1,5 @@
+import {isPlatformAdmin} from '../middleware/platform.js';
+import {hasUnlimitedPilot} from '../services/pilotAccess.js';
 import { completeInspectionRequest } from '../services/inspectionRequest.js';
 import { createInspectionWorkflow } from '../services/workflow.js';
 import { inspectionRulesSchema, inspectionSignature, validateInspection, planSchema, assertRevisionUnchanged, conflict } from '../services/inspectionValidation.js';
@@ -7,6 +9,7 @@ import { z } from 'zod';
 import { withTenant } from '../db/pool.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { assertQuota, assertSubscription, audit } from '../services/access.js';
+import {assertPlanPreconditions} from '../services/planConcurrency.js';
 
 export const saasRouter = Router();
 saasRouter.use(requireAuth);
@@ -20,7 +23,7 @@ saasRouter.get('/bootstrap', async (req, res, next) => {
     const data = await withTenant(tenantId, async client => {
       const tenant = await client.query(`SELECT id, slug, name, legal_name, tax_number, tax_office, industry, facility_location,
           contact_email, contact_phone, plan_id, subscription_status, billing_period, subscription_renews_at,
-          trial_ends_at, created_at FROM tenants WHERE id = $1`, [tenantId]);
+          trial_ends_at, pilot_unlimited, created_at FROM tenants WHERE id = $1`, [tenantId]);
       const users = await client.query(`SELECT id, name, email, role, department, station_or_machine, status, last_login_at
           FROM users WHERE tenant_id = $1 ORDER BY name`, [tenantId]);
       const products = await client.query('SELECT payload FROM products WHERE tenant_id = $1 ORDER BY created_at DESC', [tenantId]);
@@ -32,8 +35,8 @@ saasRouter.get('/bootstrap', async (req, res, next) => {
           (SELECT COALESCE(sum(jsonb_array_length(payload->'samples')), 0)::int FROM inspection_logs
             WHERE tenant_id = $1 AND voided_at IS NULL AND occurred_at >= date_trunc('month', now())) monthly_measurements`, [tenantId]);
       return {
-        currentUserId: req.auth!.userId,
-        company: tenant.rows[0], users: users.rows,
+        currentUserId: req.auth!.userId,platformAdmin:isPlatformAdmin(req.auth!.userId),
+        company: {...tenant.rows[0],unlimited_pilot:hasUnlimitedPilot(tenant.rows[0]||{})}, users: users.rows,
         products: products.rows.map(row => row.payload),
         controlPlans: controlPlans.rows.map(row => row.payload),
         inspectionLogs: logs.rows.map(row => ({...row.payload,controlNumber:row.control_number,approval:row.approval})),
@@ -111,6 +114,34 @@ saasRouter.delete('/products/:id', requireRole('admin'), async (req, res, next) 
   } catch (error) { next(error); }
 });
 
+saasRouter.get('/control-plans/:id/publication', async(req,res,next)=>{
+  try {
+    const id=idSchema.parse(req.params.id);const {tenantId}=req.auth!;
+    const result=await withTenant(tenantId,async client=>{
+      const plan=await client.query('SELECT id FROM control_plans WHERE tenant_id=$1 AND id=$2',[tenantId,id]);
+      if(!plan.rowCount)throw Object.assign(new Error('Kontrol planı bulunamadı.'),{status:404});
+      const event=await client.query(`SELECT a.created_at,u.name FROM audit_logs a
+        LEFT JOIN users u ON u.tenant_id=a.tenant_id AND u.id=a.actor_user_id
+        WHERE a.tenant_id=$1 AND a.entity_type='control_plan' AND a.entity_id=$2
+          AND a.action IN ('control_plan.created','control_plan.updated')
+          AND a.after_data->>'isActive'='true' AND a.after_data->>'status'='active'
+          AND (a.before_data IS NULL OR a.before_data->>'isActive' IS DISTINCT FROM 'true' OR a.before_data->>'status' IS DISTINCT FROM 'active')
+        ORDER BY a.created_at DESC,a.id DESC LIMIT 1`,[tenantId,id]);
+      const row=event.rows[0];return {publishedAt:row?.created_at||null,publishedBy:row?.name||null};
+    });res.json(result);
+  } catch(error){next(error);}
+});
+saasRouter.get('/control-plans/:id/revision-usage', requireRole('admin', 'quality_engineer'), async (req,res,next)=>{
+  try {
+    const id=idSchema.parse(req.params.id);const {tenantId}=req.auth!;
+    const result=await withTenant(tenantId,async client=>{
+      const plan=await client.query('SELECT payload FROM control_plans WHERE tenant_id=$1 AND id=$2',[tenantId,id]);
+      if(!plan.rowCount)throw Object.assign(new Error('Kontrol planı bulunamadı.'),{status:404});
+      const usage=await client.query("SELECT EXISTS(SELECT 1 FROM inspection_logs WHERE tenant_id=$1 AND control_plan_id=$2) OR EXISTS(SELECT 1 FROM quality_tasks WHERE tenant_id=$1 AND request_context->>'planId'=$2 AND completed_at IS NULL) AS used",[tenantId,id]);
+      return {used:Boolean(usage.rows[0].used),token:inspectionSignature(plan.rows[0].payload),payload:plan.rows[0].payload};
+    });res.json(result);
+  }catch(error){next(error);}
+});
 saasRouter.put('/control-plans/:id', requireRole('admin', 'quality_engineer'), async (req, res, next) => {
   try {
     const id = idSchema.parse(req.params.id); const payload = planSchema.parse(req.body);
@@ -122,6 +153,10 @@ saasRouter.put('/control-plans/:id', requireRole('admin', 'quality_engineer'), a
       await client.query('SELECT id FROM products WHERE tenant_id=$1 AND id=$2 FOR UPDATE', [tenantId, productId]);
       if((await client.query('SELECT 1 FROM control_plans WHERE tenant_id=$1 AND product_id=$2 AND version=$3 AND id<>$4',[tenantId,productId,version,id])).rowCount)conflict('Bu plan sürümü zaten var. Listeyi yenileyip yeni revizyon oluşturun.');
       const prior = (await client.query('SELECT payload FROM control_plans WHERE tenant_id=$1 AND id=$2 FOR UPDATE', [tenantId,id])).rows[0]?.payload;
+      const expected=req.get('X-Plan-Expected');
+      const expectedActive=req.get('X-Active-Plan-Expected');
+      const active=isActive&&expectedActive!==undefined?(await client.query('SELECT id FROM control_plans WHERE tenant_id=$1 AND product_id=$2 AND is_active FOR UPDATE',[tenantId,productId])).rows[0]?.id||'none':'none';
+      assertPlanPreconditions(prior,expected,active,isActive?expectedActive:undefined);
       if(prior&&(await client.query("SELECT 1 FROM quality_tasks WHERE tenant_id=$1 AND request_context->>'planId'=$2 AND completed_at IS NULL LIMIT 1",[tenantId,id])).rowCount)assertRevisionUnchanged(prior,payload);
       if (prior && (await client.query('SELECT 1 FROM inspection_logs WHERE tenant_id=$1 AND control_plan_id=$2 LIMIT 1',[tenantId,id])).rowCount) assertRevisionUnchanged(prior,payload);
       const exists = await client.query('SELECT 1 FROM control_plans WHERE tenant_id=$1 AND id=$2', [tenantId, id]);
@@ -241,6 +276,7 @@ saasRouter.post('/users', requireRole('admin'), async (req, res, next) => {
   try {
     const input = z.object({ id:z.string().min(1).max(120),name:z.string().min(2),email:z.string().email(),password:z.string().min(10).max(128).optional(),role:z.enum(['admin','quality_engineer','operator','auditor']),department:z.string().default(''),stationOrMachine:z.string().optional(),status:z.enum(['active','suspended']).default('active') }).parse(req.body);
     const { tenantId, userId } = req.auth!;
+    if(isPlatformAdmin(input.id)&&!isPlatformAdmin(userId))throw Object.assign(Error('Platform yöneticisi hesabı değiştirilemez.'),{status:403});
     const user = await withTenant(tenantId, async client => {
       const existing = (await client.query('SELECT * FROM users WHERE tenant_id=$1 AND id=$2', [tenantId,input.id])).rows[0];
       if (!existing) await assertQuota(client, tenantId, 'users'); else await assertSubscription(client, tenantId);
@@ -265,7 +301,8 @@ saasRouter.post('/users', requireRole('admin'), async (req, res, next) => {
 
 saasRouter.delete('/users/:id', requireRole('admin'), async (req, res, next) => {
   try {
-    const id=idSchema.parse(req.params.id); const {tenantId,userId}=req.auth!;
+    const id=idSchema.parse(req.params.id);
+    if(isPlatformAdmin(id))throw Object.assign(Error('Platform yöneticisi hesabı silinemez.'),{status:403}); const {tenantId,userId}=req.auth!;
     if (id===userId) { res.status(409).json({error:'Kendi hesabınızı silemezsiniz.'}); return; }
     await withTenant(tenantId, async client => {
       await assertSubscription(client,tenantId);

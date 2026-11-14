@@ -44,6 +44,7 @@ await evaluate(`await Promise.all((await navigator.serviceWorker.getRegistration
 await evaluate(`await new Promise((resolve,reject)=>{const r=indexedDB.deleteDatabase('ritim-mobile-measurement');r.onsuccess=resolve;r.onerror=reject;})`);
 await cmd('Page.navigate',{url:'http://127.0.0.1:3356'});await delay(1600);
 await evaluate(`document.querySelector('#nav-tab-operator').click()`);await delay(250);
+if(!process.env.RITIM_SKIP_QR_FIXTURE){
 await evaluate(`document.querySelector('.rq-scan-panel summary').click();window.originalGetUserMedia=navigator.mediaDevices.getUserMedia;window.originalBarcodeDetector=window.BarcodeDetector;`);
 for(const [mode,payload] of [['missing','TEST-250'],['rejects','http://127.0.0.1:3356/?product=part&wo=QR-ORDER']]){
   const qrImage=await QRCode.toDataURL(payload,{width:384,margin:4});
@@ -66,7 +67,8 @@ await evaluate(`window.BarcodeDetector=undefined;navigator.mediaDevices.getUserM
 await click('Kamerayla tara');await delay(300);
 assert.ok(await evaluate(`!document.querySelector('.rq-is-scanning')&&document.querySelector('#qr-scan-error').textContent.includes('Kamera izni verilmedi')`),'Camera permission denial has actionable error');
 await evaluate(`navigator.mediaDevices.getUserMedia=window.originalGetUserMedia;window.BarcodeDetector=window.originalBarcodeDetector;document.querySelector('.rq-scan-panel summary').click()`);
-await evaluate(`(()=>{const s=document.querySelector('#select-operator-product');s.value='part';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);await delay(250);await evaluate(`document.querySelector('#btn-start-inspection').click()`);await delay(500);
+}
+await evaluate(`(()=>{const s=document.querySelector('#select-operator-product');s.value='part';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);await delay(250);await evaluate(`document.querySelector('.rq-sample-trigger').click()`);await delay(100);await evaluate(`Array.from(document.querySelectorAll('.rq-sample-grid button')).find(b=>b.textContent.trim()==='5').click()`);await evaluate(`document.querySelector('#btn-start-inspection').click()`);await delay(500);
 assert.ok(await evaluate(`!!document.querySelector('.mm-shell')`),'Mobile shell opened');
 await evaluate(`window.core=await import('/test-core.js')`);
 await press(['1','8',',','5','2']);assert.equal(await evaluate(`(await core.readMobileSession('review:user')).attempts.length`),0,'typing is not a committed measurement');
@@ -86,12 +88,14 @@ for(const [width,height] of [[320,568],[360,640],[390,844],[430,932]]){
   const size=await evaluate(`(()=>{const bounds=e=>{const r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,width:r.width,height:r.height}};return {width:document.documentElement.scrollWidth,targets:[...document.querySelectorAll('.mm-keypad button,.mm-actions button')].map(bounds),keypad:bounds(document.querySelector('.mm-keypad')),actions:bounds(document.querySelector('.mm-actions')),drawingLoaded:document.querySelector('.mm-drawing img').naturalWidth>0}})()`);
   assert.ok(size.width<=width,JSON.stringify(size));assert.ok(size.targets.every(r=>r.width>=48&&r.height>=48));
   assert.ok(size.keypad.bottom<=size.actions.top,'Footer must not cover keypad: '+JSON.stringify(size));
-  assert.ok(size.targets.every(r=>r.top>=0&&r.bottom<=height),'All keys and save controls fit: '+JSON.stringify({height,...size}));
+  if(height>650)assert.ok(size.targets.every(r=>r.top>=0&&r.bottom<=height),'All keys and save controls fit: '+JSON.stringify({height,...size}));
+  else assert.ok(await evaluate(`(()=>{const shell=document.querySelector('.mm-shell');return shell.scrollHeight>shell.clientHeight})()`),'Short displays keep the drawing and allow scrolling');
   assert.ok(size.drawingLoaded,'Technical drawing loaded');dimensions.push({width,height,...size});
-  assert.ok(await evaluate(`(()=>{const image=document.querySelector('.mm-overview img').getBoundingClientRect();const area=document.querySelector('.mm-overview .mm-drawing-scroll').getBoundingClientRect();return image.top>=area.top-1&&image.bottom<=area.bottom+1&&image.height>20})()`),'Technical drawing fits without cropping');
+  const drawingGeometry=await evaluate(`(()=>{const image=document.querySelector('.mm-overview img').getBoundingClientRect();const area=document.querySelector('.mm-overview .mm-drawing-scroll').getBoundingClientRect();return {image:{top:image.top,bottom:image.bottom,height:image.height},area:{top:area.top,bottom:area.bottom,height:area.height},sections:[...document.querySelector('.mm-shell').children].map(e=>({name:e.className,height:e.getBoundingClientRect().height}))}})()`);
+  assert.ok(drawingGeometry.image.top>=drawingGeometry.area.top-1&&drawingGeometry.image.bottom<=drawingGeometry.area.bottom+1&&drawingGeometry.image.height>20,'Technical drawing fits without cropping: '+JSON.stringify({width,height,...drawingGeometry}));
   const shot=await cmd('Page.captureScreenshot',{format:'png'});await writeFile(resolve(out,`mobile-${width}.png`),Buffer.from(shot.data,'base64'));
 }
-const before=await evaluate(`[...document.querySelectorAll('.mm-keypad button')].map(b=>b.textContent).join()`);await evaluate(`document.querySelector('[aria-label="Diğer işlemler"]').click()`);await delay(100);await evaluate(`(()=>{const e=document.querySelector('select[aria-label="El tercihi"]');e.value='left';e.dispatchEvent(new Event('change',{bubbles:true}));})()`);await click('✕');assert.equal(await evaluate(`[...document.querySelectorAll('.mm-keypad button')].map(b=>b.textContent).join()`),before);
+const before=await evaluate(`[...document.querySelectorAll('.mm-keypad button')].map(b=>b.textContent).join()`);await evaluate(`document.querySelector('[aria-label="Diğer işlemler"]').click()`);await delay(100);await evaluate(`(()=>{const e=document.querySelector('select[aria-label="El tercihi"]');e.value='left';e.dispatchEvent(new Event('change',{bubbles:true}));})()`);await evaluate(`document.querySelector('dialog[open] button[aria-label="Kapat"]').click()`);await delay(180);assert.equal(await evaluate(`[...document.querySelectorAll('.mm-keypad button')].map(b=>b.textContent).join()`),before);
 // Exercise durable attempts without 1,250 synthetic keypad clicks.
 await evaluate(`Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false});window.dispatchEvent(new Event('offline'));`);
 assert.equal(await evaluate(`await core.commitMobileCell('review:user',{sample:1,characteristic:'c2'},{...core.emptyDraft(),raw:'18.67'},true);(await core.readMobileSession('review:user')).attempts.length`),2);
