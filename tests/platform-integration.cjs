@@ -41,6 +41,15 @@ const freePort=()=>new Promise((resolve,reject)=>{const s=net.createServer();s.o
   await call('/auth/platform-login',null,'POST',{email:'owner@example.invalid',password:'incorrect'},401);
   await call('/auth/platform-login',null,'POST',{email:'admin-a@example.invalid',password:'Local-test-password-123!'},401);
   check('Platform login needs no workspace and rejects wrong passwords and unauthorized accounts');
+  const manual={plan:'pro',status:'active',endsAt:'2099-01-01T00:00:00.000Z',reason:'Manual test license'};
+  await call('/platform/tenants/'+b+'/manual-subscription',aToken,'PATCH',manual,403);
+  await call('/platform/tenants/'+b+'/manual-subscription',ownerToken,'PATCH',{...manual,endsAt:'2000-01-01T00:00:00.000Z'},400);
+  await call('/platform/tenants/'+b+'/manual-subscription',ownerToken,'PATCH',manual);
+  const updated=(await admin.query('SELECT plan_id,subscription_status,billing_source,manual_license_ends_at FROM tenants WHERE id=$1',[b])).rows[0];assert.equal(updated.plan_id,'pro');assert.equal(updated.billing_source,'manual');assert.equal(updated.subscription_status,'active');
+  const audits=(await admin.query("SELECT action FROM platform_audit_events WHERE tenant_id=$1 AND action='tenant.manual_subscription.updated'",[b])).rows;assert.equal(audits.length,1);
+  await admin.query("UPDATE tenants SET stripe_subscription_id='sub_test_locked' WHERE id=$1",[b]);await call('/platform/tenants/'+b+'/manual-subscription',ownerToken,'PATCH',manual,409);
+  await admin.query("UPDATE tenants SET stripe_subscription_id=NULL,plan_id='starter',subscription_status='trial',billing_source='stripe',manual_license_ends_at=NULL WHERE id=$1",[b]);
+  check('Manual subscriptions require owner, valid expiry and reject Stripe-linked tenants');
   if(process.env.PHYSICAL_DEVICE_REVIEW==='1'){await admin.query('UPDATE tenants SET next_control_number=2000 WHERE id=$1',[a]);await require('./physical-device-review.cjs')({origin,call,ownerToken,aToken,bToken,tenantId:a,otherTenant:b,product,plan});return;}
   if(process.env.ACCEPTANCE_FIXES_ONLY){await admin.query('UPDATE tenants SET next_control_number=2000 WHERE id=$1',[a]);await require('./acceptance-fixes.integration.cjs')({call,ownerToken,aToken,tenantId:a,plan,product,check});fs.writeFileSync(path.join(root,'.runtime/three-device-acceptance/fix-integration-results.json'),JSON.stringify({checks,realPostgres:true},null,2));return;}
   await call('/platform/me',null,'GET',undefined,401);await call('/platform/me',aToken,'GET',undefined,403);await call('/platform/me',ownerToken);check('Only the configured platform owner can enter; ordinary customer admin rejected');

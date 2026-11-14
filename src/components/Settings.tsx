@@ -1,3 +1,4 @@
+import {currentRelease, releaseHistory} from '../releaseHistory';
 import { InspectionRulesSettings } from './InspectionRulesSettings';
 import React, { useState } from 'react';
 import { PushSettings } from './PushSettings';
@@ -11,8 +12,8 @@ export function Settings({currentUser,users,products,onInspect,onOpenBackup,onNa
   const key='quality:preferences:'+currentUser.id;
   const [hand,setHand]=useState(()=>localStorage.getItem(key)==='left'?'left':'right');
   return <div className="space-y-6">
-    <Tabs label="Ayar kategorileri" value={section} onChange={setSection} items={[{id:'preferences',label:'Kişisel tercihler'},...(['admin','auditor'].includes(currentUser.role)?[{id:'audit',label:'Denetim izi'}]:[])]}/>
-    {section==='preferences'?<div className="max-w-3xl space-y-5">
+    <Tabs label="Ayar kategorileri" value={section} onChange={setSection} items={[{id:'preferences',label:'Kişisel tercihler'},{id:'releases',label:'Sürüm geçmişi'},...(['admin','auditor'].includes(currentUser.role)?[{id:'audit',label:'Denetim izi'}]:[])]}/>
+    {section==='releases'?<div className="max-w-3xl space-y-4"><section className="rq-card"><h2 className="font-bold text-slate-900">Değişiklik geçmişi</h2><p className="mt-2 text-sm text-slate-500">Uygulama sürümleri ve yayınlanan yenilikler.</p><p className="mt-3 text-sm font-semibold">Uygulama v{currentRelease.version} · Gerekli veritabanı sürümü {currentRelease.databaseVersion}</p></section>{releaseHistory.map(release=><article className="rq-card" key={release.version}><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-bold">v{release.version}</h3><span className="text-xs text-slate-500">{release.date ? new Date(release.date+'T12:00:00').toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'}) : 'Yayın tarihi henüz belirlenmedi'}</span></div><p className="mt-1 text-xs text-slate-500">Gerekli veritabanı sürümü: {release.databaseVersion}</p><ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">{release.changes.map(change=><li key={change}>{change}</li>)}</ul></article>)}</div>:section==='preferences'?<div className="max-w-3xl space-y-5">
       <section className="rq-card">
         <h2 className="font-bold text-slate-900">Ölçüm kullanımı</h2>
         <p className="mt-2 text-sm text-slate-500">Telefon ve tablette menü ile ölçüm düğmelerinin yerleşimini kullandığınız ele göre düzenleyin.</p>

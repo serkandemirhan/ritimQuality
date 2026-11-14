@@ -1,3 +1,4 @@
+import {currentRelease} from './releaseHistory';
 import { AppShell, Topbar, PageContainer, PageHeader, Breadcrumb, Button, Skeleton } from './components/ui';
 import { AccountMenu } from './components/AccountMenu';
 import { Toast } from './components/Toast';
@@ -365,7 +366,7 @@ export default function App() {
         {/* Professional Footer */}
         <footer hidden={measurementActive} className="app-page-footer border-t border-slate-200 bg-white py-4 px-4 text-center text-xs text-slate-500 font-sans">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>Ritim Quality · v1.0 · Ritim Cloud</span>
+          <span>Ritim Quality · v{currentRelease.version} · Ritim Cloud</span>
           <span>Revizyon kontrollü kalite kayıtları</span>
         </div>
         </footer>

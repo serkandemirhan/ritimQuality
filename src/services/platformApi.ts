@@ -43,6 +43,7 @@ export const PlatformApi = {
     detail: (id: string) => platformRequest<TenantDetail>(root(id)),
     create: (body: Row) => platformRequest<Row>('/platform/tenants', { method: 'POST', body: JSON.stringify(body) }),
     access: (id: string, body: Row) => platformRequest(root(id), { method: 'PATCH', body: JSON.stringify(body) }),
+    manualSubscription: (id: string, body: Row) => platformRequest(root(id) + '/manual-subscription', { method: 'PATCH', body: JSON.stringify(body) }),
     user: (id: string, body: Row) => platformRequest(root(id) + '/users', { method: 'POST', body: JSON.stringify(body) }),
     records: (id: string, table: string, offset = 0) => platformRequest<{
         rows: Row[];

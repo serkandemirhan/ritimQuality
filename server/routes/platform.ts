@@ -29,7 +29,7 @@ const mediaRoot = resolve(process.env.MEDIA_ROOT || '.data/media');
 function localFile(name: string) { const path = resolve(mediaRoot, name); if (!path.startsWith(mediaRoot + sep))
     throw fail('Dosya yolu geçersiz.', 400); return path; }
 async function schema(client: pg.PoolClient) { const r = await client.query("SELECT table_name,column_name,data_type,is_nullable FROM information_schema.columns WHERE table_schema='public' AND table_name=ANY($1) ORDER BY table_name,ordinal_position", [[...PACKAGE_TABLES]]); return [digest(Buffer.from(canonical(r.rows)))]; }
-async function tenant(client: pg.PoolClient, id: string) { const row = (await client.query('SELECT id,slug,name,legal_name,tax_number,tax_office,industry,facility_location,contact_email,contact_phone,inspection_rules,next_control_number,pilot_unlimited,platform_suspended,plan_id,subscription_status,trial_ends_at,created_at FROM tenants WHERE id=$1', [id])).rows[0]; if (!row)
+async function tenant(client: pg.PoolClient, id: string) { const row = (await client.query('SELECT id,slug,name,legal_name,tax_number,tax_office,industry,facility_location,contact_email,contact_phone,inspection_rules,next_control_number,pilot_unlimited,platform_suspended,plan_id,subscription_status,trial_ends_at,billing_source,manual_license_ends_at,(stripe_subscription_id IS NOT NULL) AS stripe_linked,created_at FROM tenants WHERE id=$1', [id])).rows[0]; if (!row)
     throw fail('Firma bulunamadı.', 404); return row; }
 async function job(client: pg.PoolClient, id: string, actor: string, tenantId: string, kind?: string) { const row = (await client.query('SELECT * FROM platform_packages WHERE id=$1 AND actor_user_id=$2 AND tenant_id=$3 AND expires_at>now() FOR UPDATE', [id, actor, tenantId])).rows[0]; if (!row || kind && row.kind !== kind)
     throw fail('Paket bulunamadı veya süresi doldu.', 404); return row; }
@@ -60,6 +60,20 @@ platformRouter.patch('/tenants/:tenantId', wrap(async (req, res) => {
         throw fail('Kendi platform giriş hesabınızın firmasını durduramazsınız.');
     await withPlatform(id, async (c) => { const before = await tenant(c, id); const after = (await c.query('UPDATE tenants SET pilot_unlimited=$2,platform_suspended=$3,updated_at=now() WHERE id=$1 RETURNING id,pilot_unlimited,platform_suspended', [id, b.unlimitedPilot, b.suspended])).rows[0]; await platformAudit(c, req.auth!.userId, id, 'tenant.access.updated', b.reason, { before: { pilot_unlimited: before.pilot_unlimited, platform_suspended: before.platform_suspended }, after }); });
     res.json({ ok: true });
+}));
+platformRouter.patch('/tenants/:tenantId/manual-subscription', wrap(async (req, res) => {
+    const id=uuid.parse(req.params.tenantId);
+    const b=z.object({plan:z.enum(['starter','pro','enterprise']),status:z.enum(['active','canceled']),endsAt:z.string().datetime({offset:true}),reason}).parse(req.body);
+    if(b.status==='active' && Date.parse(b.endsAt)<=Date.now()) throw fail('Aktif lisans i\u00e7in biti\u015f tarihi gelecekte olmal\u0131.',400);
+    await withPlatform(id, async c=>{
+      const before=(await c.query('SELECT id,plan_id,subscription_status,billing_source,manual_license_ends_at,stripe_subscription_id FROM tenants WHERE id=$1 FOR UPDATE',[id])).rows[0];
+      if(!before) throw fail('Firma bulunamad\u0131.',404);
+      if(before.stripe_subscription_id) throw fail('Stripe aboneli\u011fi ba\u011fl\u0131 hesap manuel olarak de\u011fi\u015ftirilemez.',409);
+      const after=(await c.query("UPDATE tenants SET plan_id=$2,subscription_status=$3,billing_source='manual',manual_license_ends_at=$4,updated_at=now() WHERE id=$1 RETURNING plan_id,subscription_status,billing_source,manual_license_ends_at",[id,b.plan,b.status,b.endsAt])).rows[0];
+      const {stripe_subscription_id: _stripe, ...safeBefore}=before;
+      await platformAudit(c,req.auth!.userId,id,'tenant.manual_subscription.updated',b.reason,{before:safeBefore,after});
+    });
+    res.json({ok:true});
 }));
 platformRouter.post('/tenants/:tenantId/users', wrap(async (req, res) => {
     const id = uuid.parse(req.params.tenantId), b = z.object({ id: z.string().optional(), name: z.string().min(2), email: z.string().email(), role: z.enum(['admin', 'quality_engineer', 'operator', 'auditor']), status: z.enum(['active', 'suspended']), password: z.string().min(12).max(72).refine(v => Buffer.byteLength(v) <= 72).optional(), reason }).parse(req.body);
