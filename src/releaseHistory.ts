@@ -1,6 +1,6 @@
 /** Release dates describe production publication, not the time a feature was implemented. */
 export const releaseHistory = [
-  {version:'1.4.0',date:null as string|null,status:'pending' as const,databaseVersion:'018_free_registration',
+  {version:'1.4.0',date:'2026-11-14' as string|null,status:'published' as const,databaseVersion:'018_free_registration',
    changes:['Mobil kanıt ve uygunsuzluk ekranı, daha okunaklı ölçüm özeti ve dosya işlemleriyle yenilendi.','Ölçüm ekranında eksik kanıt ve değerler nokta ve numune bazında gösterilir.','Reddedilen ölçümler düzenlenebilir; teknik resimde tüm noktalar görünümü kararlı çalışır.','Kanıt dosyaları sürüklenerek yüklenebilir ve ölçümden kaldırılabilir.','Mobil tekrar ölçüm sebebi doğrudan ölçüm ekranından girilebilir.','Mobil teknik resim seçili noktaya odaklanır; ölçüm ekranı daha kompakt kullanılır.']},
   {version:'1.3.0',date:'2026-11-14' as string|null,status:'published' as const,databaseVersion:'018_free_registration',
    changes:['Yeni firma kayıtları süre sınırı olmayan ücretsiz paketle başlar.','Ücretsiz pakette iki aktif kontrol planı sınırı yayınlamada uygulanır; taslaklar ve arşivler kotayı tüketmez.','Örnek ölçülü otomatik plan kaldırıldı; parça kaydından plan hazırlamaya ve yayınlamadan ölçüme doğrudan geçiş eklendi.','Gerçek kayıt ve PDF indirme kabul testleri ile adım bazında süre ölçümü eklendi.']},
