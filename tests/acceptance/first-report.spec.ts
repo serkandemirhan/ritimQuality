@@ -55,11 +55,38 @@ for(const scenario of [{width:1440,height:1000,recovery:false},{width:390,height
    await page.getByLabel('Parti numarası',{exact:true}).fill('LOT-ACCEPTANCE');await page.locator('#btn-start-inspection').click();
    if(viewport.width<768){
     await expect(page.locator('.mm-shell')).toBeVisible();mark('T7');
+    if(!recovery){
+     for(const key of '101')await page.locator('.mm-keypad').getByRole('button',{name:key,exact:true}).click();
+     await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).click();
+     const evidenceSheet=page.getByRole('dialog',{name:'Kanıt ve uygunsuzluk'});
+     await expect(evidenceSheet).toBeVisible();
+     await expect(evidenceSheet.getByLabel('Ölçüm sonucu')).toContainText('101');
+     await expect(evidenceSheet.getByLabel('Açıklama')).toBeVisible();
+     await evidenceSheet.getByLabel('Dosya ekle').setInputFiles('tests/acceptance/drawing.png');
+     await expect(evidenceSheet.getByText('drawing.png',{exact:true})).toBeVisible();
+     await evidenceSheet.getByRole('button',{name:'drawing.png kaldır'}).click();
+     await expect(evidenceSheet.getByText('drawing.png',{exact:true})).toHaveCount(0);
+     await page.screenshot({path:testInfo.outputPath('mobile-evidence.png')});
+     await evidenceSheet.getByRole('button',{name:'Girişe dön'}).click();
+     await page.locator('.mm-keypad').getByRole('button',{name:'Temizle'}).click();
+    }
     for(const [i,value]of ['100,02','49,98','10,01'].entries()){
      await expect(page.locator('.mm-keypad')).toBeVisible();
      for(const key of value)await page.locator('.mm-keypad').getByRole('button',{name:key,exact:true}).click();
      await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).click();
      if(i<2)await expect(page.locator('.mm-shell')).toContainText(['Kanal genişliği','Delik çapı'][i]);
+    }
+    if(!recovery){
+     await page.getByRole('button',{name:'Ölçümü düzelt',exact:true}).click();
+     await page.getByRole('button',{name:'Önceki',exact:true}).click();
+     await page.getByRole('button',{name:'Önceki',exact:true}).click();
+     await expect(page.getByLabel('Tekrar ölçüm sebebi',{exact:true})).toBeVisible();
+     for(const key of '100,02')await page.locator('.mm-keypad').getByRole('button',{name:key,exact:true}).click();
+     await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).click();
+     await expect(page.getByText('Tekrar ölçüm sebebini girin.',{exact:true})).toBeVisible();
+     await page.getByLabel('Tekrar ölçüm sebebi',{exact:true}).fill('Ölçümü doğruladım');
+     await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).click();
+     await expect(page.getByText('Tüm ölçümler tamamlandı',{exact:true})).toBeVisible();
     }
    }else{
     await expect(page.getByLabel('Ölçülen değer',{exact:true})).toBeVisible();mark('T7');
@@ -67,6 +94,21 @@ for(const scenario of [{width:1440,height:1000,recovery:false},{width:390,height
      await page.getByLabel('Ölçülen değer',{exact:true}).fill(value);
      if(i<2)await page.getByLabel('Ölçülen değer',{exact:true}).press('Enter');
     }
+    // A selected file and a dropped file upload immediately and can be removed before saving.
+    await page.locator('.measurement-points button').first().click();
+    await page.getByLabel('Ölçülen değer',{exact:true}).fill('101');
+    const evidence=page.locator('.measurement-evidence');await evidence.locator('summary').click();
+    await evidence.locator('input[type=file]').setInputFiles('tests/acceptance/drawing.png');
+    await expect(evidence.getByText('✓ drawing.png')).toBeVisible();
+    await evidence.getByRole('button',{name:'drawing.png kanıtını kaldır'}).click();
+    await expect(evidence.getByText('✓ drawing.png')).toHaveCount(0);
+    const data=await readFile('tests/acceptance/drawing.png');
+    const transfer=await page.evaluateHandle(encoded=>{const bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));const value=new DataTransfer();value.items.add(new File([bytes],'suruklenen.png',{type:'image/png'}));return value;},data.toString('base64'));
+    await evidence.locator('.inspection-evidence-drop').dispatchEvent('drop',{dataTransfer:transfer});
+    await expect(evidence.getByText('✓ suruklenen.png')).toBeVisible();
+    await evidence.getByRole('button',{name:'suruklenen.png kanıtını kaldır'}).click();
+    await expect(evidence.getByText('✓ suruklenen.png')).toHaveCount(0);
+    await page.getByLabel('Ölçülen değer',{exact:true}).fill('100,02');
    }
    if(recovery){
     await page.route('**/api/inspection-logs',route=>route.fulfill({status:503,json:{error:'Kabul testi: kayıt bağlantısı kesildi'}}));

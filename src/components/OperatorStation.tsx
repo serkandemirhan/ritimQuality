@@ -40,6 +40,7 @@ import { MobileMeasurementShell } from './MobileMeasurementShell';
 import { evaluateMeasurement,readMobileSession, type MobileSession } from '../services/mobileMeasurement';
 import {readOfflineCatalog,saveOfflineRules} from '../services/offlineCatalog';
 import {drawingRevisionStatus} from '../services/drawingRevision';
+import {inspectionIssues} from '../services/inspectionIssues';
 
 interface OperatorStationProps {
   initialProductId?: string;
@@ -83,6 +84,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const [draftSearch,setDraftSearch]=useState('');
   const [draftId,setDraftId]=useState<string|null>(null);
   const [draftBusy,setDraftBusy]=useState(false);
+  const [showInspectionIssues,setShowInspectionIssues]=useState(false);
   // Selection State
   const [selectedProductId, setSelectedProductId] = useState<string>(initialProductId || new URLSearchParams(window.location.search).get('product') || '');
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
@@ -103,6 +105,9 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const [planPublication,setPlanPublication]=useState<{id:string;publishedAt:string|null;publishedBy:string|null;error?:boolean}|null>(null);
   const publicationRequest=useRef(0);
   const [mediaUploading, setMediaUploading] = useState(false);
+  const mediaUploadRef=useRef(false);
+  const [evidenceUploadError,setEvidenceUploadError]=useState('');
+  const [evidenceDragActive,setEvidenceDragActive]=useState(false);
 
   // Sync with current user changes
   useEffect(() => {
@@ -339,15 +344,25 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
     if(status==='fail') playAlertSound('fail');
   };
 
-  const handleEvidenceUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file=event.target.files?.[0]; if(!file||!currentCharacteristic||submissionRef.current) return;
+  const uploadEvidenceFiles = async (files: File[]) => {
+    if(!files.length||!currentCharacteristic||submissionRef.current||saving||savedLog||mediaUploadRef.current) return;
     const sampleIndex=activeSampleIndex; const characteristicId=currentCharacteristic.id;
-    setMediaUploading(true);
+    mediaUploadRef.current=true;setMediaUploading(true);setEvidenceUploadError('');
     try {
-      const attachment=await SaasApi.uploadFile(file);
-      setSamples(previous=>previous.map(sample=>sample.sampleIndex===sampleIndex?{...sample,evidence:{...(sample.evidence||{}),[characteristicId]:[...((sample.evidence||{})[characteristicId]||[]),attachment]}}:sample));
-    } catch(error){alert(error instanceof Error?error.message:'Kanıt yüklenemedi.');}
-    finally{setMediaUploading(false);event.target.value='';}
+      for(const file of files){
+        try {
+          const attachment=await SaasApi.uploadFile(file);
+          setSamples(previous=>previous.map(sample=>sample.sampleIndex===sampleIndex?{...sample,evidence:{...(sample.evidence||{}),[characteristicId]:[...((sample.evidence||{})[characteristicId]||[]),attachment]}}:sample));
+        } catch(error) { setEvidenceUploadError(previous=>[previous,`${file.name}: ${error instanceof Error?error.message:'Kanıt yüklenemedi.'}`].filter(Boolean).join(' ')); }
+      }
+    } finally{mediaUploadRef.current=false;setMediaUploading(false);}
+  };
+  const handleEvidenceUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files=Array.from(event.target.files||[]);event.target.value='';void uploadEvidenceFiles(files);
+  };
+  const removeEvidence=(sampleIndex:number,characteristicId:string,attachmentId:string)=>{
+    if(saving||mediaUploadRef.current||submissionRef.current||savedLog)return;
+    setSamples(previous=>previous.map(sample=>sample.sampleIndex===sampleIndex?{...sample,evidence:{...(sample.evidence||{}),[characteristicId]:(sample.evidence?.[characteristicId]||[]).filter(item=>item.id!==attachmentId)}}:sample));
   };
 
   // Set precise nominal or offset value with one tap
@@ -442,11 +457,8 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const totalPossible = sampleCount * characteristics.length;
   const activeCharacteristicIndex=characteristics.findIndex(c=>c.pointNo===activePointNo);
   const isLastMeasurement=activeCharacteristicIndex===characteristics.length-1&&activeSampleIndex===sampleCount;
-  const missingEvidenceCount=samples.reduce((total,sample)=>total+characteristics.filter(char=>{
-    const policy=char.evidencePolicy||'none'; const status=sample.statuses[char.id]; const count=(sample.evidence?.[char.id]||[]).length;
-    return (['always_required','photo_required','media_required','document_required'].includes(policy)||(policy==='required_on_fail'&&status==='fail'))&&count===0;
-  }).length,0);
-  const isComplete = totalChecked === totalPossible && totalPossible > 0 && missingEvidenceCount===0;
+  const issues=inspectionIssues(samples,characteristics,equipmentId || machineNo || 'MANUEL-ISTASYON-01');
+  const isComplete = totalChecked === totalPossible && totalPossible > 0 && issues.length===0;
   const overallResult: 'pass' | 'warning' | 'fail' = failCount > 0 ? 'fail' : (warningCount > 0 ? 'warning' : 'pass');
 
   const draftPayload=()=>({request,id:draftId||crypto.randomUUID(),productId:selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId});
@@ -455,6 +467,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
   // Save Session
   const handleSaveInspection = async () => {
+    if (!isComplete && !submissionRef.current) { setShowInspectionIssues(true); return; }
     try {
     if (!currentProduct || !currentPlan || savingRef.current || savedLog || mediaUploading) return;
     savingRef.current = true; setSaving(true);
@@ -503,7 +516,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
       });
     }
   
-    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); } finally { savingRef.current = false; setSaving(false); }
+    } catch (error) { if(error instanceof Error && (error as Error & {code?:string}).code==='INSPECTION_REJECTED_UNSAVED'){submissionRef.current=null;setShowInspectionIssues(true);} StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); } finally { savingRef.current = false; setSaving(false); }
   };
 
   // Active sample data
@@ -958,11 +971,15 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                         const val = activeSampleValues[c.id];
                         const st = activeSampleStatuses[c.id];
                         const isActive = activePointNo === c.pointNo;
+                        const pointIssue=issues.find(issue=>issue.sample===activeSampleIndex&&issue.characteristicId===c.id);
+                        const pointIssueText=pointIssue ? `${c.pointNo}. nokta: ${pointIssue.messages.join(' ')}` : '';
 
                         return (
                           <button
                             key={c.id}
                             type="button"
+                            title={pointIssueText || `${c.pointNo}. nokta`}
+                            aria-label={pointIssueText || `${c.pointNo}. nokta`}
                             onClick={() => setActivePointNo(c.pointNo)}
                             className={`px-2 py-1 rounded-xl text-xs font-bold shrink-0 transition flex items-center gap-1 border ${
                               isActive
@@ -977,6 +994,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                             }`}
                           >
                             <span>#{c.pointNo}</span>
+                            {pointIssue && <AlertTriangle size={13} aria-hidden="true"/>}
                             {val !== null && val !== undefined && (
                               <span className="font-mono text-[9px] opacity-90">{Array.isArray(val)?val.join(','):val===true?'Uygun':val===false?'Uygunsuz':String(val)}</span>
                             )}
@@ -989,15 +1007,19 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                   {phoneInput && (currentCharacteristic.type || 'numeric') === 'numeric' && <div className="measurement-keypad" aria-label="Sayısal tuş takımı">
                     {['7','8','9','⌫','4','5','6','±','1','2','3',','].map(key => <button key={key} type="button" disabled={!!submissionRef.current || !!savedLog} aria-label={key === '⌫' ? 'Son rakamı sil' : key === ',' ? 'Ondalık ayırıcı' : key === '±' ? 'İşareti değiştir' : key} onClick={() => pressNumber(key)}>{key}</button>)}
                     <button type="button" disabled={!!submissionRef.current || !!savedLog} onClick={() => pressNumber('0')} aria-label="0">0</button>
-                    <button type="button" className="keypad-next" disabled={currentVal == null || !!savedLog || saving || mediaUploading || (isLastMeasurement && !isComplete)} onClick={isLastMeasurement ? handleSaveInspection : handleAdvanceNext}>{isLastMeasurement ? 'Ölçümü kaydet' : 'Onayla ve sonraki nokta →'}</button>
+                    <button type="button" className="keypad-next" disabled={!!savedLog || saving || mediaUploading || (!isLastMeasurement && currentVal == null)} onClick={isLastMeasurement ? handleSaveInspection : handleAdvanceNext}>{isLastMeasurement ? 'Ölçümü kaydet' : 'Onayla ve sonraki nokta →'}</button>
                   </div>}
                       {(currentValStatus==='fail'||(currentCharacteristic.evidencePolicy||'none')!=='none'||currentSampleObj?.evidence?.[currentCharacteristic.id]?.length||currentSampleObj?.pointNotes?.[currentCharacteristic.id])&&(
-                        <details className={`measurement-evidence rounded-xl border bg-slate-50 ${currentValStatus==='fail'?'border-rose-300':'border-slate-200'}`}>
+                        <details open={showInspectionIssues && issues.some(issue=>issue.sample===activeSampleIndex&&issue.characteristicId===currentCharacteristic.id) ? true : undefined} className={`measurement-evidence rounded-xl border bg-slate-50 ${currentValStatus==='fail'?'border-rose-300':'border-slate-200'}`}>
                           <summary className="flex cursor-pointer items-center justify-between gap-2 p-2.5 text-[11px] font-bold text-slate-700"><span>Fotoğraf ve ölçüm notu</span><span>{(!currentCharacteristic.evidencePolicy||['none','optional'].includes(currentCharacteristic.evidencePolicy))?'İsteğe bağlı':currentCharacteristic.evidencePolicy==='required_on_fail'?'Uygunsuzsa zorunlu':'Zorunlu'}</span></summary>
                           <div className="border-t border-slate-200 p-2.5">
-                          <label className="flex cursor-pointer items-center justify-center rounded-lg border border-dashed border-blue-300 bg-white px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50">{mediaUploading?'Yükleniyor…':'📷 🎥 📎 Kanıt Ekle'}<input type="file" accept="image/*,video/*,application/pdf" className="hidden" disabled={mediaUploading || saving || !!submissionRef.current} onChange={handleEvidenceUpload}/></label>
+                          <div className={`inspection-evidence-drop${evidenceDragActive?' is-dragging':''}`} onDragEnter={event=>{event.preventDefault();if(!mediaUploadRef.current&&!saving&&!submissionRef.current&&!savedLog)setEvidenceDragActive(true);}} onDragOver={event=>event.preventDefault()} onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node|null))setEvidenceDragActive(false);}} onDrop={event=>{event.preventDefault();setEvidenceDragActive(false);void uploadEvidenceFiles(Array.from(event.dataTransfer.files));}}>
+                            <label className="inspection-evidence-choose">{mediaUploading?'Dosyalar yükleniyor…':'Dosya seç veya buraya sürükle'}<input type="file" accept="image/*,video/*,application/pdf" multiple className="sr-only" disabled={mediaUploading || saving || !!submissionRef.current || !!savedLog} onChange={handleEvidenceUpload}/></label><span>Fotoğraf, video veya PDF · Seçildiğinde yüklenir</span>
+                          </div>
+                          {mediaUploading&&<p role="status" className="inspection-evidence-status">Kanıtlar yükleniyor…</p>}
+                          {evidenceUploadError&&<p role="alert" className="inspection-evidence-error">{evidenceUploadError}</p>}
                           <label className="mt-3 block text-xs font-semibold text-slate-600">Bu noktaya not ekle (isteğe bağlı)<textarea aria-label="Ölçüm noktası notu" maxLength={2000} disabled={saving || !!submissionRef.current} value={currentSampleObj?.pointNotes?.[currentCharacteristic.id] || ''} onChange={event=>{const value=event.target.value;setSamples(previous=>previous.map(sample=>sample.sampleIndex===activeSampleIndex?{...sample,pointNotes:{...sample.pointNotes,[currentCharacteristic.id]:value}}:sample));}} placeholder="Örn. yüzeyde çizik, kenarda çapak…" className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm"/></label>
-                          {(currentSampleObj?.evidence?.[currentCharacteristic.id]||[]).map(item=><div key={item.id} className="mt-1 truncate text-[10px] text-emerald-700">✓ {item.fileName}</div>)}
+                          {(currentSampleObj?.evidence?.[currentCharacteristic.id]||[]).map(item=><div key={item.id} className="inspection-evidence-file"><span title={item.fileName}>✓ {item.fileName}</span><button type="button" disabled={mediaUploading||saving||!!submissionRef.current||!!savedLog} aria-label={`${item.fileName} kanıtını kaldır`} onClick={()=>removeEvidence(activeSampleIndex,currentCharacteristic.id,item.id)}>Kaldır</button></div>)}
                           </div>
                         </details>
                       )}
@@ -1033,6 +1055,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                     {!savedLog&&<details className="measurement-other"><summary>Diğer işlemler</summary><div className="grid grid-cols-2 gap-2 mt-2"><button disabled={draftBusy} type="button" className="quality-secondary" onClick={()=>void saveServerDraft(false)}>{draftBusy?'Kaydediliyor…':'Taslağı kaydet'}</button><button disabled={draftBusy} type="button" className="quality-secondary" onClick={()=>void saveServerDraft(true)}>Kaydet ve devret</button></div></details>}
 
                     {savedLog?.overallStatus==='fail'&&<div role="status" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">Uygunsuzluk otomatik oluşturuldu ve kalite ekibine iletildi.{onOpenActions&&currentUser.role!=='operator'&&<button type="button" onClick={onOpenActions} className="mt-2 block font-semibold underline">Uygunsuzluğu ve aksiyonları aç</button>}</div>}
+                    {!savedLog && showInspectionIssues && issues.length>0 && <div role="alert" className="inspection-issues"><strong>Kaydetmeden önce eksikleri tamamlayın</strong><ul>{issues.map(issue=><li key={`${issue.sample}-${issue.characteristicId}`}><button type="button" onClick={()=>{setActiveSampleIndex(issue.sample);setActivePointNo(issue.pointNo);}}>{sampleCount>1?`${issue.sample}. numune · `:''}{issue.pointNo}. nokta: {issue.messages.join(' ')}</button></li>)}</ul></div>}
                     {/* Final Save / Certificate Trigger */}
                     {savedLog ? (
                       <button
@@ -1049,7 +1072,8 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                         id="btn-save-inspection-log"
                         type="button"
                         aria-busy={saving} onClick={handleSaveInspection}
-                        disabled={!isComplete || saving || mediaUploading}
+                        title={issues.length ? issues.map(issue=>`${sampleCount>1?`${issue.sample}. numune, `:''}${issue.pointNo}. nokta: ${issue.messages.join(' ')}`).join('\n') : 'Ölçümleri kaydet'}
+                        disabled={saving || mediaUploading}
                         className={`w-full text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition disabled:opacity-40 ${isComplete?'bg-emerald-700 hover:bg-emerald-600':'bg-slate-900 hover:bg-slate-800'}`}
                       >
                         <Save className="w-4 h-4 text-blue-400" />

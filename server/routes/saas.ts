@@ -196,6 +196,7 @@ saasRouter.delete('/control-plans/:id', requireRole('admin', 'quality_engineer')
 });
 
 saasRouter.post('/inspection-logs', requireRole('admin', 'quality_engineer', 'operator'), async (req, res, next) => {
+  let confirmedAbsent=false;
   try {
     let payload = entitySchema.parse(req.body); const id = idSchema.parse(payload.id);
     const productId = idSchema.parse(payload.productId); const controlPlanId = idSchema.parse(payload.controlPlanId);
@@ -212,6 +213,7 @@ saasRouter.post('/inspection-logs', requireRole('admin', 'quality_engineer', 'op
         if(existing.voided_at || existing.payload.operatorUserId !== userId || existing.payload.requestSignature !== signature) conflict('Bu kayıt kimliği başka bir ölçüm için kullanılmış.');
         payload={...existing.payload,controlNumber:existing.control_number}; return;
       }
+      confirmedAbsent=true;
       const plan = (await client.query('SELECT payload FROM control_plans WHERE tenant_id=$1 AND id=$2 FOR SHARE',[tenantId,controlPlanId])).rows[0]?.payload;
       const actor = (await client.query('SELECT name FROM users WHERE tenant_id=$1 AND id=$2',[tenantId,userId])).rows[0];
       const rules = inspectionRulesSchema.parse((await client.query('SELECT inspection_rules FROM tenants WHERE id=$1 FOR SHARE', [tenantId])).rows[0].inspection_rules);
@@ -260,7 +262,10 @@ saasRouter.post('/inspection-logs', requireRole('admin', 'quality_engineer', 'op
       await audit(client, { tenantId, userId, action: 'inspection.created', entityType: 'inspection_log', entityId: id, after: payload, ip: req.ip });
     });
     res.status(201).json(payload);
-  } catch (error) { next(error); }
+  } catch (error) {
+    if(confirmedAbsent && error instanceof Error && (error as Error & {status?:number}).status===409) Object.assign(error,{code:'INSPECTION_REJECTED_UNSAVED'});
+    next(error);
+  }
 });
 
 saasRouter.post('/inspection-logs/:id/void', requireRole('admin', 'quality_engineer'), async (req, res, next) => {

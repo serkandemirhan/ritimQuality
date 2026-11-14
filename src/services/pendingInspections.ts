@@ -42,7 +42,8 @@ export function pendingStore(tokenKey: string) {
         return result;
       } catch (error) {
         const current: PendingInspection[] = JSON.parse(localStorage.getItem(storageKey) || '[]');
-        localStorage.setItem(storageKey, JSON.stringify(current.map(item => item.log.id === log.id ? {...item,error:error instanceof Error ? error.message : 'Bağlantı kurulamadı.'} : item))); notify();
+        const rejected=error instanceof Error && (error as Error & {code?:string}).code==='INSPECTION_REJECTED_UNSAVED';
+        localStorage.setItem(storageKey, JSON.stringify(rejected ? current.filter(item=>item.log.id!==log.id) : current.map(item => item.log.id === log.id ? {...item,error:error instanceof Error ? error.message : 'Bağlantı kurulamadı.'} : item))); notify();
         throw error;
       }
     },

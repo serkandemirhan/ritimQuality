@@ -8,7 +8,7 @@ import QRCode from 'qrcode';
 import {validateInspection,inspectionSignature} from '../dist-server/services/inspectionValidation.js';
 const out=resolve('.runtime/mobile-measurement');await mkdir(out,{recursive:true});
 await build({entryPoints:['src/services/mobileMeasurement.ts'],bundle:true,format:'esm',platform:'browser',outfile:resolve(out,'core.js'),define:{'import.meta.env.VITE_API_URL':'"/api"'}});
-const chars=Array.from({length:50},(_,i)=>({id:`c${i+1}`,pointNo:i+1,name:`Ölçüm ${i+1}`,type:'numeric',nominal:18.5,lsl:18.4,usl:18.6,tolLower:-.1,tolUpper:.1,unit:'mm',tool:'Diğer Ölçüm Aleti',sampleSize:'5',frequency:'Parti',criticalClass:'minor',pin:{x:50,y:50},precision:3}));
+const chars=Array.from({length:50},(_,i)=>({id:`c${i+1}`,pointNo:i+1,name:`Ölçüm ${i+1}`,type:'numeric',nominal:18.5,lsl:18.4,usl:18.6,tolLower:-.1,tolUpper:.1,unit:'mm',tool:'Diğer Ölçüm Aleti',sampleSize:'5',frequency:'Parti',criticalClass:'minor',pin:i===1?{x:99,y:1}:{x:50,y:50},precision:3}));
 const drawing='data:image/svg+xml;base64,'+Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="240"><rect width="640" height="240" fill="#fff"/><path d="M100 80H540V170H100Z M80 50H560 M80 40V60 M560 40V60" fill="none" stroke="#142438" stroke-width="3"/><text x="280" y="40" font-size="24">18.5 mm</text></svg>').toString('base64');
 const product={id:'part',code:'TEST-250',name:'Mobil kabul parçası',defaultDrawingUrl:drawing,images:[]};
 const plan={id:'plan',productId:'part',version:'v1',status:'active',isActive:true,defaultSampleCount:5,characteristics:chars,characteristicImageLinks:[]};
@@ -42,7 +42,7 @@ await cmd('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScale
 await cmd('Page.navigate',{url:'http://127.0.0.1:3356/test-reset'});await delay(300);
 await evaluate(`await Promise.all((await navigator.serviceWorker.getRegistrations()).map(r=>r.unregister()));await Promise.all((await caches.keys()).map(key=>caches.delete(key)))`);
 await evaluate(`await new Promise((resolve,reject)=>{const r=indexedDB.deleteDatabase('ritim-mobile-measurement');r.onsuccess=resolve;r.onerror=reject;})`);
-await cmd('Page.navigate',{url:'http://127.0.0.1:3356'});await delay(1600);
+await cmd('Page.navigate',{url:'http://127.0.0.1:3356'});for(let i=0;i<80&&!await evaluate(`!!document.querySelector('#nav-tab-operator')`);i++)await delay(250);
 await evaluate(`document.querySelector('#nav-tab-operator').click()`);await delay(250);
 if(!process.env.RITIM_SKIP_QR_FIXTURE){
 await evaluate(`document.querySelector('.rq-scan-panel summary').click();window.originalGetUserMedia=navigator.mediaDevices.getUserMedia;window.originalBarcodeDetector=window.BarcodeDetector;`);
@@ -91,10 +91,16 @@ for(const [width,height] of [[320,568],[360,640],[390,844],[430,932]]){
   if(height>650)assert.ok(size.targets.every(r=>r.top>=0&&r.bottom<=height),'All keys and save controls fit: '+JSON.stringify({height,...size}));
   else assert.ok(await evaluate(`(()=>{const shell=document.querySelector('.mm-shell');return shell.scrollHeight>shell.clientHeight})()`),'Short displays keep the drawing and allow scrolling');
   assert.ok(size.drawingLoaded,'Technical drawing loaded');dimensions.push({width,height,...size});
-  const drawingGeometry=await evaluate(`(()=>{const image=document.querySelector('.mm-overview img').getBoundingClientRect();const area=document.querySelector('.mm-overview .mm-drawing-scroll').getBoundingClientRect();return {image:{top:image.top,bottom:image.bottom,height:image.height},area:{top:area.top,bottom:area.bottom,height:area.height},sections:[...document.querySelector('.mm-shell').children].map(e=>({name:e.className,height:e.getBoundingClientRect().height}))}})()`);
-  assert.ok(drawingGeometry.image.top>=drawingGeometry.area.top-1&&drawingGeometry.image.bottom<=drawingGeometry.area.bottom+1&&drawingGeometry.image.height>20,'Technical drawing fits without cropping: '+JSON.stringify({width,height,...drawingGeometry}));
+  const drawingGeometry=await evaluate(`(()=>{const image=document.querySelector('.mm-overview img').getBoundingClientRect();const area=document.querySelector('.mm-overview .mm-drawing-scroll').getBoundingClientRect();const control=document.querySelector('.mm-expand-drawing').getBoundingClientRect();const pins=[...document.querySelectorAll('.mm-overview .mm-pin')];const pin=pins[0]?.getBoundingClientRect();return {image:{top:image.top,bottom:image.bottom,height:image.height},area:{top:area.top,bottom:area.bottom,left:area.left,right:area.right,height:area.height},control:{top:control.top,bottom:control.bottom,left:control.left,right:control.right},pins:pins.length,pin:pin?{top:pin.top,bottom:pin.bottom,left:pin.left,right:pin.right}:null}})()`);
+  assert.equal(drawingGeometry.pins,1,'Only the active measurement point appears in the preview');
+  assert.ok(drawingGeometry.pin&&drawingGeometry.pin.top>=drawingGeometry.area.top-2&&drawingGeometry.pin.bottom<=drawingGeometry.area.bottom+2&&drawingGeometry.pin.left>=drawingGeometry.area.left-2&&drawingGeometry.pin.right<=drawingGeometry.area.right+2,'Active point remains visible near drawing edges: '+JSON.stringify({width,height,...drawingGeometry}));
+  assert.ok(drawingGeometry.pin.right<=drawingGeometry.control.left||drawingGeometry.pin.left>=drawingGeometry.control.right||drawingGeometry.pin.bottom<=drawingGeometry.control.top||drawingGeometry.pin.top>=drawingGeometry.control.bottom,'Expand control must not cover active point: '+JSON.stringify({width,height,...drawingGeometry}));
+  assert.ok(drawingGeometry.area.height>=130,'Drawing area stays usable: '+JSON.stringify({width,height,...drawingGeometry}));
   const shot=await cmd('Page.captureScreenshot',{format:'png'});await writeFile(resolve(out,`mobile-${width}.png`),Buffer.from(shot.data,'base64'));
 }
+await click('Büyüt');assert.equal(await evaluate(`document.querySelectorAll('dialog[aria-label="Teknik resim"] .mm-pin').length`),1,'Expanded view starts at the selected point');
+await click('Tüm noktaları göster');assert.equal(await evaluate(`document.querySelectorAll('dialog[aria-label="Teknik resim"] .mm-pin').length`),50,'Expanded view can show every point');
+await evaluate(`document.querySelector('dialog[aria-label="Teknik resim"] button[aria-label="Kapat"]').click()`);await delay(180);
 const before=await evaluate(`[...document.querySelectorAll('.mm-keypad button')].map(b=>b.textContent).join()`);await evaluate(`document.querySelector('[aria-label="Diğer işlemler"]').click()`);await delay(100);await evaluate(`(()=>{const e=document.querySelector('select[aria-label="El tercihi"]');e.value='left';e.dispatchEvent(new Event('change',{bubbles:true}));})()`);await evaluate(`document.querySelector('dialog[open] button[aria-label="Kapat"]').click()`);await delay(180);assert.equal(await evaluate(`[...document.querySelectorAll('.mm-keypad button')].map(b=>b.textContent).join()`),before);
 // Exercise durable attempts without 1,250 synthetic keypad clicks.
 await evaluate(`Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false});window.dispatchEvent(new Event('offline'));`);

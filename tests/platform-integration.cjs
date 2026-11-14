@@ -36,6 +36,10 @@ const freePort=()=>new Promise((resolve,reject)=>{const s=net.createServer();s.o
   async function call(route,token,method='GET',body,expected=200,headers={}){const r=await fetch(origin+'/api'+route,{method,headers:{...(token?{Authorization:'Bearer '+token}:{}),...(body!==undefined?{'Content-Type':'application/json'}:{}),...headers},body:body===undefined?undefined:headers['Content-Type']==='application/octet-stream'?body:JSON.stringify(body)});const value=r.headers.get('content-type')?.includes('application/json')?await r.json():Buffer.from(await r.arrayBuffer());assert.equal(r.status,expected,route+': '+JSON.stringify(value));return value;}
   const login=async(workspace,email)=>(await call('/auth/login',null,'POST',{workspace,email,password:'Local-test-password-123!'})).token;
   const ownerToken=await login('platform-owner','owner@example.invalid'),aToken=await login('factory-a','admin-a@example.invalid'),bToken=await login('factory-b','admin-b@example.invalid'),coworkerToken=await login('platform-owner','coworker@example.invalid');
+  const rejectedLog={...log,id:crypto.randomUUID(),samples:[{sampleIndex:1,values:{}}]};
+  const validationFailure=await call('/inspection-logs',aToken,'POST',rejectedLog,409);assert.equal(validationFailure.code,'INSPECTION_REJECTED_UNSAVED');
+  const collision=await call('/inspection-logs',aToken,'POST',log,409);assert.notEqual(collision.code,'INSPECTION_REJECTED_UNSAVED');
+  check('Rejected unsaved measurements can be distinguished from existing record collisions');
   const platformLogin=await call('/auth/platform-login',null,'POST',{email:'owner@example.invalid',password:'Local-test-password-123!'});
   await call('/platform/me',platformLogin.token);
   await call('/auth/platform-login',null,'POST',{email:'owner@example.invalid',password:'incorrect'},401);

@@ -8,6 +8,7 @@ Object.defineProperty(globalThis, 'localStorage', { value: {
   setItem: (key: string, value: string) => storage.set(key, value),
 } });
 const token = (claims: unknown) => `header.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.signature`;
+Object.defineProperty(globalThis, 'window', {value:{dispatchEvent:()=>true}});
 
 test('invalid and expired sessions do not crash startup or expose pending records', () => {
   for (const value of ['', 'broken', 'x.bad.y', token({}), token({ tenantId: 'a', userId: 'u', exp: 1 })]) {
@@ -27,4 +28,16 @@ test('pending records remain scoped to the current company and user', () => {
   assert.deepEqual(pendingStore('auth').list(), []);
   storage.set('auth', token({ tenantId: 'a', userId: 'other' }));
   assert.deepEqual(pendingStore('auth').list(), []);
+});
+
+test('only a confirmed unsaved rejection clears the queued snapshot', async () => {
+  storage.clear(); storage.set('auth', token({tenantId:'a',userId:'u'}));
+  const queue=pendingStore('auth'), log={id:'measurement'};
+  await assert.rejects(()=>queue.save(log,async()=>{throw Object.assign(new Error('Bağlantı yok'),{code:'NETWORK_ERROR'});}));
+  assert.equal(queue.list().length,1);
+  await assert.rejects(()=>queue.save(log,async()=>{throw Object.assign(new Error('Eksik kanıt'),{code:'INSPECTION_REJECTED_UNSAVED'});}));
+  assert.deepEqual(queue.list(),[]);
+  const updated={...log,updated:true};
+  await queue.save(updated,async()=>({ok:true}));
+  assert.deepEqual(queue.list(),[]);
 });

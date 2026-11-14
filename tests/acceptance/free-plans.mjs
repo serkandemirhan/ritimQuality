@@ -27,9 +27,10 @@ export async function verifyFreePlans(origin,db){
  const empty={...plan('empty','c'),characteristics:[]};await call('control-plans/empty',token,'PUT',empty);await call('control-plans/empty',token,'PUT',{...empty,isActive:true,status:'active'},400);
  await call('control-plans/bad',token,'PUT',{...plan('bad','c'),characteristics:[{id:'x',pointNo:1,name:'Bad',nominal:1,lsl:2,usl:1}]},400);
  const log={id:randomUUID(),sessionCode:'ACCEPT-'+randomUUID(),timestamp:new Date().toISOString(),productId:'a',controlPlanId:'a2',controlPlanVersion:'a2',sampleCount:1,samples:[{sampleIndex:1,values:{c:100.02},statuses:{c:'pass'}}]};
- await call('inspection-logs',token,'POST',{...log,samples:[{sampleIndex:1,values:{}}]},409);
+ const rejected=await call('inspection-logs',token,'POST',{...log,samples:[{sampleIndex:1,values:{}}]},409);assert.equal(rejected.code,'INSPECTION_REJECTED_UNSAVED');
  const bad={...log,id:randomUUID(),sessionCode:randomUUID(),samples:[{sampleIndex:1,values:{c:101},statuses:{c:'pass'}}]};
  const [saved,retry]=await Promise.all([call('inspection-logs',token,'POST',bad,201),call('inspection-logs',token,'POST',bad,201)]);assert.equal(saved.controlNumber,retry.controlNumber);assert.equal(saved.samples[0].statuses.c,'fail');assert.equal((await call('bootstrap',token)).inspectionLogs.filter(l=>l.id===bad.id).length,1);
+ const identityConflict=await call('inspection-logs',token,'POST',{...bad,sessionCode:randomUUID()},409);assert.notEqual(identityConflict.code,'INSPECTION_REJECTED_UNSAVED');
  const operatorId=randomUUID(),operatorPassword=randomUUID();await call('users',token,'POST',{id:operatorId,name:'Operator',email:'operator@example.invalid',password:operatorPassword,role:'operator',status:'active'},201);
  const operator=await call('auth/login',null,'POST',{workspace:a.tenant.slug,email:'operator@example.invalid',password:operatorPassword});await call('control-plans/forbidden',operator.token,'PUT',plan('forbidden','c'),403);
  const b=await register();await call('products/other',b.token,'PUT',{id:'other',code:'other',name:'Other'});await call('control-plans/other',b.token,'PUT',plan('other','other','active'));assert.equal((await call('bootstrap',token)).usage.control_plans,2);

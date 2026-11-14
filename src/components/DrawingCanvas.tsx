@@ -59,7 +59,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   useEffect(() => {
     const stage = scrollStageRef.current;
     if (!stage) return;
-    const observer = new ResizeObserver(() => setStageSize({width: Math.max(0, stage.clientWidth - 32), height: Math.max(0, stage.clientHeight - 32)}));
+    const observer = new ResizeObserver(() => { const width=Math.max(0,stage.clientWidth-32),height=Math.max(0,stage.clientHeight-32); setStageSize(previous=>previous.width===width&&previous.height===height?previous:{width,height}); });
     observer.observe(stage); return () => observer.disconnect();
   }, []);
   const fittedWidth = Math.min(stageSize.width, stageSize.height * imageRatio);
@@ -109,15 +109,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     stage.scrollTo({
       left: Math.max(0, targetScrollLeft),
       top: Math.max(0, targetScrollTop),
-      behavior: 'smooth',
+      behavior: 'auto',
     });
   }, [characteristics, zoom, fittedWidth]);
 
+  const centerOnPointRef=useRef(centerOnPoint);
+  centerOnPointRef.current=centerOnPoint;
   useEffect(() => {
-    if (activePointNo) {
-      centerOnPoint(activePointNo);
-    }
-  }, [activePointNo, centerOnPoint]);
+    if (activePointNo && filterMode === 'activeOnly') centerOnPointRef.current(activePointNo);
+  }, [activePointNo, filterMode, imageReady, isFullscreen]);
 
   // Mouse pan & pin dragging
   const handleStageMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
