@@ -78,7 +78,7 @@ Sağlayıcı isteği [Responses API yapılandırılmış çıktıları](https://
 
 ## Ana uygulamayla bağlantı
 
-Mevcut uygulama özel JWT giriş sistemi ve 14 günlük deneme kullanır. Yeni sitenin Supabase Auth hesabı mevcut uygulamaya tek oturumla giriş sağlamaz. Mevcut müşteri girişi ayrı bağlantıyla sunulur. Ortak kimlik ve paket geçişi tamamlanmadan ücretsiz/ücretli paketlerin ana uygulamada etkin olduğu iddia edilmez.
+Kayıt ve giriş sayfaları ApplicationEntry üzerinden ana kalite uygulamasına yönlendirir; firma hesabı özel JWT sistemiyle oluşturulur. Yeni kayıtlar iki aktif kontrol planlı, süre sınırı olmayan ücretsiz paketle başlar. Eski Supabase satış sitesi hesabı bileşenleri ana uygulama hesabı yerine kullanılmaz. 017 ve 018 migrasyonları koddan önce uygulanmalıdır. Kabul testleri ve kapsam sınırları için docs/SELF_SERVICE_ACCEPTANCE.md dosyasına bakın.
 
 Bu nedenle korumalı site çalışma alanı yalnızca **örnek demo sonuçlarını** saklar. Ana üretim uygulaması yeniden yazılmadı. Üretim kontrol planları, ekip davetleri, gerçek belge kotası ve ücretli abonelik yönetimi mevcut uygulamayla entegrasyon aşamasında kalır. Fiyat sayfası hedef paketleri açıkça belirtir; yıllık indirim uydurulmaz.
 

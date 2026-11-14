@@ -58,9 +58,10 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
   const [material, setMaterial] = useState<string>('');
   const [category, setCategory] = useState<string>('Talaşlı İmalat (CNC)');
   const [description, setDescription] = useState<string>('');
-  const [drawingUrl, setDrawingUrl] = useState<string>(SHAFT_BUSHING_SVG);
+  const [drawingUrl, setDrawingUrl] = useState<string>('');
 
   const initialForm=useRef('');
+  const completedSave=useRef(false);
   const formSnapshot=JSON.stringify({code,name,customer,revision,material,category,description,drawingUrl});
   const dirty=isAddModalOpen&&initialForm.current!==formSnapshot;
   const confirmDiscard=()=>!dirty||window.confirm('Kaydedilmemiş değişiklikler var. Değişikliklerden vazgeçilsin mi?');
@@ -68,15 +69,16 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
   useEffect(()=>{
     if(!isAddModalOpen)return;
     const unload=(event:BeforeUnloadEvent)=>{if(dirty||saving||uploading){event.preventDefault();event.returnValue='';}};
-    const navigate=(event:Event)=>{if(saving||uploading||!confirmDiscard())event.preventDefault();};
+    const navigate=(event:Event)=>{if(completedSave.current)return;if(saving||uploading||!confirmDiscard())event.preventDefault();};
     window.addEventListener('beforeunload',unload);
     window.addEventListener('ritim-measurement-navigate',navigate);
     return()=>{window.removeEventListener('beforeunload',unload);window.removeEventListener('ritim-measurement-navigate',navigate);};
   },[isAddModalOpen,dirty,saving,uploading]);
 
   const handleOpenAdd = () => {
+    completedSave.current=false;
     const newCode=`PRD-${new Date().getFullYear()}-${String(Math.floor(Math.random()*900)+100)}`;
-    initialForm.current=JSON.stringify({code:newCode,name:'',customer:'',revision:'A',material:'16MnCr5 Çelik',category:'Talaşlı İmalat (CNC)',description:'',drawingUrl:SHAFT_BUSHING_SVG});
+    initialForm.current=JSON.stringify({code:newCode,name:'',customer:'',revision:'A',material:'16MnCr5 Çelik',category:'Talaşlı İmalat (CNC)',description:'',drawingUrl:''});
     setEditingProduct(null);
     setCode(newCode);
     setName('');
@@ -85,11 +87,12 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
     setMaterial('16MnCr5 Çelik');
     setCategory('Talaşlı İmalat (CNC)');
     setDescription('');
-    setDrawingUrl(SHAFT_BUSHING_SVG);
+    setDrawingUrl('');
     setIsAddModalOpen(true);
   };
 
   const handleOpenEdit = (p: Product) => {
+    completedSave.current=false;
     initialForm.current=JSON.stringify({code:p.code,name:p.name,customer:p.customer,revision:p.revision||'A',material:p.material,category:p.category,description:p.description,drawingUrl:p.defaultDrawingUrl});
     setEditingProduct(p);
     setCode(p.code);
@@ -125,50 +128,11 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
     };
 
     await StorageService.saveProduct(productData);
-
-    // If new product, automatically create initial v1.0 active control plan with a sample point
-    if (!editingProduct) {
-      const initialPlan: ControlPlan = {
-        id: `cp-${Date.now()}`,
-        productId: productData.id,
-        version: 'v1.0',
-        revisionDate: new Date().toISOString().slice(0, 10),
-        revisionNote: 'İlk devreye alma kontrol planı.',
-        isActive: false,
-        status: 'draft',
-        author: 'Kalite Sorumlusu',
-        approvedBy: '',
-        drawingImageUrl: productData.defaultDrawingUrl,
-        defaultSampleCount: 5,
-        characteristics: [
-          {
-            id: `char-${Date.now()}-1`,
-            pointNo: 1,
-            name: 'Ana Dış Çap / Boyut',
-            nominal: 30.00,
-            tolUpper: 0.05,
-            tolLower: -0.05,
-            usl: 30.05,
-            lsl: 29.95,
-            unit: 'mm',
-            tool: 'Dijital Kumpas 0.01',
-            sampleSize: '5 Adet',
-            frequency: 'Saat başı',
-            criticalClass: 'critical',
-            type: 'numeric',
-            evidencePolicy: 'none',
-            pin: { x: 50, y: 50 },
-            description: 'Kritik montaj boyutu'
-          }
-        ],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      await StorageService.saveControlPlan(initialPlan);
-    }
+    completedSave.current=true;
 
     setIsAddModalOpen(false);
     onProductsChanged();
+    if(!editingProduct)onSelectProductForControlPlan(productData.id);
   
     } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); } finally {setSaving(false);}
   };

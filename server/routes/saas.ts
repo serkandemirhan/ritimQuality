@@ -8,7 +8,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { withTenant } from '../db/pool.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
-import { assertQuota, assertSubscription, audit } from '../services/access.js';
+import { assertQuota, assertSubscription, assertActivePlanQuota, audit } from '../services/access.js';
 import {assertPlanPreconditions} from '../services/planConcurrency.js';
 
 export const saasRouter = Router();
@@ -30,7 +30,8 @@ saasRouter.get('/bootstrap', async (req, res, next) => {
       const controlPlans = await client.query('SELECT payload FROM control_plans WHERE tenant_id = $1 ORDER BY created_at DESC', [tenantId]);
       const logs = await client.query(`SELECT l.payload,l.control_number, jsonb_build_object('status',COALESCE(a.status,'not_required'),'reviewedBy',u.name,'reviewedAt',a.reviewed_at,'reason',a.reason) approval FROM inspection_logs l LEFT JOIN inspection_approvals a ON a.tenant_id=l.tenant_id AND a.inspection_id=l.id LEFT JOIN users u ON u.tenant_id=a.tenant_id AND u.id=a.reviewed_by WHERE l.tenant_id=$1 AND l.voided_at IS NULL ORDER BY l.occurred_at DESC`, [tenantId]);
       const usage = await client.query(`SELECT
-          (SELECT count(*)::int FROM control_plans WHERE tenant_id = $1) control_plans,
+          (SELECT count(*)::int FROM control_plans WHERE tenant_id = $1 AND
+            ((SELECT plan_id FROM tenants WHERE id=$1)<>'free' OR (is_active AND status='active'))) control_plans,
           (SELECT count(*)::int FROM users WHERE tenant_id = $1 AND status = 'active') users,
           (SELECT COALESCE(sum(jsonb_array_length(payload->'samples')), 0)::int FROM inspection_logs
             WHERE tenant_id = $1 AND voided_at IS NULL AND occurred_at >= date_trunc('month', now())) monthly_measurements`, [tenantId]);
@@ -149,10 +150,12 @@ saasRouter.put('/control-plans/:id', requireRole('admin', 'quality_engineer'), a
     const status = z.enum(['active', 'draft', 'archived']).parse(payload.status); const isActive = z.boolean().parse(payload.isActive);
     const { tenantId, userId } = req.auth!;
     await withTenant(tenantId, async client => {
+      await client.query('SELECT id FROM tenants WHERE id=$1 FOR UPDATE',[tenantId]);
       if (payload.id !== id) conflict('Plan kimliği tutarsız.');
       await client.query('SELECT id FROM products WHERE tenant_id=$1 AND id=$2 FOR UPDATE', [tenantId, productId]);
       if((await client.query('SELECT 1 FROM control_plans WHERE tenant_id=$1 AND product_id=$2 AND version=$3 AND id<>$4',[tenantId,productId,version,id])).rowCount)conflict('Bu plan sürümü zaten var. Listeyi yenileyip yeni revizyon oluşturun.');
       const prior = (await client.query('SELECT payload FROM control_plans WHERE tenant_id=$1 AND id=$2 FOR UPDATE', [tenantId,id])).rows[0]?.payload;
+      if(prior && prior.productId!==productId)conflict('Planın bağlı olduğu ürün değiştirilemez.');
       const expected=req.get('X-Plan-Expected');
       const expectedActive=req.get('X-Active-Plan-Expected');
       const active=isActive&&expectedActive!==undefined?(await client.query('SELECT id FROM control_plans WHERE tenant_id=$1 AND product_id=$2 AND is_active FOR UPDATE',[tenantId,productId])).rows[0]?.id||'none':'none';
@@ -161,6 +164,7 @@ saasRouter.put('/control-plans/:id', requireRole('admin', 'quality_engineer'), a
       if (prior && (await client.query('SELECT 1 FROM inspection_logs WHERE tenant_id=$1 AND control_plan_id=$2 LIMIT 1',[tenantId,id])).rowCount) assertRevisionUnchanged(prior,payload);
       const exists = await client.query('SELECT 1 FROM control_plans WHERE tenant_id=$1 AND id=$2', [tenantId, id]);
       if (!exists.rowCount) await assertQuota(client, tenantId, 'controlPlans'); else await assertSubscription(client, tenantId);
+      if (isActive) await assertActivePlanQuota(client,tenantId,productId);
       if (isActive) await client.query(`UPDATE control_plans SET is_active=false, status=CASE WHEN status='active' THEN 'archived' ELSE status END,
         payload=jsonb_set(jsonb_set(payload,'{isActive}','false'::jsonb),'{status}','"archived"'::jsonb)
         WHERE tenant_id=$1 AND product_id=$2 AND id<>$3 AND is_active`, [tenantId, productId, id]);
@@ -199,6 +203,7 @@ saasRouter.post('/inspection-logs', requireRole('admin', 'quality_engineer', 'op
     const samples = z.array(z.unknown()).min(1).parse(payload.samples);
     const { tenantId, userId } = req.auth!;
     await withTenant(tenantId, async client => {
+      await client.query('SELECT id FROM tenants WHERE id=$1 FOR UPDATE',[tenantId]);
       const signature = inspectionSignature(req.body);
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[tenantId+':control-number']);
       await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[tenantId+':inspection:'+id]);
