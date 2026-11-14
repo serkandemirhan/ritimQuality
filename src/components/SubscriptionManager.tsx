@@ -40,7 +40,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
   const [companyForm, setCompanyForm] = useState<TenantCompany>({ ...company });
 
   const activePlan = SUBSCRIPTION_PLANS.find(p => p.id === company.planId) || SUBSCRIPTION_PLANS[1];
-  const subscriptionLabel = company.unlimitedPilot?'Sınırsız Deneme Hesabı':company.subscriptionStatus === 'active' ? 'Abonelik Aktif' : company.subscriptionStatus === 'trial' ? 'Deneme Sürümü' : company.subscriptionStatus === 'past_due' ? 'Ödeme Gecikmiş' : 'Abonelik İptal';
+  const subscriptionLabel = company.unlimitedPilot?'Sınırsız Deneme Hesabı':company.planId==='free'?'Ücretsiz paket':company.subscriptionStatus === 'active' ? 'Abonelik Aktif' : company.subscriptionStatus === 'trial' ? 'Deneme Sürümü' : company.subscriptionStatus === 'past_due' ? 'Ödeme Gecikmiş' : 'Abonelik İptal';
 
   const handleCopyLicense = () => {
     navigator.clipboard.writeText(company.licenseKey);
@@ -71,12 +71,12 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
   };
 
   return <div className="space-y-6">
-    <Card><div className="rq-chart-heading"><div><Badge tone={company.subscriptionStatus==='active'?'success':company.subscriptionStatus==='trial'?'info':'warning'}>{subscriptionLabel}</Badge><h2 className="rq-section-title mt-3">{company.name}</h2><p className="rq-helper">{[company.industry,company.facilityLocation].filter(Boolean).join(' · ')}</p></div><div><span className="rq-helper">Mevcut plan</span><h3 className="rq-section-title">{company.unlimitedPilot?'Sınırsız pilot erişimi':activePlan.name}</h3><p className="rq-helper">{company.unlimitedPilot?'Kullanıcı, kontrol planı ve numune kotası yok':company.billingPeriod==='annual'?'Yıllık faturalandırma':'Aylık faturalandırma'}</p></div></div>
-      <dl className="rq-detail-grid"><div><dt>Abonelik kimliği</dt><dd className="flex items-center gap-2">{company.licenseKey||'—'}{company.licenseKey&&<IconButton label="Abonelik kimliğini kopyala" onClick={handleCopyLicense}>{copiedLicense?<Check size={16}/>:<Copy size={16}/>}</IconButton>}</dd></div><div><dt>Yenileme tarihi</dt><dd>{company.unlimitedPilot?'Süre sınırı yok':company.subscriptionRenewsAt||'—'}</dd></div></dl>
+    <Card><div className="rq-chart-heading"><div><Badge tone={company.subscriptionStatus==='active'?'success':company.subscriptionStatus==='trial'?'info':'warning'}>{subscriptionLabel}</Badge><h2 className="rq-section-title mt-3">{company.name}</h2><p className="rq-helper">{[company.industry,company.facilityLocation].filter(Boolean).join(' · ')}</p></div><div><span className="rq-helper">Mevcut plan</span><h3 className="rq-section-title">{company.unlimitedPilot?'Sınırsız pilot erişimi':activePlan.name}</h3><p className="rq-helper">{company.unlimitedPilot?'Kullanıcı, kontrol planı ve numune kotası yok':company.planId==='free'?'Süre sınırı yok · Kredi kartı gerekmez':company.billingPeriod==='annual'?'Yıllık faturalandırma':'Aylık faturalandırma'}</p></div></div>
+      <dl className="rq-detail-grid"><div><dt>Abonelik kimliği</dt><dd className="flex items-center gap-2">{company.licenseKey||'—'}{company.licenseKey&&<IconButton label="Abonelik kimliğini kopyala" onClick={handleCopyLicense}>{copiedLicense?<Check size={16}/>:<Copy size={16}/>}</IconButton>}</dd></div><div><dt>Yenileme tarihi</dt><dd>{company.unlimitedPilot||company.planId==='free'?'Süre sınırı yok':company.subscriptionRenewsAt||'—'}</dd></div></dl>
       <PageActions className="mt-4"><Button onClick={()=>setIsEditingCompany(true)}>Şirket & Fatura Bilgileri</Button><Button disabled={company.unlimitedPilot||!billing?.portalAvailable} onClick={()=>void SaasApi.openBillingPortal().catch(error=>setCheckoutError(error instanceof Error?error.message:'Fatura portalı açılamadı.'))}>Ödeme & Faturaları Yönet</Button></PageActions>
     </Card>
     <section aria-label="Abonelik kullanımı"><h2 className="rq-section-title mb-4">Kota ve kullanım</h2><div className="rq-metrics-row">
-      <UsageMeter label="Kontrol planı" value={controlPlanCount} limit={activePlan.maxControlPlans} unlimited={company.unlimitedPilot}/>
+      <UsageMeter label={company.planId==='free'?'Aktif kontrol planı':'Kontrol planı / revizyon'} value={controlPlanCount} limit={activePlan.maxControlPlans} unlimited={company.unlimitedPilot}/>
       <UsageMeter label="Aktif kullanıcı" value={userCount} limit={activePlan.maxOperators} unlimited={company.unlimitedPilot}/>
       <UsageMeter label="Aylık numune" value={monthlyMeasurementCount} limit={activePlan.maxMonthlyMeasurements} unlimited={company.unlimitedPilot}/>
     </div></section>
@@ -90,7 +90,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
           <h3 className="rq-section-title">{plan.name}</h3>
           {import.meta.env.VITE_HIDE_PRICES==='false'&&billing?.availablePlans.includes(plan.id)&&<div><p className="rq-kpi-value">₺{price.toLocaleString('tr-TR')} <span className="rq-helper">/ ay</span></p>{billingPeriod==='annual'&&<p className="rq-helper">Yıllık ₺{plan.annualPrice.toLocaleString('tr-TR')} olarak faturalandırılır.</p>}</div>}
           <ul className="space-y-3 flex-1">{plan.features.map((feature,index)=><li key={index} className="flex items-start gap-2 text-sm"><CheckCircle2 size={16} className="shrink-0 text-emerald-700 mt-0.5"/><span>{feature}</span></li>)}</ul>
-          <Button variant={isCurrent?'secondary':'primary'} disabled={isCurrent||checkoutPlan!==null||!billing?.availablePlans.includes(plan.id)} loading={checkoutPlan===plan.id} onClick={()=>void handlePlanChange(plan.id)}>{isCurrent?'Kullanılan aktif plan':checkoutPlan===plan.id?'Ödeme sayfası açılıyor…':!billing?.availablePlans.includes(plan.id)?'Satın alma henüz açık değil':'Bu Pakete Geç'}</Button>
+          <Button variant={isCurrent?'secondary':'primary'} disabled={isCurrent||checkoutPlan!==null||!billing?.availablePlans.includes(plan.id)} loading={checkoutPlan===plan.id} onClick={()=>void handlePlanChange(plan.id)}>{isCurrent?'Kullanılan aktif plan':checkoutPlan===plan.id?'Ödeme sayfası açılıyor…':plan.id==='free'?'Ücretsiz başlangıç paketi':!billing?.availablePlans.includes(plan.id)?'Satın alma henüz açık değil':'Bu Pakete Geç'}</Button>
         </Card>;
       })}</div>
     </section>}

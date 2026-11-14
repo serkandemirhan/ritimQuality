@@ -330,8 +330,8 @@ export default function App() {
         {activeTab === 'subscription' && currentUser.role==='admin' && (
           <SubscriptionManager
             company={company}
-            controlPlanCount={controlPlans.length}
-            userCount={users.length}
+            controlPlanCount={company.planId==='free'?controlPlans.filter(plan=>plan.isActive&&plan.status==='active').length:controlPlans.length}
+            userCount={users.filter(user=>user.status==='active').length}
             monthlyMeasurementCount={inspectionLogs
               .filter(log => log.timestamp.slice(0, 7) === new Date().toISOString().slice(0, 7))
               .reduce((total, log) => total + log.samples.length, 0)}

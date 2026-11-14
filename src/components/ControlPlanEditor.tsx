@@ -252,26 +252,9 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
       status: 'draft',
       author: 'Kalite Sorumlusu',
       approvedBy: '',
-      drawingImageUrl: currentProduct.defaultDrawingUrl || SHAFT_BUSHING_SVG,
+      drawingImageUrl: currentProduct.defaultDrawingUrl || '',
       defaultSampleCount: 1,
-      characteristics: [
-        {
-          id: `char-${Date.now()}-1`,
-          pointNo: 1,
-          name: 'Ana Boyut (Kritik Çap/Boy)',
-          nominal: 50.00,
-          tolUpper: 0.05,
-          tolLower: -0.05,
-          usl: 50.05,
-          lsl: 49.95,
-          unit: 'mm',
-          tool: 'Dijital Kumpas 0.01',
-          sampleSize: '5 Adet',
-          frequency: 'Saat başı',
-          criticalClass: 'critical',
-          pin: { x: 50, y: 50 },
-        }
-      ],
+      characteristics: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -347,8 +330,8 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
 
   const storedPlan=controlPlans.find(plan=>plan.id===currentPlan?.id);
   const unsaved=!!currentPlan&&JSON.stringify(currentPlan)!==JSON.stringify(storedPlan);
-  const publishPlan=async()=>{
-    if(!currentPlan||!storedPlan||unsaved||saving||uploading||revisionUsage?.id!==currentPlan.id)return;
+  const publishPlan=async(inspect=false)=>{
+    if(!currentPlan||!storedPlan||saving||uploading||revisionUsage?.id!==currentPlan.id)return;
     const active=controlPlans.find(plan=>plan.productId===currentPlan.productId&&plan.isActive);
     if(!confirm(`${currentPlan.version} yayınlanacak${active&&active.id!==currentPlan.id?`; ${active.version} artık aktif olmayacak`:''}. Devam edilsin mi?`))return;
     setSaving(true);
@@ -357,6 +340,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
       await StorageService.saveControlPlan(published,{expected:revisionUsage.token,active:active?.id||'none'});
       requestedPlan.current=published.id;setCurrentPlan(published);onSavePlan(published);
       setRevisionUsage(null);
+      if(inspect&&onInspect){onInspect(published.productId);return;}
       try{const usage=await SaasApi.controlPlanRevisionUsage(published.id);setRevisionUsage({id:published.id,...usage});setUsageError('');}catch{setUsageError('Plan yayınlandı; güncel sürüm bilgisi alınamadı. Devam etmek için sayfayı yenileyin.');}
     }catch(error){StorageService.reportSyncError(error);alert(error instanceof Error?error.message:'Plan yayınlanamadı.');}finally{setSaving(false);}
   };
@@ -364,7 +348,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
     <PageHeader title={currentProduct?.name||'Kontrol planı'} description="Kontrol noktaları, teknik resimler ve revizyon yönetimi." breadcrumb={<Breadcrumb items={[{label:'Kontrol planları',onClick:()=>setDetailOpen(false)},{label:currentProduct?.code||'Ürün'}]}/>} summary={currentPlan&&<><span className="rq-technical">{currentProduct?.code} · {currentPlan.version}</span><StatusBadge status={currentPlan.status}/><Badge tone={unsaved?'warning':'neutral'}>{unsaved?'Kaydedilmemiş değişiklikler':'Kaydedildi'}</Badge><span>{currentPlan.characteristics.length} kontrol noktası</span></>} actions={<>
       {currentPlan?.isActive&&onInspect&&<Button onClick={()=>onInspect(currentPlan.productId)}>Ölçüme başla</Button>}
       <Button aria-pressed={focusMode} onClick={()=>setFocusMode(!focusMode)}>{focusMode?'Odak modundan çık':'Çizime odaklan'}</Button>
-      {currentPlan&&!currentPlan.isActive&&<Button disabled={unsaved||saving||uploading||revisionUsage?.id!==currentPlan.id} onClick={publishPlan}>Planı yayınla</Button>}
+      {currentPlan&&!currentPlan.isActive&&<><Button disabled={saving||uploading||!currentPlan.characteristics.length||revisionUsage?.id!==currentPlan.id} onClick={()=>void publishPlan()}>Planı yayınla</Button>{onInspect&&<Button variant="primary" disabled={saving||uploading||!currentPlan.characteristics.length||revisionUsage?.id!==currentPlan.id} onClick={()=>void publishPlan(true)}>Yayınla ve ölçüme geç</Button>}</>}
       <details className="rq-plan-actions"><summary>Diğer işlemler ▾</summary><div><Button disabled={saving||uploading} onClick={handleCreateBlankPlan}><Plus size={14}/>Yeni plan</Button>
       <Button disabled={saving||!currentProduct} onClick={()=>setAnalysisOpen(true)}><Sparkles size={14}/>PDF’den plan oluştur</Button>
       {currentPlan&&<Button disabled={saving||uploading} onClick={handleCreateNewRevision}><Copy size={14}/>Yeni revizyon</Button>}</div></details>

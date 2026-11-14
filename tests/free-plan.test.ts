@@ -1,0 +1,11 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {assertQuota,assertActivePlanQuota,assertSubscription} from '../server/services/access';
+import {planSchema} from '../server/services/inspectionValidation';
+import {PLAN_LIMITS,planFromPriceId,stripePriceId} from '../server/config/plans';
+const free={slug:'ordinary',pilot_unlimited:false,plan_id:'free',subscription_status:'active',trial_ends_at:'2000-01-01',billing_source:'stripe'};
+const client=(tenant=free,count=0)=>({query:async(sql:string)=>({rows:sql.includes('SELECT slug')?[tenant]:[{id:'t',count}]})} as any);
+test('free access has no trial expiry and drafts do not consume quota',async()=>{assert.equal(await assertSubscription(client(),'t'),'free');await assertQuota(client(free,999),'t','controlPlans');await assert.rejects(()=>assertQuota(client(free,3),'t','users'));assert.equal(PLAN_LIMITS.free.controlPlans,2);});
+test('free publication rejects the third other product and honors suspension',async()=>{await assertActivePlanQuota(client(free,1),'t','p');await assert.rejects(()=>assertActivePlanQuota(client(free,2),'t','p'),(e:any)=>e.status===409&&e.code==='QUOTA_EXCEEDED');await assert.rejects(()=>assertActivePlanQuota(client({...free,platform_suspended:true} as any),'t','p'),(e:any)=>e.status===403);});
+test('empty drafts can be saved but cannot be published',()=>{const plan={id:'p',productId:'a',version:'v1',status:'draft',isActive:false,characteristics:[]};assert.equal(planSchema.safeParse(plan).success,true);assert.equal(planSchema.safeParse({...plan,status:'active',isActive:true}).success,false);});
+test('free is never a Stripe purchase or webhook price mapping',()=>{assert.throws(()=>stripePriceId('free','monthly'));const old=process.env.STRIPE_FREE_MONTHLY_PRICE_ID;process.env.STRIPE_FREE_MONTHLY_PRICE_ID='free-price';try{assert.equal(planFromPriceId('free-price'),null);}finally{if(old===undefined)delete process.env.STRIPE_FREE_MONTHLY_PRICE_ID;else process.env.STRIPE_FREE_MONTHLY_PRICE_ID=old;}});

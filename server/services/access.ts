@@ -33,6 +33,8 @@ export async function assertQuota(
   await client.query('SELECT id FROM tenants WHERE id=$1 FOR UPDATE',[tenantId]);
   const {planId,unlimited} = await subscriptionAccess(client,tenantId);
   if(unlimited)return;
+  // Free plans consume quota only when published, never when saving drafts.
+  if (planId === 'free' && resource === 'controlPlans') return;
   const limits = PLAN_LIMITS[planId];
   const sql = resource === 'controlPlans'
     ? 'SELECT count(*)::int count FROM control_plans WHERE tenant_id = $1'
@@ -59,4 +61,13 @@ export async function audit(
      VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, '')::inet)`,
     [input.tenantId, input.userId, input.action, input.entityType, input.entityId, input.before || null, input.after || null, input.ip || ''],
   );
+}
+
+/** Caller holds the tenant lock before any product/plan locks. Replacement revisions
+ * for the same product consume the same slot; parallel products serialize here. */
+export async function assertActivePlanQuota(client:pg.PoolClient,tenantId:string,productId:string):Promise<void>{
+  const {planId,unlimited}=await subscriptionAccess(client,tenantId);
+  if(unlimited||planId!=='free')return;
+  const result=await client.query("SELECT count(*)::int count FROM control_plans WHERE tenant_id=$1 AND is_active AND status='active' AND product_id<>$2",[tenantId,productId]);
+  if(result.rows[0].count>=PLAN_LIMITS.free.controlPlans)throw Object.assign(new Error('Ücretsiz pakette en fazla 2 aktif kontrol planı kullanabilirsiniz. Bir planı arşivleyin veya paketinizi yükseltin.'),{status:409,code:'QUOTA_EXCEEDED'});
 }

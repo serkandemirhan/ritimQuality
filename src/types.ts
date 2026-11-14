@@ -250,7 +250,7 @@ export interface User {
   pinCode?: string;
 }
 
-export type SubscriptionPlanId = 'starter' | 'pro' | 'enterprise';
+export type SubscriptionPlanId = 'free' | 'starter' | 'pro' | 'enterprise';
 export type BillingPeriod = 'monthly' | 'annual';
 
 export interface SubscriptionPlan {

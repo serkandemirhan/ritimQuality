@@ -1,13 +1,15 @@
-export type PlanId = 'starter' | 'pro' | 'enterprise';
+export type PlanId = 'free' | 'starter' | 'pro' | 'enterprise';
 export type BillingPeriod = 'monthly' | 'annual';
 
 export const PLAN_LIMITS: Record<PlanId, { controlPlans: number; users: number; monthlyMeasurements: number }> = {
+  free: { controlPlans: 2, users: 3, monthlyMeasurements: 2_500 },
   starter: { controlPlans: 5, users: 3, monthlyMeasurements: 2_500 },
   pro: { controlPlans: 50, users: 15, monthlyMeasurements: 25_000 },
   enterprise: { controlPlans: 9_999, users: 9_999, monthlyMeasurements: 999_999 },
 };
 
 export function stripePriceId(plan: PlanId, period: BillingPeriod): string {
+  if (plan === 'free') throw new Error('Ücretsiz paket ödeme gerektirmez.');
   const key = `STRIPE_${plan.toUpperCase()}_${period.toUpperCase()}_PRICE_ID`;
   const priceId = process.env[key];
   if (!priceId) throw new Error(`${key} is not configured`);
@@ -16,6 +18,7 @@ export function stripePriceId(plan: PlanId, period: BillingPeriod): string {
 
 export function planFromPriceId(priceId: string): { planId: PlanId; billingPeriod: BillingPeriod } | null {
   for (const planId of Object.keys(PLAN_LIMITS) as PlanId[]) {
+    if (planId === 'free') continue;
     for (const billingPeriod of ['monthly', 'annual'] as BillingPeriod[]) {
       if (process.env[`STRIPE_${planId.toUpperCase()}_${billingPeriod.toUpperCase()}_PRICE_ID`] === priceId) {
         return { planId, billingPeriod };
