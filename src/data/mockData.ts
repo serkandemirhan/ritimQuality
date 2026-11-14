@@ -670,6 +670,8 @@ export const generateRealisticInspectionLogs = (): InspectionLog[] => {
 import { SubscriptionPlan, User, TenantCompany } from '../types';
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
+  {id:'free',name:'Ücretsiz',monthlyPrice:0,annualPrice:0,maxControlPlans:2,maxOperators:3,maxMonthlyMeasurements:2500,
+   features:['2 aktif kontrol planı','Taslak ve arşivler aktif plan kotasını tüketmez','3 aktif kullanıcı','Aylık 2.500 numune','Teknik resim, ölçüm ve PDF rapor','Süre sınırı yok'],badge:'Ücretsiz'},
   {
     id: 'starter',
     name: 'Başlangıç',

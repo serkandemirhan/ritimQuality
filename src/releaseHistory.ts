@@ -1,5 +1,7 @@
 /** Release dates describe production publication, not the time a feature was implemented. */
 export const releaseHistory = [
+  {version:'1.3.0',date:null as string|null,status:'pending' as const,databaseVersion:'018_free_registration',
+   changes:['Yeni firma kayıtları süre sınırı olmayan ücretsiz paketle başlar.','Ücretsiz pakette iki aktif kontrol planı sınırı yayınlamada uygulanır; taslaklar ve arşivler kotayı tüketmez.','Örnek ölçülü otomatik plan kaldırıldı; parça kaydından plan hazırlamaya ve yayınlamadan ölçüme doğrudan geçiş eklendi.','Gerçek kayıt ve PDF indirme kabul testleri ile adım bazında süre ölçümü eklendi.']},
   {
     version: '1.2.0',
     date: '2026-11-14' as string | null,

@@ -363,7 +363,7 @@ test('mobile focus layout stays synchronized and non-overlapping across required
 
 
 test('one application account and consistent plan limits',async({page})=>{
-  await page.goto(entry('/signup'));await expect(page.getByRole('link',{name:'14 günlük denemeyi başlat'})).toHaveAttribute('href',/auth=register/);
+  await page.goto(entry('/signup'));await expect(page.getByRole('link',{name:'Ücretsiz hesap oluştur'})).toHaveAttribute('href',/auth=register/);
   await expect(page.locator('input[type=password]')).toHaveCount(0);
   await page.goto(entry('/login'));await expect(page.getByRole('link',{name:'Uygulamaya giriş yap',exact:true})).toHaveAttribute('href',/auth=login/);
   await page.goto(entry('/pricing'));await expect(page.getByText('3 aktif kullanıcı',{exact:true})).toBeVisible();await expect(page.getByText('2.500 aylık numune kaydı',{exact:true})).toBeVisible();

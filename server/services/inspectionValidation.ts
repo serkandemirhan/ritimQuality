@@ -17,8 +17,9 @@ export const planSchema = z.object({
   id: z.string().min(1), productId: z.string().min(1), version: z.string().min(1),
   status: z.enum(['active', 'draft', 'archived']), isActive: z.boolean(),
   balloonMode: z.enum(['overlay','embedded']).optional(),
-  characteristics: z.array(characteristicSchema).min(1),
+  characteristics: z.array(characteristicSchema),
 }).passthrough().superRefine((plan, ctx) => {
+  if(plan.status!=='draft'&&!plan.characteristics.length)ctx.addIssue({code:'custom',message:'Yayınlamadan önce en az bir kontrol noktası tanımlayın.'});
   if (plan.isActive !== (plan.status === 'active')) ctx.addIssue({ code: 'custom', message: 'Aktif plan durumu tutarsız.' });
   if(plan.isActive && plan.drawingImageUrl){
     const pins=new Set<string>();
@@ -60,6 +61,7 @@ export const inspectionRulesSchema = z.object({
 
 export function validateInspection(input: Record<string, unknown>, rawPlan: unknown, actor: { id: string; name: string }, rules = inspectionRulesSchema.parse({})) {
   const plan = planSchema.parse(rawPlan);
+  if(!plan.characteristics.length)conflict('Boş kontrol planıyla ölçüm kaydedilemez.');
   if (rules.requireActivePlan && (!plan.isActive || plan.status !== 'active')) conflict('Yalnızca aktif kontrol planıyla ölçüm kaydedilebilir.');
   if (input.productId !== plan.productId || input.controlPlanId !== plan.id || input.controlPlanVersion !== plan.version)
     conflict('Ürün veya plan revizyonu değişti. Kontrol planını yeniden açın.');

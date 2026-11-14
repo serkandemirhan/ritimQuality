@@ -52,8 +52,8 @@ authRouter.post('/register', requestLimit('register',10,3600), async (req, res, 
     try {
       await client.query('BEGIN');
       const tenantResult = await client.query(
-        `INSERT INTO tenants (slug, name, legal_name, contact_email)
-         VALUES ($1, $2, $2, $3) RETURNING id, slug, name, plan_id, subscription_status, trial_ends_at`,
+        `INSERT INTO tenants (slug, name, legal_name, contact_email, plan_id, subscription_status, trial_ends_at, pilot_unlimited)
+         VALUES ($1, $2, $2, $3, 'free', 'active', NULL, false) RETURNING id, slug, name, plan_id, subscription_status, trial_ends_at`,
         [input.workspace, input.companyName, input.email.toLowerCase()],
       );
       const tenant = tenantResult.rows[0];

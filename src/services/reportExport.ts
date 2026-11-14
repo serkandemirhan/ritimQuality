@@ -17,8 +17,10 @@ async function captureDrawing(image:HTMLImageElement):Promise<Uint8Array>{
 }
 export async function prepareReportFile(input:Omit<ReportPdfInput,'fonts'|'drawingPng'>,image?:HTMLImageElement):Promise<File>{
  fonts??=Promise.all([bytes(regularUrl),bytes(boldUrl)]).then(([regular,bold])=>({regular,bold})).catch(error=>{fonts=undefined;throw error;});
+ // Observe a failed font promise immediately, before asynchronous drawing capture.
+ const readyFonts=await fonts;
  const drawingPng=image?await captureDrawing(image):undefined;
- const pdf=await createReportPdf({...input,fonts:await fonts,drawingPng});
+ const pdf=await createReportPdf({...input,fonts:readyFonts,drawingPng});
  return new File([pdf as Uint8Array<ArrayBuffer>],reportPdfFilename(input.log),{type:'application/pdf'});
 }
 export function downloadReportFile(file:File):void{
