@@ -61,7 +61,7 @@ export async function createReportPdf(input:ReportPdfInput):Promise<Uint8Array>{
  paragraph(company?.legalName||company?.name||'Kalite kontrol raporu',bold,12);
  paragraph(`Parça: ${log.productCode} · ${log.productName} | Çizim revizyonu: ${log.productRevision||'—'} | Plan revizyonu: ${log.controlPlanVersion||'—'}`);
  paragraph(`Lot: ${log.lotNumber||'—'} | İş emri: ${log.orderNumber||'—'} | Seri: ${log.serialNumber||'—'}`);
- paragraph(`Muayene eden: ${log.operatorName||'—'} | Zaman: ${new Date(log.timestamp).toLocaleString('tr-TR')} | İstasyon: ${log.machineNo||'—'} | Ekipman: ${log.equipmentId||'Belirtilmedi'}`);
+ paragraph(`Muayene eden: ${log.operatorName||'—'} | Zaman: ${new Date(log.timing?.completedAt||log.timestamp).toLocaleString('tr-TR')} | İstasyon: ${log.machineNo||'—'} | Ekipman: ${log.equipmentId||'Belirtilmedi'}`);
  paragraph(`Ölçüm kaynağı: ${log.source||'manual'} | Program: ${log.programName||'—'}`);
  if(product?.customer||product?.material)paragraph(`Müşteri: ${product?.customer||'—'} | Malzeme: ${product?.material||'—'}`);
  paragraph(`Kontrol noktası: ${analysis.totalCharacteristics} | Ölçülen: ${analysis.measuredCharacteristics} | Uygun: ${analysis.conformingCharacteristics} | Uygunsuz: ${analysis.nonconformingCharacteristics} | Ölçülmedi: ${analysis.incompleteCharacteristics}`,bold);

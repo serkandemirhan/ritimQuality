@@ -201,7 +201,7 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
 
         {/* Logs Table */}
         <div className="mt-4">
-          <DataTable label="Ölçümler" className="rq-record-table rq-mobile-cards">
+          <DataTable label="Ölçümler" className="rq-record-table rq-record-grid">
             <thead>
               <tr className="border-b border-slate-200 text-slate-600 font-mono uppercase text-[11px] bg-slate-50">
                 <th className="p-3.5 font-bold">Kayıt No & Tarih</th>
@@ -226,7 +226,7 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
                 });
 
                 return (
-                  <tr key={log.id} className={log.overallStatus==='fail'?'rq-row-alert':undefined}>
+                  <tr key={log.id} className={log.overallStatus==='fail'?'rq-row-alert':undefined} onClick={event=>{if(!(event.target as HTMLElement).closest('button,a'))setSelectedLogForDetail(log);}}>
                     <td className="p-3.5">
                       <Button variant="ghost" className="rq-technical" onClick={()=>setSelectedLogForDetail(log)}>{controlLabel(log)}</Button>
                       <div className="text-[11px] text-slate-400 font-medium">{dateFormatted}</div>
