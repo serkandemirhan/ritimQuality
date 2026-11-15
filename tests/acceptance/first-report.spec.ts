@@ -78,8 +78,7 @@ for(const scenario of [{width:1440,height:1000,recovery:false},{width:390,height
     }
     if(!recovery){
      await page.getByRole('button',{name:'Ölçümü düzelt',exact:true}).click();
-     await page.getByRole('button',{name:'Önceki',exact:true}).click();
-     await page.getByRole('button',{name:'Önceki',exact:true}).click();
+     await page.getByRole('dialog',{name:'Karakteristik gezgini'}).getByRole('button',{name:/#1 Gövde boyu/}).click();
      await expect(page.getByLabel('Tekrar ölçüm sebebi',{exact:true})).toBeVisible();
      for(const key of '100,02')await page.locator('.mm-keypad').getByRole('button',{name:key,exact:true}).click();
      await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).click();
