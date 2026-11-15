@@ -1,4 +1,5 @@
 import React, {useEffect, useLayoutEffect, useRef, useState, useCallback} from 'react';
+import {createPortal} from 'react-dom';
 import {MoreHorizontal, Maximize2, Minus, Plus, Scan, X, Camera, FileUp, AlertCircle, CheckCircle2, Trash2} from 'lucide-react';
 import type {InspectionLog} from '../types';
 import {useDrawingSource} from './MediaImage';
@@ -10,7 +11,7 @@ const labels = {pass:'✓ Uygun',fail:'✕ Uygunsuz',review:'⚠ Şüpheli · İ
 function Sheet({title,children,onClose,className='',subtitle}:{title:string;children:React.ReactNode;onClose:()=>void;className?:string;subtitle?:string}) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {const previous = document.activeElement as HTMLElement;ref.current?.showModal();return () => {if(previous?.isConnected)previous.focus?.({preventScroll:true});};},[]);
-  return <dialog ref={ref} className={`mm-sheet ${className}`} aria-label={title} onCancel={e=>{e.preventDefault();onClose();}}><header><div><h2>{title}</h2>{subtitle&&<p className="mm-sheet-subtitle">{subtitle}</p>}</div><button onClick={onClose} aria-label="Kapat"><X size={19}/></button></header>{children}</dialog>;
+  return createPortal(<dialog ref={ref} className={`mm-sheet ${className}`} aria-label={title} onCancel={e=>{e.preventDefault();onClose();}}><header><div><h2>{title}</h2>{subtitle&&<p className="mm-sheet-subtitle">{subtitle}</p>}</div><button onClick={onClose} aria-label="Kapat"><X size={19}/></button></header>{children}</dialog>,document.body);
 }
 function Photo({file,onClick}:{key?:string;file:File;onClick:()=>void}) {
   const [url,setUrl]=useState('');
@@ -183,7 +184,7 @@ export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onComp
     {expanded&&<div className="mm-viewer-caption"><div><span>SEÇİLİ NOKTA</span><strong>#{c.pointNo} · {c.name}</strong></div><button type="button" className="mm-pin-visibility" aria-pressed={!showOtherPins} onClick={()=>setShowOtherPins(v=>!v)}>{showOtherPins?'Diğer noktaları gizle':'Tüm noktaları göster'}</button><p>{c.description||'Çizimi sürükleyerek inceleyin.'}</p></div>}
   </>;
   const errorBlock=error&&<p role="alert" className="mm-error">{error}</p>;
-  return <section ref={shellRef} className="mm-shell" data-hand={hand} aria-label="Mobil ölçüm istasyonu" onKeyDown={e=>{if(e.key==='Enter'&&!sheet&&!pending&&e.target instanceof HTMLElement&&e.target.tagName!=='BUTTON'&&e.target.tagName!=='TEXTAREA'){e.preventDefault();void save();}}}>
+  return <section ref={shellRef} className="mm-shell" data-hand={hand} data-modal-open={Boolean(sheet||pending||boundary||photo)} aria-label="Mobil ölçüm istasyonu" onKeyDown={e=>{if(e.key==='Enter'&&!sheet&&!pending&&e.target instanceof HTMLElement&&e.target.tagName!=='BUTTON'&&e.target.tagName!=='TEXTAREA'){e.preventDefault();void save();}}}>
     {sheet==='tools'&&<Sheet title="Diğer işlemler" onClose={()=>setSheet(null)}>
     <header className="mm-context"><strong>RITIM QUALITY</strong><button onClick={()=>navigate('exit')}>Taslağı bırak</button><span>{session.product.code} · {session.product.name}</span><small>İş emri: {session.orderNumber||'—'} · Lot: {session.lotNumber||'—'} · Seri: {session.serialNumber||'—'} · Rev. {session.plan.version}</small></header>
     <div className="mm-connectivity" role="status">{online?'● Çevrimiçi':'⚠ Çevrimdışı'} · {syncing?'Senkronizasyon sürüyor':session.confirmed?'Senkronlandı':`${session.attempts.length} deneme cihazda · ${summary.photos} medya bekliyor`}</div>

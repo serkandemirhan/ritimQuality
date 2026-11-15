@@ -99,8 +99,11 @@ for(const [width,height] of [[320,568],[360,640],[390,844],[430,932]]){
   const shot=await cmd('Page.captureScreenshot',{format:'png'});await writeFile(resolve(out,`mobile-${width}.png`),Buffer.from(shot.data,'base64'));
 }
 await click('Büyüt');assert.equal(await evaluate(`document.querySelectorAll('dialog[aria-label="Teknik resim"] .mm-pin').length`),1,'Expanded view starts at the selected point');
+assert.equal(await evaluate(`document.querySelector('dialog[aria-label="Teknik resim"]').parentElement===document.body`),true,'Mobile dialog is rendered outside the measurement stacking context');
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('.mm-actions')).visibility`),'hidden','Sticky measurement actions are hidden while a dialog is open');
 await click('Tüm noktaları göster');assert.equal(await evaluate(`document.querySelectorAll('dialog[aria-label="Teknik resim"] .mm-pin').length`),50,'Expanded view can show every point');
 await evaluate(`document.querySelector('dialog[aria-label="Teknik resim"] button[aria-label="Kapat"]').click()`);await delay(180);
+assert.equal(await evaluate(`getComputedStyle(document.querySelector('.mm-actions')).visibility`),'visible','Measurement actions return when the dialog closes');
 const before=await evaluate(`[...document.querySelectorAll('.mm-keypad button')].map(b=>b.textContent).join()`);await evaluate(`document.querySelector('[aria-label="Diğer işlemler"]').click()`);await delay(100);await evaluate(`(()=>{const e=document.querySelector('select[aria-label="El tercihi"]');e.value='left';e.dispatchEvent(new Event('change',{bubbles:true}));})()`);await evaluate(`document.querySelector('dialog[open] button[aria-label="Kapat"]').click()`);await delay(180);assert.equal(await evaluate(`[...document.querySelectorAll('.mm-keypad button')].map(b=>b.textContent).join()`),before);
 // Exercise durable attempts without 1,250 synthetic keypad clicks.
 await evaluate(`Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false});window.dispatchEvent(new Event('offline'));`);
