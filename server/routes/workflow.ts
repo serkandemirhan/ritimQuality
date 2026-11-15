@@ -18,16 +18,20 @@ workflowRouter.get('/work',async(req,res,next)=>{
       const approvals=restricted ? {rows:[]} : await client.query(`SELECT a.*,COALESCE(l.control_number,l.payload->>'sessionCode') session_code,l.payload->>'operatorName' operator_name FROM inspection_approvals a JOIN inspection_logs l ON l.tenant_id=a.tenant_id AND l.id=a.inspection_id WHERE a.tenant_id=$1 AND l.voided_at IS NULL ORDER BY l.occurred_at DESC LIMIT 200`,[tenantId]);
       const tasks=await client.query(`SELECT q.*, l.control_number FROM quality_tasks q LEFT JOIN inspection_logs l ON l.tenant_id=q.tenant_id AND l.id=q.result_inspection_id WHERE q.tenant_id=$1 AND ($2::boolean=false OR q.owner_id=$3) ORDER BY q.due_at DESC LIMIT 200`,[tenantId,restricted,userId]);
       const notifications=await client.query('SELECT * FROM quality_notifications WHERE tenant_id=$1 AND user_id=$2 ORDER BY created_at DESC LIMIT 100',[tenantId,userId]);
+      const notificationUnreadCount=(await client.query('SELECT count(*)::int AS count FROM quality_notifications WHERE tenant_id=$1 AND user_id=$2 AND read_at IS NULL',[tenantId,userId])).rows[0].count;
       const summary=(await client.query(`SELECT
         (SELECT count(*)::int FROM quality_cases WHERE tenant_id=$1 AND state<>'closed' AND ($2::boolean=false OR owner_id=$3)) open_cases,
         (SELECT count(*)::int FROM quality_tasks WHERE tenant_id=$1 AND completed_at IS NULL AND due_at<now() AND ($2::boolean=false OR owner_id=$3)) overdue_tasks,
         (SELECT count(*)::int FROM inspection_approvals a JOIN inspection_logs l ON l.tenant_id=a.tenant_id AND l.id=a.inspection_id WHERE a.tenant_id=$1 AND a.status='pending' AND l.voided_at IS NULL AND $2::boolean=false) pending_approvals`,[tenantId,restricted,userId])).rows[0];
-      return {cases:cases.rows,approvals:approvals.rows,tasks:tasks.rows,notifications:notifications.rows,summary};
+      return {cases:cases.rows,approvals:approvals.rows,tasks:tasks.rows,notifications:notifications.rows,notificationUnreadCount,summary};
     });res.json(result);
   }catch(error){next(error);}
 });
 workflowRouter.patch('/notifications/:id/read',async(req,res,next)=>{
   try{const {tenantId,userId}=req.auth!;await withTenant(tenantId,client=>client.query('UPDATE quality_notifications SET read_at=COALESCE(read_at,now()) WHERE tenant_id=$1 AND user_id=$2 AND id=$3',[tenantId,userId,z.coerce.number().int().positive().parse(req.params.id)]));res.status(204).end();}catch(error){next(error);}
+});
+workflowRouter.patch('/notifications/read-all',async(req,res,next)=>{
+  try{const {tenantId,userId}=req.auth!;const result=await withTenant(tenantId,client=>client.query('UPDATE quality_notifications SET read_at=now() WHERE tenant_id=$1 AND user_id=$2 AND read_at IS NULL',[tenantId,userId]));res.json({updated:result.rowCount});}catch(error){next(error);}
 });
 workflowRouter.patch('/cases/:id',requireRole('admin','quality_engineer','operator'),async(req,res,next)=>{
   try {

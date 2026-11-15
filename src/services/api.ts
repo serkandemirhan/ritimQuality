@@ -67,6 +67,7 @@ export const SaasApi = {
   auditLogs: () => request('/audit-logs'),
   updateCase: (id:string,body:unknown) => request('/cases/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify(body)}),
   readNotification: (id:number) => request('/notifications/'+id+'/read',{method:'PATCH'}),
+  readAllNotifications: () => request('/notifications/read-all',{method:'PATCH'}),
   createTask: (body:unknown) => request('/tasks',{method:'POST',body:JSON.stringify(body)}),
   startTask: (id:string) => request('/tasks/'+encodeURIComponent(id)+'/start',{method:'POST'}),
   completeTask: (id:string,note:string) => request('/tasks/'+encodeURIComponent(id)+'/complete',{method:'POST',body:JSON.stringify({note})}),

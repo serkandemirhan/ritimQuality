@@ -146,7 +146,6 @@ export async function commitMobileCell(scope: string, cell: Cell, draft: MobileD
     if (c.policy?.liveCaptureRequired) errors.push('Bu plan doğrulanmış canlı çekim gerektiriyor; bu cihaz akışı desteklemiyor.');
     const previous = latestAttempt(s, cell);
     const concurrent=expectedPreviousId!==undefined&&(previous?.id||null)!==expectedPreviousId;
-    if (previous && !draft.retryReason.trim() && !concurrent) errors.push('Tekrar ölçüm sebebi zorunludur.');
     if (errors.length) throw new Error(errors.join(' '));
     const attempt: MobileAttempt = {...cell,...draft,...evaluated,retryReason:draft.retryReason.trim()||(concurrent?'Başka sekmede kaydedilen ölçüm sonrası devam edildi':''),id:crypto.randomUUID(),previousAttemptId:previous?.id,operatorId:s.operatorId,measuredAt:new Date().toISOString(),source:s.source,instrumentId:s.instrumentId};
     const drafts = {...s.drafts}; delete drafts[cellKey(cell)];

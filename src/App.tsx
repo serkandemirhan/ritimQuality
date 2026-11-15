@@ -202,7 +202,7 @@ export default function App() {
     products: { title: 'Parçalar', description: 'Parça kartlarını ve teknik resimleri yönetin.' },
     'qr-labels': {title:'QR Etiketleri',description:'Aktif kontrol planlarını QR etiketleriyle operatörlere ulaştırın.'},
     spc: { title: 'SPC Analizi', description: 'Proses kararlılığını ve yetenek indekslerini inceleyin.' },
-    logs: { title: 'Kontrol kayıtları', description: 'Geçmiş kontrolleri, sonuçları ve raporları görüntüleyin.' },
+    logs: { title: 'Ölçümler', description: 'Geçmiş ölçümleri, sonuçları ve raporları görüntüleyin.' },
     users: { title: 'Kullanıcılar', description: 'Ekip üyelerini ve erişim rollerini yönetin.' },
     subscription: { title: 'Abonelik', description: 'Paket kullanımını ve faturalandırmayı yönetin.' },
   };
