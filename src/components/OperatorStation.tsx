@@ -144,7 +144,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!isSessionActive || savedLog) return;
-    try { localStorage.setItem(draftKey, JSON.stringify({request,draftId,submission:submissionRef.current,selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId})); }
+    try { localStorage.setItem(draftKey, JSON.stringify({request,draftId,submission:submissionRef.current,startedAt:sessionStartedAt.current,selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId})); }
     catch { StorageService.reportSyncError(new Error('Taslak cihazda saklanamadı. Tarayıcı depolama alanını kontrol edin.')); }
   }, [isSessionActive,savedLog,draftId,selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId,draftKey,saving]);
   const refreshDrafts=async()=>setServerDrafts(await SaasApi.inspectionDrafts() as ServerDraft[]);
@@ -153,7 +153,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
     if(!controlPlans.some(p=>p.id===draft.selectedPlanId && rules && (!rules.requireActivePlan || (p.isActive && p.status==='active'))))throw new Error('Taslağın planı mevcut iş kurallarına göre kullanılamıyor.');
     // A locally interrupted submission must keep its identity and exact payload on retry.
     // Server drafts do not contain a submission and start a new record normally.
-    setRequest(draft.request);submissionRef.current=draft.submission||null;restoredRef.current=true;setDraftId(draft.id||draft.draftId);
+    setRequest(draft.request);submissionRef.current=draft.submission||null;sessionStartedAt.current=typeof draft.startedAt==='string'&&Number.isFinite(Date.parse(draft.startedAt))?draft.startedAt:'';restoredRef.current=true;setDraftId(draft.id||draft.draftId);
     setSelectedProductId(draft.productId||draft.selectedProductId);setSelectedPlanId(draft.selectedPlanId);setLotNumber(draft.lotNumber||'');setOrderNumber(draft.orderNumber||'');setMachineNo(draft.machineNo||'');setSampleCount(draft.sampleCount);
     setSamples(draft.samples);setNotes(draft.notes||'');setActivePointNo(draft.activePointNo);setActiveSampleIndex(draft.activeSampleIndex);setSerialNumber(draft.serialNumber||'');setSource(draft.source||'manual');setEquipmentId(draft.equipmentId||'');setOperatorName(currentUser.name);setIsSessionActive(true);setDraftAvailable(false);
   };
@@ -463,7 +463,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const isComplete = totalChecked === totalPossible && totalPossible > 0 && issues.length===0;
   const overallResult: 'pass' | 'warning' | 'fail' = failCount > 0 ? 'fail' : (warningCount > 0 ? 'warning' : 'pass');
 
-  const draftPayload=()=>({request,id:draftId||crypto.randomUUID(),productId:selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId});
+  const draftPayload=()=>({request,id:draftId||crypto.randomUUID(),startedAt:sessionStartedAt.current,productId:selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId});
   const saveServerDraft=async(release=false)=>{if(!isSessionActive||savedLog||draftBusy)return;setDraftBusy(true);try{const payload=draftPayload();setDraftId(payload.id);await SaasApi.saveInspectionDraft(payload.id,payload);if(release){await SaasApi.releaseInspectionDraft(payload.id);localStorage.removeItem(draftKey);setIsSessionActive(false);setSamples([]);setDraftId(null);}await refreshDrafts();}catch(error){alert(error instanceof Error?error.message:'Taslak kaydedilemedi.');}finally{setDraftBusy(false);}};
   const claimDraft=async(item:ServerDraft)=>{setDraftBusy(true);try{const claimed=await SaasApi.claimInspectionDraft(item.id) as ServerDraft;applyDraft({...claimed.payload,id:item.id});await refreshDrafts();}catch(error){alert(error instanceof Error?error.message:'Taslak devralınamadı.');}finally{setDraftBusy(false);}};
 
@@ -498,7 +498,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
       failedPointsCount: failCount,
       warningPointsCount: warningCount,
       timestamp: sessionStartedAt.current||new Date().toISOString(),
-      timing: (()=>{const completedAt=new Date().toISOString();const startedAt=sessionStartedAt.current||completedAt;const elapsedSeconds=Math.max(0,Math.round((Date.parse(completedAt)-Date.parse(startedAt))/1000));return {startedAt,completedAt,elapsedSeconds,activeSeconds:elapsedSeconds};})(),
+      timing: sessionStartedAt.current?(()=>{const completedAt=new Date().toISOString();const startedAt=sessionStartedAt.current;const elapsedSeconds=Math.max(0,Math.round((Date.parse(completedAt)-Date.parse(startedAt))/1000));return {startedAt,completedAt,elapsedSeconds,activeSeconds:elapsedSeconds};})():undefined,
       notes: notes || (overallResult === 'pass' ? 'Tüm kontrol noktaları toleranslar dahilindedir.' : 'Tolerans dışı noktalar tespit edildi.'),
       samples,
       draftId: draftId || undefined,

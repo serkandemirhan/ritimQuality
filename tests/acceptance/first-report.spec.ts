@@ -56,6 +56,17 @@ for(const scenario of [{width:1440,height:1000,recovery:false},{width:390,height
    if(viewport.width<768){
     await expect(page.locator('.mm-shell')).toBeVisible();mark('T7');
     if(!recovery){
+     await page.locator('.mm-keypad').getByRole('button',{name:'1',exact:true}).click();
+     await page.getByRole('button',{name:'Ölçümden çık',exact:true}).click();
+     const exit=page.getByRole('dialog',{name:'Ölçümden çık'});
+     await expect(exit.getByText('Kaydetmeden çıkarsanız bu cihazdaki taslak ve ölçümleri silinir.')).toBeVisible();
+     await exit.getByRole('button',{name:'Vazgeç',exact:true}).click();
+     await expect(page.locator('#mobile-measured-value')).toHaveValue('1');
+     await page.getByRole('button',{name:'Ölçümden çık',exact:true}).click();
+     await exit.getByRole('button',{name:'Taslak olarak kaydet',exact:true}).click();
+     await page.getByRole('button',{name:'Devam et',exact:true}).click();
+     await expect(page.locator('#mobile-measured-value')).toHaveValue('1');
+     await page.locator('.mm-keypad').getByRole('button',{name:'Temizle'}).click();
      for(const key of '101')await page.locator('.mm-keypad').getByRole('button',{name:key,exact:true}).click();
      await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).click();
      const evidenceSheet=page.getByRole('dialog',{name:'Kanıt ve uygunsuzluk'});
@@ -79,11 +90,11 @@ for(const scenario of [{width:1440,height:1000,recovery:false},{width:390,height
     if(!recovery){
      await page.getByRole('button',{name:'Ölçümü düzelt',exact:true}).click();
      await page.getByRole('dialog',{name:'Karakteristik gezgini'}).getByRole('button',{name:/#1 Gövde boyu/}).click();
-     await expect(page.getByLabel('Tekrar ölçüm sebebi',{exact:true})).toBeVisible();
+     await page.getByRole('button',{name:'Tekrar ölç',exact:true}).click();
+     await page.setViewportSize({width:384,height:760});
+     await expect.poll(async()=>{const bounds=await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).boundingBox();return bounds?bounds.y+bounds.height:Infinity;},{message:'Tekrar ölçümde kaydet düğmesi ekranda kalmalı'}).toBeLessThanOrEqual(760);
+     await page.setViewportSize(viewport);
      for(const key of '100,02')await page.locator('.mm-keypad').getByRole('button',{name:key,exact:true}).click();
-     await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).click();
-     await expect(page.getByText('Tekrar ölçüm sebebini girin.',{exact:true})).toBeVisible();
-     await page.getByLabel('Tekrar ölçüm sebebi',{exact:true}).fill('Ölçümü doğruladım');
      await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).click();
      await expect(page.getByText('Tüm ölçümler tamamlandı',{exact:true})).toBeVisible();
     }
@@ -128,6 +139,15 @@ for(const scenario of [{width:1440,height:1000,recovery:false},{width:390,height
    const saved=await(await savedResponse).json();inspectionId=saved.id;controlNumber=saved.controlNumber;mark('T8');
    if(viewport.width>=768)await page.locator('#btn-print-certificate').click();
    const report=page.getByRole('dialog',{name:'Kalite kontrol raporu'});await expect(report).toBeVisible();
+   const drawingFrame=report.locator('.rq-report-image-frame');
+   await expect(drawingFrame.locator('img')).toBeVisible();
+   for(const medium of ['screen','print'] as const){
+    await page.emulateMedia({media:medium});
+    const geometry=await drawingFrame.evaluate(frame=>{const image=frame.querySelector('img')!.getBoundingClientRect();return [...frame.querySelectorAll<HTMLElement>('.rq-report-balloon')].map(pin=>{const box=pin.getBoundingClientRect();return {x:box.left+box.width/2,y:box.top+box.height/2,expectedX:image.left+image.width*parseFloat(pin.style.left)/100,expectedY:image.top+image.height*parseFloat(pin.style.top)/100};});});
+    expect(geometry.length).toBe(3);
+    for(const pin of geometry){expect(Math.abs(pin.x-pin.expectedX)).toBeLessThan(1);expect(Math.abs(pin.y-pin.expectedY)).toBeLessThan(1);}
+   }
+   await page.emulateMedia({media:'screen'});
    await expect(report.getByText('Yerel rapor',{exact:true})).toHaveCount(0);
    await expect(report.getByRole('button',{name:'PDF indir',exact:true})).toBeEnabled();mark('T9');
    const downloadEvent=page.waitForEvent('download');await report.getByRole('button',{name:'PDF indir',exact:true}).click();

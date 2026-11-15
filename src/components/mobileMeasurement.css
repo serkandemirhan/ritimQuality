@@ -184,3 +184,11 @@
 .mm-evidence-sheet .mm-evidence-exit{width:100%;margin-top:12px;color:#405d70;background:transparent;border-color:#d8e4eb;font-size:13px}
 
 .mm-shell .mm-characteristic > .mm-top-actions{flex:0 0 auto;margin-left:auto}
+.mm-exit-bar{display:flex;align-items:center;flex:none}
+.mm-shell .mm-close-measurement{display:grid;place-items:center;min-width:44px;min-height:44px;width:44px;height:44px;padding:0;background:#fff;border:1px solid #cfdde8;border-radius:9px;color:#31556b}
+.mm-exit-options{display:grid;gap:8px;margin-top:16px}.mm-exit-options button{width:100%;min-height:48px}.mm-exit-options .mm-primary{background:#0d679f;border-color:#0d679f;color:#fff}
+.mm-point-status,.mm-evidence-requirement{flex:none;margin:0;padding:2px 3px;font-size:11px;line-height:1.25;color:#526e80}.mm-evidence-requirement{color:#895b1b;font-weight:700}.mm-retry-note{flex:none;font-size:12px;color:#31546b}.mm-retry-note summary{cursor:pointer;min-height:32px;padding:7px 3px}.mm-retry-note input{width:100%;min-height:44px;border:1px solid #c4d8e5;border-radius:8px;padding:8px 10px;font-size:14px}
+@media(max-width:767px){.mm-shell:has(.mm-retry-note) .mm-overview{flex:1 1 100px;min-height:100px}.mm-shell:has(.mm-retry-note) .mm-keypad{grid-template-rows:repeat(4,minmax(40px,1fr))}}
+.mm-overview{position:relative}.mm-shell .mm-overview-fit{position:absolute;left:9px;bottom:9px;z-index:3;min-height:40px;padding:5px 9px;border:1px solid #cbdce8;border-radius:6px;background:#fff;color:#126a9e;font-size:11px;font-weight:700}
+@media(max-width:767px){.mm-shell .mm-overview[data-fit="true"] .mm-drawing-scroll{display:flex;align-items:center;justify-content:center}.mm-shell .mm-overview[data-fit="true"] .mm-drawing-image:has(>img){width:min(100%,calc(100cqh * var(--mm-image-ratio)))!important;margin:0}}
+@media(max-width:767px) and (max-height:800px){.mm-shell:has(.mm-retry-note) .mm-overview{min-height:70px;flex-basis:70px}.mm-shell:has(.mm-retry-note) .mm-keypad button{min-height:44px}.mm-shell:has(.mm-retry-note) .mm-exit-bar .mm-close-measurement{min-height:40px;height:40px}}

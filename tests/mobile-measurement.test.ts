@@ -57,7 +57,7 @@ test('retake preserves historical NOK and requires review after passing last att
  assert.equal(result.overallStatus,'pass');assert.equal(result.hasHistoricalFailure,true);assert.equal(result.requiresReview,true);
  assert.equal(result.mobileMeasurement.attempts.length,2);
  assert.throws(()=>validateInspection(payload([first,{...second,previousAttemptId:undefined}]),plan,actor));
- assert.throws(()=>validateInspection(payload([first,{...second,retryReason:''}]),plan,actor));
+ assert.equal((validateInspection(payload([first,{...second,retryReason:''}]),plan,actor) as any).mobileMeasurement.attempts.length,2);
  assert.throws(()=>validateInspection(payload([first,{...second,operatorId:'other'}]),plan,actor));
 });
 test('server rejects revision content mismatch and forged values, reevaluates quality',()=>{

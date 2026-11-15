@@ -147,7 +147,7 @@ function validateMobileAttempts(input:Record<string,unknown>,plan:z.infer<typeof
     const c=plan.characteristics.find(c=>c.id===a.characteristic);const sample=samples.find(s=>s.sampleIndex===a.sample);
     if(!c||!sample||a.operatorId!==actor.id||ids.has(a.id))conflict('Deneme kimliği, operatör veya numune geçersiz.');
     ids.add(a.id);const key=`${a.sample}:${a.characteristic}`;const previous=latest.get(key);
-    if(a.previousAttemptId!==previous?.id||previous&&!a.retryReason.trim())conflict('Tekrar ölçüm zinciri veya gerekçesi geçersiz.');
+    if(a.previousAttemptId!==previous?.id)conflict('Tekrar ölçüm zinciri geçersiz.');
     const evaluated=evaluateMeasurement(c as MeasurementDefinition,a.raw,a.mode);
     if(canonical(evaluated.value)!==canonical(a.value)||canonical(sample.values[c.id])===undefined)conflict('Deneme değeri ham girişle eşleşmiyor.');
     a.result=evaluated.result;a.canonical=evaluated.canonical;

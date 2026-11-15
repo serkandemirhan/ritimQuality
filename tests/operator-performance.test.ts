@@ -10,5 +10,5 @@ test('groups daily performance and excludes untimed legacy records from duration
     {...base,id:'2',sessionCode:'2',operatorUserId:'u',operatorName:'Ayşe',timestamp:'2026-11-09T09:00:00Z'},
   ] as InspectionLog[];
   const rows=dailyOperatorPerformance(logs,new Date('2026-11-09T12:00:00Z'));
-  assert.equal(rows[0].controls,2);assert.equal(rows[0].timedControls,1);assert.equal(rows[0].averageActiveSeconds,90);assert.equal(rows[0].retryCount,1);
+  assert.equal(rows[0].controls,2);assert.equal(rows[0].timedControls,1);assert.equal(rows[0].averageActiveSeconds,90);assert.equal(rows[0].averageElapsedSeconds,120);assert.equal(rows[0].retryCount,1);
 });
