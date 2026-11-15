@@ -92,7 +92,7 @@ export default function App() {
     return () => {live=false;window.removeEventListener('qualitrack-sync-error', onSyncError);};
   }, []);
 
-  useEffect(()=>{if(!hydrated||activeTab!=='overview')return;const timer=setInterval(()=>{void StorageService.hydrateFromApi().then(loadData).catch(StorageService.reportSyncError);},60000);return()=>clearInterval(timer);},[hydrated,activeTab]);
+  useEffect(()=>{if(!hydrated||activeTab!=='overview'||measurementActive)return;let live=true,inFlight=false;const refresh=()=>{if(inFlight||document.visibilityState!=='visible'||!navigator.onLine)return;inFlight=true;void StorageService.hydrateFromApi().then(()=>{if(live)loadData();}).catch(error=>{if(live)StorageService.reportSyncError(error);}).finally(()=>{inFlight=false;});};const timer=setInterval(refresh,30000);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);return()=>{live=false;clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};},[hydrated,activeTab,measurementActive]);
 
   useEffect(()=>{document.documentElement.dataset.hand=localStorage.getItem('quality:preferences:'+currentUser.id)==='left'?'left':'right';},[currentUser.id]);
   const navigateWork=(section:string)=>setActiveTab(({tasks:'work',inbox:'notifications',cases:'cases',approvals:'approvals'} as Record<string,NavTab>)[section] || 'work');

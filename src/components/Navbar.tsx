@@ -222,9 +222,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       <div className="fixed inset-y-0 left-0 z-50 hidden lg:block">{renderSidebar()}</div>
 
-      <nav aria-label="Mobil gezinme" className="quality-bottom-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-slate-200 bg-white px-2 pt-1 text-slate-800 lg:hidden" style={{paddingBottom:'max(.5rem, env(safe-area-inset-bottom))'}}>
+      <nav aria-label="Mobil gezinme" className="quality-bottom-nav fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-slate-200 bg-white px-2 pt-1 text-slate-800 lg:hidden" style={{paddingBottom:'max(.5rem, env(safe-area-inset-bottom))'}}>
         {mobileItems.map(item=><button key={item.id} type="button" disabled={!item.allowedRoles.includes(currentUser.role)} onClick={()=>onTabChange(item.id)} aria-current={activeTab===item.id?'page':undefined} className={'flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl text-xs '+(activeTab===item.id?'bg-slate-100 text-slate-950 font-bold':'')}>{item.icon}<span>{item.id==='operator'?'Kontrol başlat':item.id==='work'?'İşler':'Genel Bakış'}</span></button>)}
-        <button type="button" onClick={()=>setMobileOpen(true)} aria-current={!['overview','operator','work'].includes(activeTab)?'page':undefined} aria-expanded={mobileOpen} className="flex min-h-14 flex-col items-center justify-center gap-1 text-xs"><Menu className="h-5 w-5"/>Diğer</button>
       </nav>
       <Modal open={mobileOpen} title="Gezinme" onClose={() => setMobileOpen(false)} className="rq-mobile-navigation">
         <div className="quality-mobile-menu">{renderSidebar(true)}</div>

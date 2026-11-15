@@ -1,7 +1,7 @@
 {
   "name": "ritim-quality-saas",
   "private": true,
-  "version": "1.9.0",
+  "version": "1.10.0",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
@@ -16,7 +16,7 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
     "supabase:setup": "node --env-file=.env.cloud --import tsx server/db/setupSupabase.ts",
-    "test:cloud": "tsx tests/inspection-validation.test.ts && node tests/cloud-runtime.test.mjs",
+    "test:cloud": "tsx tests/inspection-validation.test.ts && node --import tsx --test tests/inspection-request.test.ts && node tests/cloud-runtime.test.mjs",
     "demo:provision": "tsx tools/sales-demo.ts",
     "test:revisions": "tsx tests/sales-revisions.test.ts",
     "test:mobile-measurement": "tsx tests/mobile-measurement.test.ts",

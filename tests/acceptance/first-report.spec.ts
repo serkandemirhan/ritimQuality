@@ -51,6 +51,7 @@ for(const scenario of [{width:1440,height:1000,recovery:false},{width:390,height
    const publication=page.waitForResponse(r=>/\/api\/control-plans\//.test(r.url())&&r.request().method()==='PUT');
    await page.getByRole('button',{name:'Yayınla ve ölçüme geç',exact:true}).click();expect((await publication).ok()).toBe(true);mark('T5');
    await expect(page.locator('#btn-start-inspection')).toBeEnabled();mark('T6');
+   await page.getByRole('button',{name:/Numune sayısı:/}).click();await page.locator('#sample-picker-options').getByRole('button',{name:'3',exact:true}).click();await expect(page.getByRole('button',{name:/Numune sayısı: 3/})).toBeVisible();await page.getByRole('button',{name:/Numune sayısı:/}).click();await page.locator('#sample-picker-options').getByRole('button',{name:'1',exact:true}).click();
    const planned=await boot(),plan=planned.controlPlans[0];expect(plan.isActive).toBe(true);expect(plan.status).toBe('active');expect(plan.characteristics.map((c:any)=>c.name)).toEqual(['Gövde boyu','Kanal genişliği','Delik çapı']);expect(plan.characteristics.map((c:any)=>c.lsl)).toEqual([99.9,49.9,9.95]);
    await page.getByLabel('Parti numarası',{exact:true}).fill('LOT-ACCEPTANCE');await page.locator('#btn-start-inspection').click();
    if(viewport.width<768){
@@ -68,7 +69,7 @@ for(const scenario of [{width:1440,height:1000,recovery:false},{width:390,height
      await expect(page.locator('#mobile-measured-value')).toHaveValue('1');
      await page.locator('.mm-keypad').getByRole('button',{name:'Temizle'}).click();
      for(const key of '101')await page.locator('.mm-keypad').getByRole('button',{name:key,exact:true}).click();
-     await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).click();
+     await page.getByRole('button',{name:'Kaydet',exact:true}).click();
      const evidenceSheet=page.getByRole('dialog',{name:'Kanıt ve uygunsuzluk'});
      await expect(evidenceSheet).toBeVisible();
      await expect(evidenceSheet.getByLabel('Ölçüm sonucu')).toContainText('101');
@@ -84,18 +85,18 @@ for(const scenario of [{width:1440,height:1000,recovery:false},{width:390,height
     for(const [i,value]of ['100,02','49,98','10,01'].entries()){
      await expect(page.locator('.mm-keypad')).toBeVisible();
      for(const key of value)await page.locator('.mm-keypad').getByRole('button',{name:key,exact:true}).click();
-     await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).click();
-     if(i<2)await expect(page.locator('.mm-shell')).toContainText(['Kanal genişliği','Delik çapı'][i]);
+     await page.getByRole('button',{name:'Kaydet',exact:true}).click();
+     if(i<2){await page.getByRole('button',{name:'Sonraki',exact:true}).click();await expect(page.locator('.mm-shell')).toContainText(['Kanal genişliği','Delik çapı'][i]);}
     }
     if(!recovery){
      await page.getByRole('button',{name:'Ölçümü düzelt',exact:true}).click();
      await page.getByRole('dialog',{name:'Karakteristik gezgini'}).getByRole('button',{name:/#1 Gövde boyu/}).click();
      await page.getByRole('button',{name:'Tekrar ölç',exact:true}).click();
      await page.setViewportSize({width:384,height:760});
-     await expect.poll(async()=>{const bounds=await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).boundingBox();return bounds?bounds.y+bounds.height:Infinity;},{message:'Tekrar ölçümde kaydet düğmesi ekranda kalmalı'}).toBeLessThanOrEqual(760);
+     await expect.poll(async()=>{const bounds=await page.getByRole('button',{name:'Kaydet',exact:true}).boundingBox();return bounds?bounds.y+bounds.height:Infinity;},{message:'Tekrar ölçümde kaydet düğmesi ekranda kalmalı'}).toBeLessThanOrEqual(760);
      await page.setViewportSize(viewport);
      for(const key of '100,02')await page.locator('.mm-keypad').getByRole('button',{name:key,exact:true}).click();
-     await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).click();
+     await page.getByRole('button',{name:'Kaydet',exact:true}).click();
      await expect(page.getByText('Tüm ölçümler tamamlandı',{exact:true})).toBeVisible();
     }
    }else{
@@ -139,6 +140,7 @@ for(const scenario of [{width:1440,height:1000,recovery:false},{width:390,height
    const saved=await(await savedResponse).json();inspectionId=saved.id;controlNumber=saved.controlNumber;mark('T8');
    if(viewport.width>=768)await page.locator('#btn-print-certificate').click();
    const report=page.getByRole('dialog',{name:'Kalite kontrol raporu'});await expect(report).toBeVisible();
+   if(viewport.width<768){await expect(report.getByRole('region',{name:'Mobil ölçüm sonuçları'}).locator('article')).toHaveCount(3);await expect(report.getByRole('region',{name:'Mobil ölçüm sonuçları'}).locator('article').first()).toBeVisible();}
    const drawingFrame=report.locator('.rq-report-image-frame');
    await expect(drawingFrame.locator('img')).toBeVisible();
    for(const medium of ['screen','print'] as const){

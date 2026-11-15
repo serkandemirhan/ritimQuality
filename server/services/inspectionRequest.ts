@@ -11,7 +11,7 @@ export async function completeInspectionRequest(client: pg.PoolClient, tenantId:
   if (!task || task.owner_id !== userId || task.completed_at) conflict('Kontrol isteği kapalı veya başka bir operatöre atanmış.');
   if (task.product_id !== payload.productId) conflict('İstek ile ölçümün parçası eşleşmiyor.');
   const request = task.request_context;
-  if (request && (request.planId !== payload.controlPlanId || request.planVersion !== payload.controlPlanVersion || request.sampleCount !== payload.sampleCount || request.orderNumber !== payload.orderNumber || request.lotNumber !== payload.lotNumber)) conflict('Kontrol planı, numune veya iş emri bilgileri istekle eşleşmiyor.');
+  if (request && (request.planId !== payload.controlPlanId || request.planVersion !== payload.controlPlanVersion || request.orderNumber !== payload.orderNumber || request.lotNumber !== payload.lotNumber)) conflict('Kontrol planı veya iş emri bilgileri istekle eşleşmiyor.');
   await client.query("UPDATE quality_tasks SET result_inspection_id=$3,started_at=COALESCE(started_at,now()),completed_at=now(),completion_note='Ölçüm kaydedildi. Kalite kararı rapordan izlenebilir.' WHERE tenant_id=$1 AND id=$2",[tenantId,task.id,payload.id]);
-  await workflowAudit(client,tenantId,userId,'task.inspection_completed',task.id,task,{inspectionId:payload.id});
+  await workflowAudit(client,tenantId,userId,'task.inspection_completed',task.id,task,{inspectionId:payload.id,requestedSampleCount:request?.sampleCount??null,measuredSampleCount:payload.sampleCount});
 }
