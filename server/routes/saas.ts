@@ -24,7 +24,7 @@ saasRouter.get('/bootstrap', async (req, res, next) => {
       const tenant = await client.query(`SELECT id, slug, name, legal_name, tax_number, tax_office, industry, facility_location,
           contact_email, contact_phone, plan_id, subscription_status, billing_period, subscription_renews_at,
           trial_ends_at, pilot_unlimited, created_at FROM tenants WHERE id = $1`, [tenantId]);
-      const users = await client.query(`SELECT id, name, email, role, department, station_or_machine, status, last_login_at
+      const users = await client.query(`SELECT id, name, email, username, role, department, station_or_machine, status, last_login_at
           FROM users WHERE tenant_id = $1 ORDER BY name`, [tenantId]);
       const products = await client.query('SELECT payload FROM products WHERE tenant_id = $1 ORDER BY created_at DESC', [tenantId]);
       const controlPlans = await client.query('SELECT payload FROM control_plans WHERE tenant_id = $1 ORDER BY created_at DESC', [tenantId]);
@@ -284,11 +284,15 @@ saasRouter.post('/inspection-logs/:id/void', requireRole('admin', 'quality_engin
 
 saasRouter.post('/users', requireRole('admin'), async (req, res, next) => {
   try {
-    const input = z.object({ id:z.string().min(1).max(120),name:z.string().min(2),email:z.string().email(),password:z.string().min(10).max(128).optional(),role:z.enum(['admin','quality_engineer','operator','auditor']),department:z.string().default(''),stationOrMachine:z.string().optional(),status:z.enum(['active','suspended']).default('active') }).parse(req.body);
+    const input = z.object({ id:z.string().min(1).max(120),name:z.string().min(2),email:z.union([z.string().trim().email(),z.literal(''),z.null()]).optional(),username:z.union([z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9._-]{2,39}$/),z.literal(''),z.null()]).optional(),password:z.string().min(10).max(128).optional(),role:z.enum(['admin','quality_engineer','operator','auditor']),department:z.string().default(''),stationOrMachine:z.string().optional(),status:z.enum(['active','suspended']).default('active') }).parse(req.body);
     const { tenantId, userId } = req.auth!;
     if(isPlatformAdmin(input.id)&&!isPlatformAdmin(userId))throw Object.assign(Error('Platform yöneticisi hesabı değiştirilemez.'),{status:403});
     const user = await withTenant(tenantId, async client => {
       const existing = (await client.query('SELECT * FROM users WHERE tenant_id=$1 AND id=$2', [tenantId,input.id])).rows[0];
+      const email = input.email === undefined ? existing?.email || null : input.email?.toLowerCase() || null;
+      const username = input.username === undefined ? existing?.username || null : input.username || null;
+      if (input.role === 'admin' && !email) throw Object.assign(Error('Firma yöneticisi için e-posta zorunludur.'),{status:400});
+      if (input.role !== 'admin' && !email && !username) throw Object.assign(Error('Kullanıcı adı veya e-posta gereklidir.'),{status:400});
       if (!existing) await assertQuota(client, tenantId, 'users'); else await assertSubscription(client, tenantId);
       if (!existing && !input.password) { const error = new Error('Yeni kullanıcı için geçici PIN/şifre zorunludur.'); Object.assign(error,{status:400}); throw error; }
       if(existing?.role==='admin' && (input.role!=='admin'||input.status!=='active')) {
@@ -297,10 +301,10 @@ saasRouter.post('/users', requireRole('admin'), async (req, res, next) => {
       }
       if(existing?.status==='suspended' && input.status==='active')await assertQuota(client,tenantId,'users');
       const hash = input.password ? await bcrypt.hash(input.password, 12) : existing.password_hash;
-      const result = await client.query(`INSERT INTO users (id,tenant_id,name,email,password_hash,role,department,station_or_machine,status)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-        ON CONFLICT (id) DO UPDATE SET name=$3,email=$4,password_hash=$5,role=$6,department=$7,station_or_machine=$8,status=$9,updated_at=now()
-        WHERE users.tenant_id=$2 RETURNING id,name,email,role,department,station_or_machine,status`, [input.id,tenantId,input.name,input.email.toLowerCase(),hash,input.role,input.department,input.stationOrMachine,input.status]);
+      const result = await client.query(`INSERT INTO users (id,tenant_id,name,email,password_hash,role,department,station_or_machine,status,username)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        ON CONFLICT (id) DO UPDATE SET name=$3,email=$4,password_hash=$5,role=$6,department=$7,station_or_machine=$8,status=$9,username=$10,updated_at=now()
+        WHERE users.tenant_id=$2 RETURNING id,name,email,username,role,department,station_or_machine,status`, [input.id,tenantId,input.name,email,hash,input.role,input.department,input.stationOrMachine,input.status,username]);
       if (!result.rowCount) { const error = new Error('Kullanıcı başka bir çalışma alanına ait.'); Object.assign(error,{status:403}); throw error; }
       await audit(client, { tenantId, userId, action:existing?'user.updated':'user.created', entityType:'user', entityId:result.rows[0].id, before:existing && { ...existing, password_hash: undefined }, after:result.rows[0], ip:req.ip });
       return result.rows[0];

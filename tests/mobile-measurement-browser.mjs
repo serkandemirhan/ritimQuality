@@ -73,15 +73,23 @@ assert.ok(await evaluate(`!!document.querySelector('.mm-shell')`),'Mobile shell 
 await evaluate(`window.core=await import('/test-core.js')`);
 await press(['1','8',',','5','2']);assert.equal(await evaluate(`(await core.readMobileSession('review:user')).attempts.length`),0,'typing is not a committed measurement');
 const beforeSaveLayout=await evaluate(`({scroll:window.scrollY,value:document.querySelector('#mobile-measured-value').getBoundingClientRect().top})`);
-await click('Kaydet ve ilerle');assert.equal(await evaluate(`(await core.readMobileSession('review:user')).attempts.length`),1);assert.equal(await evaluate(`document.querySelector('#mobile-measured-value').value`),'');
+await click('Kaydet ve ilerle');assert.equal(await evaluate(`(await core.readMobileSession('review:user')).attempts.length`),1);
+const draftTest=await evaluate(`await (async()=>{const original=await core.readMobileSession('review:user');const second={...structuredClone(original),id:crypto.randomUUID(),product:{...original.product,name:'Second'},attempts:[],drafts:{},media:{}};await core.activateMobileDraft('review:user',second,true);const listed=await core.listMobileDrafts('review:user');const queue=await core.readMobileUploads('review:user');await core.activateMobileDraft('review:user',original);const restored=await core.readMobileSession('review:user');await core.deleteMobileDraft('review:user',second.id);return {count:listed.length,queue:queue.length,id:restored.id,expected:original.id,attempts:restored.attempts.length,remaining:(await core.listMobileDrafts('review:user')).length};})()`);assert.deepEqual(draftTest,{count:2,queue:0,id:draftTest.expected,expected:draftTest.expected,attempts:1,remaining:1},'Multiple drafts stay separate, resume safely and are not treated as uploads');
+assert.equal(await evaluate(`document.querySelector('#mobile-measured-value').value`),'');
 assert.equal(await evaluate(`window.scrollY`),beforeSaveLayout.scroll,'Local save does not scroll the page');
 assert.equal(await evaluate(`document.querySelector('#mobile-measured-value').getBoundingClientRect().top`),beforeSaveLayout.value,'Local save feedback does not shift the value field');
 assert.ok(await evaluate(`document.querySelector('.mm-value-row .mm-feedback').textContent.includes('Cihazda kaydedildi')`),'Save feedback stays beside the measured value');
 await click('Kaydet ve ilerle');assert.equal(await evaluate(`(await core.readMobileSession('review:user')).attempts.length`),1,'empty value rejected');
 await press(['1','8',',']);await click('Kaydet ve ilerle');assert.equal(await evaluate(`(await core.readMobileSession('review:user')).active.characteristic`),'c2','partial decimal does not advance');
 await click('Sonraki eksik');assert.ok(await evaluate(`document.querySelector('dialog[open]').textContent.includes('Kaydedilmemiş')`));await click('Vazgeç');
-await cmd('Page.reload');await delay(1300);await evaluate(`document.querySelector('#nav-tab-operator').click()`);await delay(250);await click('Mobil kontrole devam et');await delay(300);assert.equal(await evaluate(`document.querySelector('#mobile-measured-value').value`),'18,','draft recovers after reload');
+await cmd('Page.reload');await delay(1300);await evaluate(`document.querySelector('#nav-tab-operator').click()`);await delay(250);await click('Devam et');await delay(300);assert.equal(await evaluate(`document.querySelector('#mobile-measured-value').value`),'18,','draft recovers after reload');
 await evaluate(`window.core=await import('/test-core.js')`);
+await evaluate(`document.querySelector('[aria-label="Diğer işlemler"]').click()`);await delay(150);
+await click('Kanıt / açıklama');
+assert.ok(await evaluate(`document.querySelector('.mm-evidence-body').getBoundingClientRect().height>200`),'Evidence body has room to scroll on mobile');
+const evidenceShot=await cmd('Page.captureScreenshot',{format:'png'});await writeFile(resolve(out,'mobile-evidence.png'),Buffer.from(evidenceShot.data,'base64'));
+assert.ok(await evaluate(`[...document.querySelectorAll('.mm-evidence-sheet button')].some(b=>b.textContent.includes('Taslağı bırak ve çık'))`),'Evidence sheet offers exit');
+await evaluate(`document.querySelector('.mm-evidence-sheet button[aria-label="Kapat"]').click()`);await delay(150);
 const dimensions=[];
 for(const [width,height] of [[320,568],[360,640],[390,844],[430,932]]){
   await cmd('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});await delay(250);
@@ -134,9 +142,10 @@ assert.match(await evaluate(`window.originalPut=IDBObjectStore.prototype.put;IDB
 assert.ok(await evaluate(`!!(await core.readMobileSession('review:user'))`),'Queue write failure preserves the active inspection');
 await evaluate(`Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false});window.dispatchEvent(new Event('offline'));window.localReport=await core.finishMobileSession('review:user')`);
 assert.equal(await evaluate(`await core.readMobileSession('review:user')`),undefined,'Finished pending inspection no longer blocks a new session');
+assert.match(await evaluate(`try{await core.deleteMobileDraft('review:user',localReport.id);'unexpected'}catch(e){e.message}`),/silinemez/,'Pending uploads cannot be discarded as drafts');
 assert.ok(await evaluate(`(await core.readMobileUploads('review:user')).some(s=>Object.values(s.media).every(m=>m.file instanceof File))`),'Pending photos remain durable in the upload queue');
 delayedId=await evaluate(`await core.changeMobileSession('review:user',()=>({id:crypto.randomUUID(),scope:'review:user',plan:${JSON.stringify(plan)},product:${JSON.stringify(product)},count:1,operatorId:'user',operatorName:'Operatör',orderNumber:'',lotNumber:'',serialNumber:'',instrumentId:'gauge',source:'manual',active:{sample:1,characteristic:'c50'},order:'sample',drafts:{},attempts:[],media:{},createdAt:new Date().toISOString()}));for(const cell of core.mobileSummary(await core.readMobileSession('review:user')).cells.filter(c=>c.characteristic!=='c50'))await core.commitMobileCell('review:user',cell,{...core.emptyDraft(),raw:'18.5'},true);(await core.readMobileSession('review:user')).id`);
-await cmd('Page.reload');await delay(1300);await evaluate(`document.querySelector('#nav-tab-operator').click()`);await delay(250);await click('Mobil kontrole devam et');await delay(300);
+await cmd('Page.reload');await delay(1300);await evaluate(`document.querySelector('#nav-tab-operator').click()`);await delay(250);await click('Devam et');await delay(300);
 await evaluate(`window.core=await import('/test-core.js');Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false});window.dispatchEvent(new Event('offline'))`);await press(['1','8',',','5']);await click('Kaydet ve ilerle');await click('Ölçümü tamamla ve raporu aç');
 assert.ok(await evaluate(`!!document.querySelector('.rq-report-modal')&&!document.querySelector('.mm-shell')`),'Completing an inspection opens its report before upload confirmation');
 assert.ok(await evaluate(`document.querySelector('.rq-report-paper').textContent.includes('Yerel rapor')`),'Unsynced report is explicitly local');

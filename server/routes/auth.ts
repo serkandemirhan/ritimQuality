@@ -77,7 +77,7 @@ authRouter.post('/register', requestLimit('register',10,3600), async (req, res, 
   } catch (error) { next(error); }
 });
 
-const loginSchema = z.object({ workspace: z.string().min(3), email: z.string().email(), password: z.string().min(1) });
+const loginSchema = z.object({ workspace: z.string().min(3), email: z.string().trim().min(3).max(254), password: z.string().min(1) });
 
 authRouter.post('/login', requestLimit('login',60), async (req, res, next) => {
   try {
@@ -91,7 +91,7 @@ authRouter.post('/login', requestLimit('login',60), async (req, res, next) => {
     const user = await withTenant(tenantId, async client => {
       const result = await client.query(
         `SELECT id, tenant_id, name, email, password_hash, role, department, status, session_version
-         FROM users WHERE tenant_id = $1 AND email = $2`,
+         FROM users WHERE tenant_id = $1 AND (email = $2 OR (role <> 'admin' AND username = $2))`,
         [tenantId, input.email.toLowerCase()],
       );
       return result.rows[0];

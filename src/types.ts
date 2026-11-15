@@ -241,6 +241,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  username?: string;
   role: UserRole;
   department: string;
   stationOrMachine?: string; // e.g. "CNC Torna İstasyon #01"

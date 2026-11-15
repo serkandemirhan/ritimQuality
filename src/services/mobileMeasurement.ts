@@ -16,7 +16,7 @@ export interface MobileSession {
   id: string; scope: string; plan: ControlPlan; product: Product; count: number; operatorId: string; operatorName: string;
   orderNumber: string; lotNumber: string; serialNumber: string; instrumentId: string; source: string;
   active: Cell; order: 'sample' | 'characteristic'; drafts: Record<string, MobileDraft>; attempts: MobileAttempt[];
-  media: Record<string, LocalMedia>; createdAt: string; completedAt?:string; submissionRequested?: boolean; submission?: InspectionLog; confirmed?: InspectionLog; syncError?: string;
+  media: Record<string, LocalMedia>; createdAt: string; updatedAt?:string; completedAt?:string; submissionRequested?: boolean; submission?: InspectionLog; confirmed?: InspectionLog; syncError?: string;
 }
 export const cellKey = (cell: Cell) => `${cell.sample}:${cell.characteristic}`;
 export const emptyDraft = (): MobileDraft => ({raw:'',mode:'absolute',comment:'',reason:'',retryReason:'',photos:[]});
@@ -47,13 +47,28 @@ export async function readMobileSession(scope: string): Promise<MobileSession | 
 }
 export async function readMobileUploads(scope:string):Promise<MobileSession[]> {
   const database=await db();
-  return new Promise((resolve,reject)=>{const request=database.transaction('archives').objectStore('archives').getAll();request.onsuccess=()=>resolve((request.result as MobileSession[]).filter(s=>s.scope===scope&&!s.confirmed));request.onerror=()=>reject(request.error);});
+  return new Promise((resolve,reject)=>{const request=database.transaction('archives').objectStore('archives').getAll();request.onsuccess=()=>resolve((request.result as MobileSession[]).filter(s=>s.scope===scope&&!!s.submissionRequested&&!s.confirmed));request.onerror=()=>reject(request.error);});
 }
-export async function finishMobileSession(scope:string):Promise<InspectionLog> {
+export async function listMobileDrafts(scope:string):Promise<MobileSession[]> {
+  const database=await db();
+  return new Promise((resolve,reject)=>{const tx=database.transaction(['sessions','archives']);const active=tx.objectStore('sessions').get(scope);const saved=tx.objectStore('archives').getAll();tx.oncomplete=()=>resolve([active.result,...saved.result].filter((s):s is MobileSession=>!!s&&s.scope===scope&&!s.submissionRequested&&!s.submission&&!s.confirmed).sort((a,b)=>(b.updatedAt||b.createdAt).localeCompare(a.updatedAt||a.createdAt)));tx.onerror=()=>reject(tx.error);});
+}
+export async function activateMobileDraft(scope:string, seed:MobileSession, allowCreate=false):Promise<MobileSession> {
+  const database=await db();
+  return new Promise((resolve,reject)=>{const tx=database.transaction(['sessions','archives'],'readwrite');const active=tx.objectStore('sessions'),saved=tx.objectStore('archives');const current=active.get(scope),found=saved.get(seed.id);let result:MobileSession;let error:Error|undefined;
+    tx.oncomplete=()=>resolve(result);tx.onerror=tx.onabort=()=>reject(error||tx.error||new Error('Taslak açılamadı.'));
+    let ready=0;const apply=()=>{if(++ready!==2)return;const existing=current.result as MobileSession|undefined;const stored=found.result as MobileSession|undefined;const target=existing?.id===seed.id?existing:stored||(allowCreate?seed:undefined);if(!target||target.scope!==scope||target.submissionRequested||target.submission||target.confirmed){error=new Error('Bu taslak açılamıyor.');tx.abort();return;}if(existing&&existing.id!==target.id)saved.put(existing);active.put(target);if(stored)saved.delete(target.id);result=target;};found.onsuccess=apply;current.onsuccess=apply;
+  });
+}
+export async function deleteMobileDraft(scope:string,id:string):Promise<void> {
+  const database=await db();
+  return new Promise((resolve,reject)=>{const tx=database.transaction(['sessions','archives'],'readwrite');const active=tx.objectStore('sessions'),saved=tx.objectStore('archives');const a=active.get(scope),b=saved.get(id);let error:Error|undefined;tx.oncomplete=()=>resolve();tx.onabort=tx.onerror=()=>reject(error||tx.error||new Error('Taslak silinemedi.'));let ready=0;const apply=()=>{if(++ready!==2)return;const s=(a.result?.id===id?a.result:b.result) as MobileSession|undefined;if(!s||s.scope!==scope||s.submissionRequested||s.submission||s.confirmed){error=new Error('Gönderim bekleyen veya bulunamayan kayıt silinemez.');tx.abort();return;}if(a.result?.id===id)active.delete(scope);else saved.delete(id);};a.onsuccess=apply;b.onsuccess=apply;});
+}
+export async function finishMobileSession(scope:string,expectedSessionId?:string):Promise<InspectionLog> {
   const database=await db();
   return new Promise((resolve,reject)=>{
     const tx=database.transaction(['sessions','archives'],'readwrite');const store=tx.objectStore('sessions');const request=store.get(scope);let log:InspectionLog;let error:unknown;
-    request.onsuccess=()=>{try{const s=request.result as MobileSession;if(!s||mobileSummary(s).missing.length)throw new Error('Ölçümü tamamlamak için eksik noktaları kaydedin.');const finished={...s,completedAt:s.completedAt||new Date().toISOString(),submissionRequested:true};log=s.confirmed||{...mobileLog(finished,true),clientSyncStatus:'pending'};tx.objectStore('archives').put(finished);store.delete(scope);}catch(e){error=e;tx.abort();}};
+    request.onsuccess=()=>{try{const s=request.result as MobileSession;if(!s||(expectedSessionId&&s.id!==expectedSessionId)||mobileSummary(s).missing.length)throw new Error('Oturum değişti veya tamamlanması gereken ölçümler var.');const finished={...s,completedAt:s.completedAt||new Date().toISOString(),submissionRequested:true};log=s.confirmed||{...mobileLog(finished,true),clientSyncStatus:'pending'};tx.objectStore('archives').put(finished);store.delete(scope);}catch(e){error=e;tx.abort();}};
     tx.oncomplete=()=>{window.dispatchEvent(new Event('quality-mobile-queue-changed'));resolve(log);};tx.onabort=tx.onerror=()=>reject(error||new Error('Gönderim kuyruğu cihazda saklanamadı. Ölçüm oturumu korundu.'));
   });
 }
@@ -74,17 +89,17 @@ export async function changeMobileSession(scope: string, change: (s: MobileSessi
     const tx = database.transaction('sessions', 'readwrite'); const store = tx.objectStore('sessions');
     let updated: MobileSession; let error: unknown;
     const request = store.get(scope);
-    request.onsuccess = () => { try { updated = change(request.result); store.put(updated); } catch (e) { error = e; tx.abort(); } };
+    request.onsuccess = () => { try { updated = {...change(request.result),updatedAt:new Date().toISOString()}; store.put(updated); } catch (e) { error = e; tx.abort(); } };
     tx.oncomplete = () => resolve(updated);
     tx.onabort = tx.onerror = () => reject(error || new Error('Yerel kayıt yazılamadı. Depolama alanını kontrol edin; girişiniz korunuyor.'));
   });
 }
-export async function commitMobileCell(scope: string, cell: Cell, draft: MobileDraft, drawingReady: boolean, expectedPreviousId?:string|null) {
+export async function commitMobileCell(scope: string, cell: Cell, draft: MobileDraft, drawingReady: boolean, expectedPreviousId?:string|null, expectedSessionId?:string) {
   const token=localStorage.getItem('qualitrack_access_token');
   const claims=token?JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))):null;
   if(!claims?.exp||claims.exp*1000<=Date.now()||SaasApi.scope()!==scope)throw new Error('Oturum süresi doldu. Taslak korundu; yeniden giriş yapın.');
   return changeMobileSession(scope, s => {
-    if (!s || s.submissionRequested || s.submission || s.confirmed) throw new Error('Bu oturum gönderim için kilitli.');
+    if (!s || (expectedSessionId&&s.id!==expectedSessionId) || s.submissionRequested || s.submission || s.confirmed) throw new Error('Bu oturum değişti veya gönderim için kilitli.');
     const c = s.plan.characteristics.find(c => c.id === cell.characteristic)!;
     const evaluated = evaluateMeasurement(c, draft.raw, draft.mode);
     const errors = evidenceErrors(c, evaluated.result, draft.photos.map(id => ({mimeType: s.media[id]?.file.type || ''})), draft.comment, draft.reason);

@@ -57,7 +57,7 @@ export const StorageService = {
     };
     const users: User[] = data.users.map(rawUser => ({
       platformAdmin:data.platformAdmin===true&&String(rawUser.id)===String(data.currentUserId),
-      id: String(rawUser.id), name: String(rawUser.name), email: String(rawUser.email), role: rawUser.role as User['role'],
+      id: String(rawUser.id), name: String(rawUser.name), email: String(rawUser.email || ''), username: String(rawUser.username || ''), role: rawUser.role as User['role'],
       department: String(rawUser.department || ''), stationOrMachine: rawUser.station_or_machine ? String(rawUser.station_or_machine) : undefined,
       status: rawUser.status as User['status'], lastLogin: String(rawUser.last_login_at || ''),
     }));

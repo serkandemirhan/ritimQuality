@@ -176,3 +176,9 @@
 @media(max-width:340px){.mm-evidence-upload{grid-template-columns:1fr}.mm-evidence-actions{grid-template-columns:1fr 1.2fr}}
 /* Keep sticky measurement controls behind the modal on iOS Safari. */
 .mm-shell[data-modal-open="true"] .mm-actions{visibility:hidden}
+
+/* iOS needs a definite sheet height for the scrollable flex child. */
+.mm-evidence-sheet[open]{height:min(720px,calc(var(--mm-viewport,100dvh) - 24px));max-height:calc(var(--mm-viewport,100dvh) - 24px)}
+.mm-evidence-body{-webkit-overflow-scrolling:touch}
+.mm-top-actions{display:flex;gap:5px;align-items:center;flex:none}.mm-shell .mm-top-actions .mm-exit-button{min-width:48px;padding:6px 10px;color:#37566c;font-size:12px;font-weight:650;background:#fff}
+.mm-evidence-sheet .mm-evidence-exit{width:100%;margin-top:12px;color:#405d70;background:transparent;border-color:#d8e4eb;font-size:13px}

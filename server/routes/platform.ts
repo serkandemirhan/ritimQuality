@@ -50,7 +50,7 @@ platformRouter.post('/tenants', wrap(async (req, res) => {
 }));
 platformRouter.get('/tenants/:tenantId', wrap(async (req, res) => {
     const id = uuid.parse(req.params.tenantId);
-    const data = await withPlatform(id, async (c) => { const t = await tenant(c, id); const users = (await c.query('SELECT id,name,email,role,status,department,station_or_machine,last_login_at FROM users WHERE tenant_id=$1 ORDER BY name', [id])).rows; const counts: Record<string, number> = {}; for (const table of PACKAGE_TABLES)
+    const data = await withPlatform(id, async (c) => { const t = await tenant(c, id); const users = (await c.query('SELECT id,name,email,username,role,status,department,station_or_machine,last_login_at FROM users WHERE tenant_id=$1 ORDER BY name', [id])).rows; const counts: Record<string, number> = {}; for (const table of PACKAGE_TABLES)
         counts[table] = (await c.query(`SELECT count(*)::int n FROM ${table} WHERE tenant_id=$1`, [id])).rows[0].n; const packages = (await c.query("SELECT id,kind,status,created_at,expires_at FROM platform_packages WHERE tenant_id=$1 AND actor_user_id=$2 ORDER BY created_at DESC LIMIT 20", [id, req.auth!.userId])).rows; await platformAudit(c, req.auth!.userId, id, 'tenant.viewed', 'Platform firma görüntüleme'); const events = (await c.query('SELECT id,action,reason,metadata,created_at,actor_user_id FROM platform_audit_events WHERE tenant_id=$1 ORDER BY id DESC LIMIT 50', [id])).rows; return { tenant: { ...t, unlimitedPilot: hasUnlimitedPilot(t) }, users, counts, events, packages }; });
     res.json(data);
 }));
@@ -60,6 +60,25 @@ platformRouter.patch('/tenants/:tenantId', wrap(async (req, res) => {
         throw fail('Kendi platform giriş hesabınızın firmasını durduramazsınız.');
     await withPlatform(id, async (c) => { const before = await tenant(c, id); const after = (await c.query('UPDATE tenants SET pilot_unlimited=$2,platform_suspended=$3,updated_at=now() WHERE id=$1 RETURNING id,pilot_unlimited,platform_suspended', [id, b.unlimitedPilot, b.suspended])).rows[0]; await platformAudit(c, req.auth!.userId, id, 'tenant.access.updated', b.reason, { before: { pilot_unlimited: before.pilot_unlimited, platform_suspended: before.platform_suspended }, after }); });
     res.json({ ok: true });
+}));
+platformRouter.patch('/tenants/:tenantId/workspace', wrap(async (req, res) => {
+    const id = uuid.parse(req.params.tenantId);
+    const b = z.object({ slug: z.string().regex(/^[a-z0-9][a-z0-9-]{2,48}$/), expectedSlug: z.string().regex(/^[a-z0-9][a-z0-9-]{2,48}$/), reason }).parse(req.body);
+    await withPlatform(id, async c => {
+        const before = (await c.query('SELECT id,slug,pilot_unlimited FROM tenants WHERE id=$1 FOR UPDATE', [id])).rows[0];
+        if (!before) throw fail('Firma bulunamadı.', 404);
+        if (before.slug !== b.expectedSlug) throw fail('Çalışma alanı başka bir işlemde değiştirildi. Sayfayı yenileyin.', 409);
+        if (before.slug === b.slug) throw fail('Yeni çalışma alanı mevcut adla aynı.', 400);
+        try {
+            // Preserve the effective pilot setting when it was inherited from the old slug.
+            await c.query('UPDATE tenants SET slug=$2,pilot_unlimited=COALESCE(pilot_unlimited,$3),updated_at=now() WHERE id=$1', [id,b.slug,hasUnlimitedPilot(before)]);
+        } catch (error) {
+            if ((error as {code?:string}).code === '23505') throw fail('Bu çalışma alanı adı zaten kullanılıyor.', 409);
+            throw error;
+        }
+        await platformAudit(c,req.auth!.userId,id,'tenant.workspace.updated',b.reason,{before:before.slug,after:b.slug});
+    });
+    res.json({ok:true});
 }));
 platformRouter.patch('/tenants/:tenantId/manual-subscription', wrap(async (req, res) => {
     const id=uuid.parse(req.params.tenantId);
@@ -76,23 +95,27 @@ platformRouter.patch('/tenants/:tenantId/manual-subscription', wrap(async (req, 
     res.json({ok:true});
 }));
 platformRouter.post('/tenants/:tenantId/users', wrap(async (req, res) => {
-    const id = uuid.parse(req.params.tenantId), b = z.object({ id: z.string().optional(), name: z.string().min(2), email: z.string().email(), role: z.enum(['admin', 'quality_engineer', 'operator', 'auditor']), status: z.enum(['active', 'suspended']), password: z.string().min(12).max(72).refine(v => Buffer.byteLength(v) <= 72).optional(), reason }).parse(req.body);
+    const id = uuid.parse(req.params.tenantId), b = z.object({ id: z.string().optional(), name: z.string().min(2), email: z.union([z.string().trim().email(),z.literal(''),z.null()]).optional(), username: z.union([z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9._-]{2,39}$/),z.literal(''),z.null()]).optional(), role: z.enum(['admin', 'quality_engineer', 'operator', 'auditor']), status: z.enum(['active', 'suspended']), password: z.string().min(12).max(72).refine(v => Buffer.byteLength(v) <= 72).optional(), reason }).parse(req.body);
     if (b.id && isPlatformAdmin(b.id))
         throw fail('Platform yöneticisi hesabı bu panelden değiştirilemez.');
     const hash = b.password ? await bcrypt.hash(b.password, 12) : null;
     const user = await withPlatform(id, async (c) => {
         await tenant(c, id);
-        const old = b.id ? (await c.query('SELECT id,role,status FROM users WHERE tenant_id=$1 AND id=$2 FOR UPDATE', [id, b.id])).rows[0] : null;
+        const old = b.id ? (await c.query('SELECT id,role,status,email,username FROM users WHERE tenant_id=$1 AND id=$2 FOR UPDATE', [id, b.id])).rows[0] : null;
         if (b.id && !old)
             throw fail('Kullanıcı bulunamadı.', 404);
         if (!old && !hash)
             throw fail('Yeni kullanıcı için geçici şifre gerekli.', 400);
+        const email = b.email === undefined ? old?.email || null : b.email?.toLowerCase() || null;
+        const username = b.username === undefined ? old?.username || null : b.username || null;
+        if (b.role === 'admin' && !email) throw fail('Firma yöneticisi için e-posta zorunludur.', 400);
+        if (b.role !== 'admin' && !email && !username) throw fail('Kullanıcı adı veya e-posta gereklidir.', 400);
         if (old?.role === 'admin' && old.status === 'active' && (b.role !== 'admin' || b.status !== 'active')) {
             await c.query('SELECT id FROM tenants WHERE id=$1 FOR UPDATE', [id]);
             if (Number((await c.query("SELECT count(*) n FROM users WHERE tenant_id=$1 AND role='admin' AND status='active'", [id])).rows[0].n) <= 1)
                 throw fail('Firmanın son aktif yöneticisi kaldırılamaz.');
         }
-        const row = old ? (await c.query('UPDATE users SET name=$3,email=$4,role=$5,status=$6,password_hash=COALESCE($7,password_hash),updated_at=now() WHERE tenant_id=$1 AND id=$2 RETURNING id,name,email,role,status', [id, b.id, b.name, b.email.toLowerCase(), b.role, b.status, hash])).rows[0] : (await c.query('INSERT INTO users(id,tenant_id,name,email,role,status,password_hash) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,name,email,role,status', [randomUUID(), id, b.name, b.email.toLowerCase(), b.role, b.status, hash])).rows[0];
+        const row = old ? (await c.query('UPDATE users SET name=$3,email=$4,role=$5,status=$6,password_hash=COALESCE($7,password_hash),username=$8,updated_at=now() WHERE tenant_id=$1 AND id=$2 RETURNING id,name,email,username,role,status', [id, b.id, b.name, email, b.role, b.status, hash,username])).rows[0] : (await c.query('INSERT INTO users(id,tenant_id,name,email,role,status,password_hash,username) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,name,email,username,role,status', [randomUUID(), id, b.name, email, b.role, b.status, hash,username])).rows[0];
         await platformAudit(c, req.auth!.userId, id, old ? 'user.updated' : 'user.created', b.reason, { userId: row.id, role: row.role, status: row.status, passwordReset: !!hash });
         return row;
     });
@@ -258,7 +281,7 @@ async function preview(client: pg.PoolClient, j: DataRow) {
             if (!old) {
                 let collision = false;
                 if (table === 'users')
-                    collision = !!(await client.query('SELECT id FROM users WHERE tenant_id=$1 AND email=$2', [row.tenant_id, row.email])).rowCount;
+                    collision = !!(await client.query('SELECT id FROM users WHERE tenant_id=$1 AND ((email IS NOT NULL AND email=$2) OR (username IS NOT NULL AND username=$3))', [row.tenant_id, row.email || null, row.username || null])).rowCount;
                 if (table === 'control_plans' && row.is_active)
                     collision = !!(await client.query('SELECT id FROM control_plans WHERE tenant_id=$1 AND product_id=$2 AND is_active', [row.tenant_id, row.product_id])).rowCount;
                 if (collision) {

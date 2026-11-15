@@ -4,7 +4,7 @@ import {MoreHorizontal, Maximize2, Minus, Plus, Scan, X, Camera, FileUp, AlertCi
 import type {InspectionLog} from '../types';
 import {useDrawingSource} from './MediaImage';
 import {SaasApi} from '../services/api';
-import {readMobileUploads,finishMobileSession,cellKey, changeMobileSession, commitMobileCell, emptyDraft, evaluateMeasurement, evidenceErrors, latestAttempt, mobileSummary, readMobileSession, syncMobileSession, type Cell, type MobileDraft, type MobileSession} from '../services/mobileMeasurement';
+import {activateMobileDraft,readMobileUploads,finishMobileSession,cellKey, changeMobileSession, commitMobileCell, emptyDraft, evaluateMeasurement, evidenceErrors, latestAttempt, mobileSummary, readMobileSession, syncMobileSession, type Cell, type MobileDraft, type MobileSession} from '../services/mobileMeasurement';
 import './mobileMeasurement.css';
 
 const labels = {pass:'✓ Uygun',fail:'✕ Uygunsuz',review:'⚠ Şüpheli · İnceleme bekliyor',unclassified:'○ Kalite kararı bekliyor',na:'○ Uygulanamaz (N/A)'};
@@ -18,9 +18,10 @@ function Photo({file,onClick}:{key?:string;file:File;onClick:()=>void}) {
   useEffect(()=>{const url=URL.createObjectURL(file);setUrl(url);return()=>URL.revokeObjectURL(url);},[file]);
   return <button onClick={onClick} aria-label={`${file.name} büyüt`}>{file.type.startsWith('image/')?<img src={url} alt={file.name}/>:file.name}</button>;
 }
-export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onCompleted}:{seed?:MobileSession;onSaved:(log:InspectionLog)=>void;onExit:()=>void;onOpenActions?:()=>void;onCompleted:(log:InspectionLog)=>void}) {
+export function MobileMeasurementShell({seed,seedIsNew=false,onSaved,onExit,onOpenActions,onCompleted}:{seed?:MobileSession;seedIsNew?:boolean;onSaved:(log:InspectionLog)=>void;onExit:()=>void;onOpenActions?:()=>void;onCompleted:(log:InspectionLog)=>void}) {
   const shellRef=useRef<HTMLElement>(null);
   const scope=useRef(SaasApi.scope()).current;
+  const activeSessionId=useRef<string | undefined>(undefined);
   const [session,setSession]=useState<MobileSession>();
   const [draft,setDraft]=useState<MobileDraft>(emptyDraft());
   const draftRef=useRef(draft); const dirty=useRef(false); const writeChain=useRef(Promise.resolve());
@@ -42,12 +43,13 @@ export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onComp
   const loadDraft=(s:MobileSession)=>{const d=s.drafts[cellKey(s.active)]||emptyDraft();draftRef.current=d;setDraft(d);dirty.current=Boolean(s.drafts[cellKey(s.active)]);};
   useEffect(()=>{let alive=true;void (async()=>{
     const found=await readMobileSession(scope);
-    const s=found||await changeMobileSession(scope,()=>{if(!seed)throw new Error('Kurtarılacak mobil oturum bulunamadı.');return seed;});
-    if(alive){setSession(s);loadDraft(s);void sync();}
+    const s=seed?await activateMobileDraft(scope,seed,seedIsNew):found;
+    if(!s)throw new Error('Kurtarılacak mobil oturum bulunamadı.');
+    if(alive){activeSessionId.current=s.id;setSession(s);loadDraft(s);void sync();}
   })().catch(showError);return()=>{alive=false;};},[scope]);
   const sync=async()=>{
     setSyncing(true);
-    try {const s=await syncMobileSession(scope);if(s){setSession(s);if(s.confirmed&&notified.current!==s.id){notified.current=s.id;onSaved(s.confirmed);}}}catch(e){showError(e);}finally{setSyncing(false);}
+    try {const s=await syncMobileSession(scope);if(s&&s.id===activeSessionId.current){setSession(s);if(s.confirmed&&notified.current!==s.id){notified.current=s.id;onSaved(s.confirmed);}}}catch(e){showError(e);}finally{setSyncing(false);}
   };
   useEffect(()=>{const update=()=>{setOnline(navigator.onLine);if(navigator.onLine)void sync();};window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update);};},[]);
   useEffect(()=>{const unload=(e:BeforeUnloadEvent)=>{if(dirty.current){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',unload);return()=>window.removeEventListener('beforeunload',unload);},[]);
@@ -101,23 +103,24 @@ export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onComp
     const observer=new ResizeObserver(focusPoint);observer.observe(stage);focusPoint();
     return()=>{cancelAnimationFrame(frame);observer.disconnect();};
   },[imageReady,c?.id,imageIndex,sheet]);
+  const ensureCurrent=(s:MobileSession|undefined)=>{if(!s||s.id!==session?.id)throw new Error('Bu oturum başka bir sekmede değişti. Taslağı yeniden açın.');return s;};
   const updateDraft=(patch:Partial<MobileDraft>)=>{
     if(!session||session.submissionRequested||session.submission||session.confirmed)return;
     const next={...draftRef.current,...patch};draftRef.current=next;setDraft(next);dirty.current=true;setError('');setMessage('');
     const key=cellKey(session.active);
-    writeChain.current=writeChain.current.then(async()=>{await changeMobileSession(scope,s=>({...s!,drafts:{...s!.drafts,[key]:next}}));}).catch(showError);
+    writeChain.current=writeChain.current.then(async()=>{await changeMobileSession(scope,s=>{const current=ensureCurrent(s);return {...current,drafts:{...current.drafts,[key]:next}};});}).catch(showError);
   };
   const move=async(target:Cell|'exit')=>{
     await writeChain.current;
     if(target==='exit'){if(externalExit.current){const exit=externalExit.current;externalExit.current=undefined;exit();}else onExit();return;}
-    const s=await changeMobileSession(scope,s=>({...s!,active:target}));setSession(s);loadDraft(s);setSheet(null);setError('');
+    const s=await changeMobileSession(scope,s=>({...ensureCurrent(s),active:target}));setSession(s);loadDraft(s);setSheet(null);setError('');
   };
   const navigate=(target:Cell|'exit')=>{if(dirty.current)setPending(target);else void move(target).catch(showError);};
   const complete=async()=>{
     if(saveLock.current)return;
     if(dirty.current&&!await save())return;
     saveLock.current=true;setBusy(true);
-    try{await writeChain.current;const log=await finishMobileSession(scope);dirty.current=false;
+    try{await writeChain.current;const log=await finishMobileSession(scope,session?.id);dirty.current=false;
       // Local completion is durable first; online completion waits for server acknowledgement.
       const queued=(await readMobileUploads(scope)).find(item=>item.id===log.id);
       let synced=queued?await syncMobileSession(scope,queued):undefined;
@@ -139,7 +142,7 @@ export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onComp
       const errors=evidenceErrors(c,evaluated.result,draftRef.current.photos.map(id=>({mimeType:session.media[id]?.file.type||''})),draftRef.current.comment,draftRef.current.reason);
       if(!confirmedEvidence&&(evaluated.result==='fail'||evaluated.result==='review'||errors.length)){evidenceTarget.current=target;setPending(null);setSheet('evidence');return false;}
       saveLock.current=true;setBusy(true);await writeChain.current;
-      const s=await commitMobileCell(scope,session.active,draftRef.current,imageReady,latestAttempt(session,session.active)?.id||null);
+      const s=await commitMobileCell(scope,session.active,draftRef.current,imageReady,latestAttempt(session,session.active)?.id||null,session.id);
       setSession(s);dirty.current=false;setEditingCompleted(false);draftRef.current=emptyDraft();setDraft(emptyDraft());setMessage('✓ Cihazda kaydedildi');setSheet(null);setPending(null);
       const summary=mobileSummary(s);const index=summary.cells.findIndex(cell=>cellKey(cell)===cellKey(s.active));
       const next=[...summary.cells.slice(index+1),...summary.cells.slice(0,index)].find(cell=>!latestAttempt(s,cell));
@@ -157,7 +160,7 @@ export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onComp
     try {
       const media=Array.from(files).map(file=>({id:crypto.randomUUID(),file}));
       if(media.some(m=>!m.file.size||!(/^(image|video)\//.test(m.file.type)||m.file.type==='application/pdf')))throw new Error('Fotoğraf, video veya PDF seçin.');
-      const s=await changeMobileSession(scope,s=>({...s!,media:{...s!.media,...Object.fromEntries(media.map(m=>[m.id,m]))}}));setSession(s);updateDraft({photos:[...draftRef.current.photos.filter(id=>id!==replaceId),...media.map(m=>m.id)]});
+      const s=await changeMobileSession(scope,s=>{const current=ensureCurrent(s);return {...current,media:{...current.media,...Object.fromEntries(media.map(m=>[m.id,m]))}};});setSession(s);updateDraft({photos:[...draftRef.current.photos.filter(id=>id!==replaceId),...media.map(m=>m.id)]});
     }catch(e){showError(e);}finally{setBusy(false);}
   };
   if(!session||!c)return <section className="mm-shell"><p role={error?'alert':'status'}>{error||'Yerel ölçüm oturumu açılıyor…'}</p><button onClick={onExit}>Hazırlığa dön</button></section>;
@@ -189,14 +192,14 @@ export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onComp
     <header className="mm-context"><strong>RITIM QUALITY</strong><button onClick={()=>navigate('exit')}>Taslağı bırak</button><span>{session.product.code} · {session.product.name}</span><small>İş emri: {session.orderNumber||'—'} · Lot: {session.lotNumber||'—'} · Seri: {session.serialNumber||'—'} · Rev. {session.plan.version}</small></header>
     <div className="mm-connectivity" role="status">{online?'● Çevrimiçi':'⚠ Çevrimdışı'} · {syncing?'Senkronizasyon sürüyor':session.confirmed?'Senkronlandı':`${session.attempts.length} deneme cihazda · ${summary.photos} medya bekliyor`}</div>
     {session.syncError&&<div role="alert" className="mm-error">Gönderim tamamlanmadı: {session.syncError}<button disabled={syncing} onClick={()=>void sync()}>Yeniden gönder</button></div>}
-    <details className="mm-preferences"><summary>Giriş ayarları · {session.order==='sample'?'Numune sırası':'Karakteristik sırası'} · {hand==='right'?'Sağ el':'Sol el'}</summary><div className="mm-settings"><select aria-label="Ölçüm sırası" value={session.order} onChange={e=>{const order=e.target.value as MobileSession['order'];void changeMobileSession(scope,s=>({...s!,order})).then(setSession).catch(showError);}}><option value="sample">Numune bazlı sıra</option><option value="characteristic">Karakteristik bazlı sıra</option></select><select aria-label="El tercihi" value={hand} onChange={e=>{setHand(e.target.value);try{localStorage.setItem('ritim:measurement:hand',e.target.value);}catch{setError('El tercihi cihazda saklanamadı.');}}}><option value="right">Sağ el</option><option value="left">Sol el</option></select></div><label className="mm-mode"><input type="checkbox" checked={draft.mode==='delta'} onChange={e=>updateDraft({mode:e.target.checked?'delta':'absolute'})}/> Nominalden sapma girişi</label></details>
+    <details className="mm-preferences"><summary>Giriş ayarları · {session.order==='sample'?'Numune sırası':'Karakteristik sırası'} · {hand==='right'?'Sağ el':'Sol el'}</summary><div className="mm-settings"><select aria-label="Ölçüm sırası" value={session.order} onChange={e=>{const order=e.target.value as MobileSession['order'];void changeMobileSession(scope,s=>({...ensureCurrent(s),order})).then(setSession).catch(showError);}}><option value="sample">Numune bazlı sıra</option><option value="characteristic">Karakteristik bazlı sıra</option></select><select aria-label="El tercihi" value={hand} onChange={e=>{setHand(e.target.value);try{localStorage.setItem('ritim:measurement:hand',e.target.value);}catch{setError('El tercihi cihazda saklanamadı.');}}}><option value="right">Sağ el</option><option value="left">Sol el</option></select></div><label className="mm-mode"><input type="checkbox" checked={draft.mode==='delta'} onChange={e=>updateDraft({mode:e.target.checked?'delta':'absolute'})}/> Nominalden sapma girişi</label></details>
     <div className="mm-secondary"><button onClick={()=>setSheet('evidence')}>Kanıt / açıklama</button><button onClick={()=>setSheet('history')}>Denemeler</button><button onClick={()=>setSheet('summary')}>Kontrol özeti</button>{c.policy?.allowNA&&<button disabled={locked} onClick={()=>{updateDraft({raw:'__NA__'});setSheet('evidence');}}>Uygulanamaz (N/A)</button>}</div><p>Kaynak: {session.source==='manual'?'Manuel':session.source} · Alet: {session.instrumentId||'Belirtilmedi'}</p></Sheet>}
     <div className="mm-overview">
     {(!online||session.syncError)&&<div role="status" className="mm-compact-connectivity">{session.syncError?'Gönderim bekliyor':'Çevrimdışı · Ölçümler cihazda saklanıyor'}</div>}
     <div className="mm-drawing">{drawing(false)}</div>
     </div>
     <div className="mm-progress"><button className="mm-point-progress" aria-label={`Tamamlanan ölçüm ${completedCount} / ${summary.cells.length}; noktaları aç`} onClick={()=>setSheet('navigator')}><span>ÖLÇÜM İLERLEMESİ</span><strong>{completedCount}/{summary.cells.length} tamamlandı · {summary.missing.length} kaldı</strong></button><progress aria-label="Ölçüm ilerlemesi" value={completedCount} max={summary.cells.length}/></div>
-    <div className="mm-characteristic"><div><span className="mm-point-label">NOKTA {activeIndex+1} / {session.plan.characteristics.length}</span><h1 aria-label={`Nokta ${activeIndex+1}/${session.plan.characteristics.length} · ${c.name}`}>{c.name}</h1></div><button className="mm-tools-button" title="Diğer işlemler" aria-label="Diğer işlemler" onClick={()=>setSheet('tools')}><MoreHorizontal size={20}/></button></div>
+    <div className="mm-characteristic"><div><span className="mm-point-label">NOKTA {activeIndex+1} / {session.plan.characteristics.length}</span><h1 aria-label={`Nokta ${activeIndex+1}/${session.plan.characteristics.length} · ${c.name}`}>{c.name}</h1></div><div className="mm-top-actions"><button className="mm-exit-button" onClick={()=>navigate('exit')}>Çık</button><button className="mm-tools-button" title="Diğer işlemler" aria-label="Diğer işlemler" onClick={()=>setSheet('tools')}><MoreHorizontal size={20}/></button></div></div>
     {completedView?<section className="mm-completed" role="status"><h2>Tüm ölçümler tamamlandı</h2><p>{summary.cells.length} ölçüm kaydedildi. Kontrolü tamamlayarak raporunuzu açabilirsiniz.</p>{summary.review&&<p>{session.attempts.some(a=>a.result!=='pass')?'İnceleme gerektiren ölçüm sonuçları bulunuyor. Kontrol yetkili değerlendirmesine gönderilecek.':'Kaydettiğiniz kontrol yönetici onayına gönderilecek.'}</p>}</section>:<>
     {session.count>5?<button className="mm-sample-select" onClick={()=>setSheet('samples')}>Numune {session.active.sample} / {session.count} <span aria-hidden="true">▾</span></button>:<div className="mm-samples" aria-label="Numuneler">{Array.from({length:session.count},(_,i)=>i+1).map(sample=>{const failed=session.attempts.some(a=>a.sample===sample&&a.result==='fail'),incomplete=summary.missing.some(cell=>cell.sample===sample);return <button key={sample} className={failed?'is-failed':!incomplete?'is-complete':''} aria-label={`Numune ${sample} / ${session.count}`} aria-pressed={sample===session.active.sample} onClick={()=>navigate({sample,characteristic:c.id})}>S{sample} {failed?'✕':incomplete?'○':'✓'}</button>})}</div>}
     {(c.type||'numeric')==='numeric'&&<div className="mm-limit-card"><dl className="mm-limits"><div><dt>Alt sınır</dt><dd>{c.lsl??'—'}</dd></div><div><dt>Nominal</dt><dd>{c.nominal}</dd></div><div><dt>Üst sınır</dt><dd>{c.usl??'—'} <small>{c.unit}</small></dd></div></dl>{validLimits&&<div className="mm-tolerance-track" aria-hidden="true"><span className="mm-tolerance-center"/>{marker!==null&&<span className={`mm-tolerance-marker ${preview?.result==='fail'?'is-fail':''}`} style={{left:`${marker}%`}}/>}</div>}</div>}
@@ -229,6 +232,7 @@ export function MobileMeasurementShell({seed,onSaved,onExit,onOpenActions,onComp
           </div>
         </fieldset>
         <div aria-live="polite">{preview&&evidenceErrors(c,preview.result,draft.photos.map(id=>({mimeType:session.media[id]?.file.type||''})),draft.comment,draft.reason).map(e=><p className="mm-error mm-evidence-error" key={e}><AlertCircle size={17}/>{e}</p>)}{errorBlock}</div>
+        <button className="mm-evidence-exit" onClick={()=>navigate('exit')}>Taslağı bırak ve çık</button>
       </div>
       <div className="mm-evidence-actions"><button onClick={()=>setSheet(null)}>Girişe dön</button><button disabled={busy||locked} className="mm-primary" onClick={()=>void save(true,evidenceTarget.current)}>Sonucu kaydet</button></div>
     </Sheet>}
