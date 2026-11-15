@@ -182,3 +182,5 @@
 .mm-evidence-body{-webkit-overflow-scrolling:touch}
 .mm-top-actions{display:flex;gap:5px;align-items:center;flex:none}.mm-shell .mm-top-actions .mm-exit-button{min-width:48px;padding:6px 10px;color:#37566c;font-size:12px;font-weight:650;background:#fff}
 .mm-evidence-sheet .mm-evidence-exit{width:100%;margin-top:12px;color:#405d70;background:transparent;border-color:#d8e4eb;font-size:13px}
+
+.mm-shell .mm-characteristic > .mm-top-actions{flex:0 0 auto;margin-left:auto}

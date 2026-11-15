@@ -1,6 +1,6 @@
 /** Release dates describe production publication, not the time a feature was implemented. */
 export const releaseHistory = [
-  {version:'1.8.0',date:null as string|null,status:'pending' as const,databaseVersion:'019_workspace_usernames',changes:['Mobil ölçümde nokta gezgini ve kaydedilen ölçülere geri dönme düzeltildi.']},
+  {version:'1.8.0',date:null as string|null,status:'pending' as const,databaseVersion:'019_workspace_usernames',changes:['Kontrol hazırlığında ürün seçimine ve mobil ölçümde taslağa dönüş kolaylaştırıldı.', 'Mobil ölçümde nokta gezgini ve kaydedilen ölçülere geri dönme düzeltildi.']},
   {version:'1.7.0',date:'2026-11-15' as string|null,status:'published' as const,databaseVersion:'019_workspace_usernames',changes:['Mobil ölçüm taslaklarının farklı sekmelerde sürdürülmesi ve cihazdan gönderim iyileştirildi.']},
   {version:'1.6.0',date:'2026-11-15' as string|null,status:'published' as const,databaseVersion:'019_workspace_usernames',changes:['Mobil bildirim, kontrol hazırlığı ve kanıt penceresi iyileştirildi; cihazdaki birden fazla taslak yönetilebilir.', 'Firma yöneticisi dışındaki kullanıcılar için çalışma alanına bağlı kullanıcı adıyla giriş eklendi.','Platform yöneticisi firma çalışma alanı adını değiştirebilir.', 'Giriş ekranındaki e-posta doğrulama bağlantısı kaldırıldı.']},
   {version:'1.5.0',date:'2026-11-15' as string|null,status:'published' as const,databaseVersion:'018_free_registration',changes:['Mobil ölçüm pencerelerinin iPhone’da işlem düğmelerinin arkasında kalması engellendi.']},
