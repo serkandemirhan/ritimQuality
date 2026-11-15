@@ -115,7 +115,7 @@ for(const scenario of [{width:1440,height:1000,recovery:false},{width:390,height
     await page.route(fontPattern,route=>route.request().resourceType()==='fetch'?route.fulfill({status:503,body:'font unavailable'}):route.continue());
    }
    let savedResponse=recovery?undefined:page.waitForResponse(r=>r.url().endsWith('/api/inspection-logs')&&r.request().method()==='POST'&&r.ok());
-   if(viewport.width<768)await page.getByRole('button',{name:'Ölçümü tamamla ve raporu aç',exact:true}).click();
+   if(viewport.width<768)await page.getByRole('button',{name:'Ölçümleri kaydet',exact:true}).click();
    else await page.locator('#btn-save-inspection-log').click();
    if(recovery){
     const local=page.getByRole('dialog',{name:'Kalite kontrol raporu'});await expect(local.getByText('Yerel rapor',{exact:true})).toBeVisible();expect((await boot()).inspectionLogs).toHaveLength(0);

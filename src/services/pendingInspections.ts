@@ -28,6 +28,10 @@ export function pendingStore(tokenKey: string) {
   };
   return {
     list,
+    forget(id:string) {
+      const current=list();
+      if(current.some(item=>item.log.id===id)){localStorage.setItem(key(),JSON.stringify(current.filter(item=>item.log.id!==id)));notify();}
+    },
     async save(log: { id: string }, send: () => Promise<unknown>) {
       const storageKey = key();
       const entries = list();

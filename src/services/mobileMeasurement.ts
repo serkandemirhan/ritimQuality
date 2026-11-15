@@ -10,7 +10,17 @@ export interface MobileAttempt extends Cell {
   result: QualityResult; comment: string; reason: string; retryReason: string; photos: string[];
   previousAttemptId?: string; operatorId: string; measuredAt: string; source: string; instrumentId: string;
 }
-export interface LocalMedia { id: string; file: File; attachment?: EvidenceAttachment; error?: string }
+export interface PackedMobileFile {name:string;type:string;size:number;lastModified:number;bytes:Uint8Array}
+export interface LocalMedia { id: string; file: File | PackedMobileFile; attachment?: EvidenceAttachment; error?: string }
+export async function packMobileFile(file:File):Promise<PackedMobileFile> {
+  const data=typeof file.arrayBuffer==='function'?await file.arrayBuffer():await new Promise<ArrayBuffer>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result as ArrayBuffer);reader.onerror=()=>reject(reader.error);reader.readAsArrayBuffer(file);});
+  const bytes=new Uint8Array(data);
+  return {name:file.name||'kanit',type:file.type,size:file.size,lastModified:file.lastModified||0,bytes};
+}
+export function mobileFile(file:File|PackedMobileFile):File {
+  if(file instanceof Blob)return file instanceof File?file:new File([file],'kanit',{type:file.type});
+  return new File([new Uint8Array(file.bytes).buffer],file.name,{type:file.type,lastModified:file.lastModified});
+}
 export interface MobileSession {
   taskId?:string;
   id: string; scope: string; plan: ControlPlan; product: Product; count: number; operatorId: string; operatorName: string;
@@ -32,9 +42,10 @@ function db() {
 }
 export async function archiveMobileSession(scope:string) {
   const database=await db();
+  const current=await readMobileSession(scope);const packed=current?await prepareLegacyFiles(scope,current.id):{};
   return new Promise<void>((resolve,reject)=>{
     const tx=database.transaction(['sessions','archives'],'readwrite');const store=tx.objectStore('sessions');const request=store.get(scope);
-    request.onsuccess=()=>{const s=request.result as MobileSession;if(!s?.confirmed){tx.abort();return;}tx.objectStore('archives').put(s);store.delete(scope);};
+    request.onsuccess=()=>{try{const s=request.result as MobileSession;if(!s?.confirmed)throw new Error('Yalnızca sunucu kabulü doğrulanmış oturum arşivlenebilir.');tx.objectStore('archives').put(withPackedLegacy(s,packed));store.delete(scope);}catch{tx.abort();}};
     tx.oncomplete=()=>resolve();tx.onabort=tx.onerror=()=>reject(new Error('Yalnızca sunucu kabulü doğrulanmış oturum arşivlenebilir.'));
   });
 }
@@ -44,6 +55,25 @@ export async function readMobileSession(scope: string): Promise<MobileSession | 
     const request = database.transaction('sessions').objectStore('sessions').get(scope);
     request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
   });
+}
+async function readStoredMobileSession(scope:string,id:string):Promise<MobileSession|undefined> {
+  const database=await db();
+  return new Promise((resolve,reject)=>{const tx=database.transaction(['sessions','archives']);const active=tx.objectStore('sessions').get(scope),saved=tx.objectStore('archives').get(id);tx.oncomplete=()=>{const session=active.result?.id===id?active.result:saved.result;resolve(session?.scope===scope?session:undefined);};tx.onerror=()=>reject(tx.error);});
+}
+// Old versions stored File objects inside sessions. Safari may refuse to write
+// those objects back, so convert their bytes before updating an existing record.
+async function prepareLegacyFiles(scope:string,id:string):Promise<Record<string,PackedMobileFile>> {
+  const database=await db();
+  const source=await new Promise<MobileSession|undefined>((resolve,reject)=>{const tx=database.transaction(['sessions','archives']);const active=tx.objectStore('sessions').get(scope),archived=tx.objectStore('archives').get(id);tx.oncomplete=()=>resolve(active.result?.id===id?active.result:archived.result);tx.onerror=()=>reject(tx.error);});
+  if(!source||source.scope!==scope)return {};
+  const packed:Record<string,PackedMobileFile>={};
+  await Promise.all(Object.values(source.media||{}).map(async media=>{if(media.file instanceof Blob)packed[media.id]=await packMobileFile(media.file as File);}));
+  return packed;
+}
+function withPackedLegacy(s:MobileSession,packed:Record<string,PackedMobileFile>):MobileSession {
+  const media={...s.media};
+  for(const item of Object.values(media))if(item.file instanceof Blob){const replacement=packed[item.id];const file=item.file as File;if(!replacement||replacement.size!==file.size||replacement.type!==file.type||replacement.name!==(file.name||'kanit')||replacement.lastModified!==(file.lastModified||0))throw new Error('Kanıt dosyası başka bir sekmede değişti; işlemi tekrar deneyin.');media[item.id]={...item,file:replacement};}
+  return {...s,media};
 }
 export async function readMobileUploads(scope:string):Promise<MobileSession[]> {
   const database=await db();
@@ -55,9 +85,11 @@ export async function listMobileDrafts(scope:string):Promise<MobileSession[]> {
 }
 export async function activateMobileDraft(scope:string, seed:MobileSession, allowCreate=false):Promise<MobileSession> {
   const database=await db();
+  const currentBefore=await readMobileSession(scope);
+  const [currentFiles,targetFiles]=await Promise.all([currentBefore?prepareLegacyFiles(scope,currentBefore.id):{},prepareLegacyFiles(scope,seed.id)]);
   return new Promise((resolve,reject)=>{const tx=database.transaction(['sessions','archives'],'readwrite');const active=tx.objectStore('sessions'),saved=tx.objectStore('archives');const current=active.get(scope),found=saved.get(seed.id);let result:MobileSession;let error:Error|undefined;
     tx.oncomplete=()=>resolve(result);tx.onerror=tx.onabort=()=>reject(error||tx.error||new Error('Taslak açılamadı.'));
-    let ready=0;const apply=()=>{if(++ready!==2)return;const existing=current.result as MobileSession|undefined;const stored=found.result as MobileSession|undefined;const target=existing?.id===seed.id?existing:stored||(allowCreate?seed:undefined);if(!target||target.scope!==scope||target.submissionRequested||target.submission||target.confirmed){error=new Error('Bu taslak açılamıyor.');tx.abort();return;}if(existing&&existing.id!==target.id)saved.put(existing);active.put(target);if(stored)saved.delete(target.id);result=target;};found.onsuccess=apply;current.onsuccess=apply;
+    let ready=0;const apply=()=>{if(++ready!==2)return;try{const raw=current.result as MobileSession|undefined;const existing=raw?withPackedLegacy(raw,currentFiles):undefined;const stored=found.result as MobileSession|undefined;const rawTarget=existing?.id===seed.id?existing:stored||(allowCreate?seed:undefined);if(!rawTarget||rawTarget.scope!==scope||rawTarget.submissionRequested||rawTarget.submission||rawTarget.confirmed)throw new Error('Bu taslak açılamıyor.');const target=withPackedLegacy(rawTarget,targetFiles);if(existing&&existing.id!==target.id)saved.put(existing);active.put(target);if(stored)saved.delete(target.id);result=target;}catch(e){error=e as Error;tx.abort();}};found.onsuccess=apply;current.onsuccess=apply;
   });
 }
 export async function deleteMobileDraft(scope:string,id:string):Promise<void> {
@@ -66,30 +98,35 @@ export async function deleteMobileDraft(scope:string,id:string):Promise<void> {
 }
 export async function finishMobileSession(scope:string,expectedSessionId?:string):Promise<InspectionLog> {
   const database=await db();
+  const targetId=expectedSessionId||(await readMobileSession(scope))?.id;
+  const packed=targetId?await prepareLegacyFiles(scope,targetId):{};
   return new Promise((resolve,reject)=>{
-    const tx=database.transaction(['sessions','archives'],'readwrite');const store=tx.objectStore('sessions');const request=store.get(scope);let log:InspectionLog;let error:unknown;
-    request.onsuccess=()=>{try{const s=request.result as MobileSession;if(!s||(expectedSessionId&&s.id!==expectedSessionId)||mobileSummary(s).missing.length)throw new Error('Oturum değişti veya tamamlanması gereken ölçümler var.');const finished={...s,completedAt:s.completedAt||new Date().toISOString(),submissionRequested:true};log=s.confirmed||{...mobileLog(finished,true),clientSyncStatus:'pending'};tx.objectStore('archives').put(finished);store.delete(scope);}catch(e){error=e;tx.abort();}};
+    const tx=database.transaction(['sessions','archives'],'readwrite');const store=tx.objectStore('sessions'),archives=tx.objectStore('archives');const request=store.get(scope);let log:InspectionLog;let error:unknown;
+    const finish=(raw:MobileSession|undefined,isActive:boolean)=>{try{if(!raw||raw.scope!==scope)throw new Error('Kontrol bulunamadı.');const s=withPackedLegacy(raw,packed);if(mobileSummary(s).missing.length)throw new Error('Tamamlanması gereken ölçümler var.');const finished={...s,completedAt:s.completedAt||new Date().toISOString(),submissionRequested:true};log=s.confirmed||{...mobileLog(finished,true),clientSyncStatus:'pending'};archives.put(finished);if(isActive)store.delete(scope);}catch(e){error=e;tx.abort();}};
+    request.onsuccess=()=>{const active=request.result as MobileSession|undefined;if(!expectedSessionId||active?.id===expectedSessionId)finish(active,true);else{const archived=archives.get(expectedSessionId);archived.onsuccess=()=>finish(archived.result,false);}};
     tx.oncomplete=()=>{window.dispatchEvent(new Event('quality-mobile-queue-changed'));resolve(log);};tx.onabort=tx.onerror=()=>reject(error||new Error('Gönderim kuyruğu cihazda saklanamadı. Ölçüm oturumu korundu.'));
   });
 }
-async function changeStoredSession(scope:string,id:string,change:(s:MobileSession)=>MobileSession):Promise<MobileSession> {
+export async function changeStoredSession(scope:string,id:string,change:(s:MobileSession)=>MobileSession):Promise<MobileSession> {
   const database=await db();
+  const packed=await prepareLegacyFiles(scope,id);
   return new Promise((resolve,reject)=>{
     const tx=database.transaction(['sessions','archives'],'readwrite');let updated:MobileSession;let error:unknown;
-    const update=(store:IDBObjectStore,s:MobileSession|undefined)=>{try{if(!s||s.scope!==scope||s.id!==id)throw new Error('Gönderilecek ölçüm bulunamadı.');updated=change(s);store.put(updated);}catch(e){error=e;tx.abort();}};
+    const update=(store:IDBObjectStore,s:MobileSession|undefined)=>{try{if(!s||s.scope!==scope||s.id!==id)throw new Error('Gönderilecek ölçüm bulunamadı.');updated=change(withPackedLegacy(s,packed));const write=store.put(updated);write.onerror=()=>{error=write.error;};}catch(e){error=e;tx.abort();}};
     const active=tx.objectStore('sessions');const request=active.get(scope);
     request.onsuccess=()=>{if(request.result?.id===id)update(active,request.result);else{const archive=tx.objectStore('archives');const found=archive.get(id);found.onsuccess=()=>update(archive,found.result);}};
-    tx.oncomplete=()=>resolve(updated);tx.onabort=tx.onerror=()=>reject(error||new Error('Gönderim durumu cihazda saklanamadı.'));
+    tx.oncomplete=()=>resolve(updated);tx.onabort=tx.onerror=()=>reject(error||tx.error||new Error('Cihazdaki kayda erişilemedi; gönderim tekrar denenecek.'));
   });
 }
 // Read-modify-write in one IDB transaction keeps drafts, media and attempt outbox consistent across tabs.
 export async function changeMobileSession(scope: string, change: (s: MobileSession | undefined) => MobileSession): Promise<MobileSession> {
   const database = await db();
+  const current=await readMobileSession(scope);const packed=current?await prepareLegacyFiles(scope,current.id):{};
   return new Promise((resolve, reject) => {
     const tx = database.transaction('sessions', 'readwrite'); const store = tx.objectStore('sessions');
     let updated: MobileSession; let error: unknown;
     const request = store.get(scope);
-    request.onsuccess = () => { try { updated = {...change(request.result),updatedAt:new Date().toISOString()}; store.put(updated); } catch (e) { error = e; tx.abort(); } };
+    request.onsuccess = () => { try { const old=request.result as MobileSession|undefined;updated = {...change(old?withPackedLegacy(old,packed):undefined),updatedAt:new Date().toISOString()}; store.put(updated); } catch (e) { error = e; tx.abort(); } };
     tx.oncomplete = () => resolve(updated);
     tx.onabort = tx.onerror = () => reject(error || new Error('Yerel kayıt yazılamadı. Depolama alanını kontrol edin; girişiniz korunuyor.'));
   });
@@ -98,7 +135,7 @@ export async function commitMobileCell(scope: string, cell: Cell, draft: MobileD
   const token=localStorage.getItem('qualitrack_access_token');
   const claims=token?JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))):null;
   if(!claims?.exp||claims.exp*1000<=Date.now()||SaasApi.scope()!==scope)throw new Error('Oturum süresi doldu. Taslak korundu; yeniden giriş yapın.');
-  return changeMobileSession(scope, s => {
+  const commit = (s:MobileSession|undefined) => {
     if (!s || (expectedSessionId&&s.id!==expectedSessionId) || s.submissionRequested || s.submission || s.confirmed) throw new Error('Bu oturum değişti veya gönderim için kilitli.');
     const c = s.plan.characteristics.find(c => c.id === cell.characteristic)!;
     const evaluated = evaluateMeasurement(c, draft.raw, draft.mode);
@@ -108,13 +145,14 @@ export async function commitMobileCell(scope: string, cell: Cell, draft: MobileD
     if (c.policy?.requireInstrument && !s.instrumentId.trim()) errors.push('Ölçüm aleti zorunludur.');
     if (c.policy?.liveCaptureRequired) errors.push('Bu plan doğrulanmış canlı çekim gerektiriyor; bu cihaz akışı desteklemiyor.');
     const previous = latestAttempt(s, cell);
-    if(expectedPreviousId!==undefined&&(previous?.id||null)!==expectedPreviousId)errors.push('Bu hücre başka bir sekmede değişti. İki giriş korunuyor; oturumu yeniden açıp denemeleri inceleyin.');
-    if (previous && !draft.retryReason.trim()) errors.push('Tekrar ölçüm sebebi zorunludur.');
+    const concurrent=expectedPreviousId!==undefined&&(previous?.id||null)!==expectedPreviousId;
+    if (previous && !draft.retryReason.trim() && !concurrent) errors.push('Tekrar ölçüm sebebi zorunludur.');
     if (errors.length) throw new Error(errors.join(' '));
-    const attempt: MobileAttempt = {...cell,...draft,...evaluated,id:crypto.randomUUID(),previousAttemptId:previous?.id,operatorId:s.operatorId,measuredAt:new Date().toISOString(),source:s.source,instrumentId:s.instrumentId};
+    const attempt: MobileAttempt = {...cell,...draft,...evaluated,retryReason:draft.retryReason.trim()||(concurrent?'Başka sekmede kaydedilen ölçüm sonrası devam edildi':''),id:crypto.randomUUID(),previousAttemptId:previous?.id,operatorId:s.operatorId,measuredAt:new Date().toISOString(),source:s.source,instrumentId:s.instrumentId};
     const drafts = {...s.drafts}; delete drafts[cellKey(cell)];
-    return {...s,attempts:[...s.attempts,attempt],drafts};
-  });
+    return {...s,attempts:[...s.attempts,attempt],drafts,updatedAt:new Date().toISOString()};
+  };
+  return expectedSessionId ? changeStoredSession(scope,expectedSessionId,commit) : changeMobileSession(scope,commit);
 }
 export function mobileSummary(s: MobileSession) {
   const cells = orderedCells(s.plan.characteristics.map(c => c.id),s.count,s.order);
@@ -146,7 +184,8 @@ export function mobileLog(s: MobileSession, localPreview=false): InspectionLog {
 }
 const running = new Map<string, Promise<MobileSession | undefined>>();
 export async function syncMobileSession(scope: string, queued?:MobileSession) {
-  const initial=queued||await readMobileSession(scope);
+  const requested=queued||await readMobileSession(scope);
+  const initial=requested?await readStoredMobileSession(scope,requested.id):undefined;
   if(!initial)return;
   const key=`${scope}:${initial.id}`;
   if (running.has(key)) return running.get(key)!;
@@ -157,7 +196,7 @@ export async function syncMobileSession(scope: string, queued?:MobileSession) {
       if (SaasApi.scope() !== scope) throw new Error('Oturum sahibi değişti; kendi hesabınızla giriş yapın.');
       for (const media of Object.values(s.media).filter(m => !m.attachment && s!.attempts.some(a => a.photos.includes(m.id)))) {
         try {
-          const attachment = await SaasApi.uploadFile(media.file,media.id);
+          const attachment = await SaasApi.uploadFile(mobileFile(media.file),media.id);
             s = await changeStoredSession(scope,s.id, current => ({...current,media:{...current.media,[media.id]:{...current.media[media.id],attachment,error:undefined}}}));
         } catch (error) {
           await changeStoredSession(scope,s.id,current => ({...current,media:{...current.media,[media.id]:{...current.media[media.id],error:(error as Error).message}}}));
@@ -167,11 +206,17 @@ export async function syncMobileSession(scope: string, queued?:MobileSession) {
       // Existing API accepts complete inspections; incomplete attempts remain in the durable local outbox.
       if (s.submissionRequested && !mobileSummary(s).missing.length) {
         s = await changeStoredSession(scope,s.id,current => ({...current,submission:current.submission || mobileLog(current)}));
-        const confirmed = await StorageService.saveInspectionLog(s.submission!);
+        const confirmed = await StorageService.saveInspectionLog(s.submission!,true);
         s = await changeStoredSession(scope,s.id,current => ({...current,confirmed,syncError:undefined}));
       }
     } catch (error) {
-      s = await changeStoredSession(scope,s.id,current => ({...current,syncError:(error as Error).message}));
+      const rejected=error instanceof Error&&(error as Error&{code?:string}).code==='INSPECTION_REJECTED_UNSAVED';
+      try {
+        s = await changeStoredSession(scope,s.id,current => rejected?({...current,submissionRequested:false,submission:undefined,syncError:(error as Error).message}):({...current,syncError:(error as Error).message}));
+        if(rejected)window.dispatchEvent(new Event('quality-mobile-queue-changed'));
+      } catch {
+        throw error;
+      }
     }
     return s;
   })().finally(() => running.delete(key));

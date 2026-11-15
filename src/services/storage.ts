@@ -278,16 +278,16 @@ export const StorageService = {
     }
   },
 
-  saveInspectionLog: async (log: InspectionLog): Promise<InspectionLog> => {
+  saveInspectionLog: async (log: InspectionLog, queuedOnDevice=false): Promise<InspectionLog> => {
     if (!SaasApi.hasSession()) throw new Error('Ölçümü kaydetmek için giriş yapın.');
     const scope = SaasApi.scope();
-    const confirmed = await SaasApi.saveInspectionLog(log) as InspectionLog;
+    const confirmed = await (queuedOnDevice ? SaasApi.sendQueuedMobileInspection(log) : SaasApi.saveInspectionLog(log)) as InspectionLog;
     if (SaasApi.scope() !== scope) throw new Error('Oturum değişti. Kayıt önceki hesabınıza kaydedildi.');
     log = confirmed;
     const logs = StorageService.getInspectionLogs();
     const existingIndex = logs.findIndex(item => item.id === log.id);
     if (existingIndex >= 0) logs[existingIndex] = log; else logs.unshift(log);
-    localStorage.setItem(STORAGE_KEYS.INSPECTION_LOGS, JSON.stringify(logs));
+    try { localStorage.setItem(STORAGE_KEYS.INSPECTION_LOGS, JSON.stringify(logs)); } catch { /* Sunucu kaydı başarılı; yerel önbellek yazılamasa da sonucu koru. */ }
     return log;
   },
 

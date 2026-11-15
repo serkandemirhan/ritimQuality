@@ -110,6 +110,11 @@ export const SaasApi = {
     const payload = value.mobileMeasurement && value.draftId ? { ...value, draftId: undefined } : value;
     return pending.save(payload, () => request('/inspection-logs', { method: 'POST', body: JSON.stringify(payload) }));
   },
+  sendQueuedMobileInspection: async (value: {id:string}) => {
+    const result=await request('/inspection-logs', {method:'POST',body:JSON.stringify(value)});
+    try{pending.forget(value.id);}catch{ /* Yerel önbellek hatası sunucu onayını geri almaz. */ }
+    return result;
+  },
   uploadEvidence: (value: { id?:string; fileName: string; mimeType: string; kind: 'photo' | 'video' | 'file'; dataUrl: string }) =>
     request<{ id: string; fileName: string; mimeType: string; kind: 'photo' | 'video' | 'file'; url: string; createdAt: string }>('/media', { method: 'POST', body: JSON.stringify(value) }),
   uploadFile: async (file: File, id?:string) => {
