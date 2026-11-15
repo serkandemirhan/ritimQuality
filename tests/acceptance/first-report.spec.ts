@@ -92,7 +92,7 @@ for(const scenario of [{width:1440,height:1000,recovery:false},{width:390,height
      await page.getByRole('dialog',{name:'Karakteristik gezgini'}).getByRole('button',{name:/#1 Gövde boyu/}).click();
      await page.getByRole('button',{name:'Tekrar ölç',exact:true}).click();
      await page.setViewportSize({width:384,height:760});
-     const saveBounds=await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).boundingBox();expect(saveBounds).not.toBeNull();expect(saveBounds!.y+saveBounds!.height).toBeLessThanOrEqual(760);
+     await expect.poll(async()=>{const bounds=await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).boundingBox();return bounds?bounds.y+bounds.height:Infinity;},{message:'Tekrar ölçümde kaydet düğmesi ekranda kalmalı'}).toBeLessThanOrEqual(760);
      await page.setViewportSize(viewport);
      for(const key of '100,02')await page.locator('.mm-keypad').getByRole('button',{name:key,exact:true}).click();
      await page.getByRole('button',{name:'Kaydet ve ilerle',exact:true}).click();
