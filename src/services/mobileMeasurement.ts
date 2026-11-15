@@ -18,7 +18,7 @@ export async function packMobileFile(file:File):Promise<PackedMobileFile> {
   return {name:file.name||'kanit',type:file.type,size:file.size,lastModified:file.lastModified||0,bytes};
 }
 export function mobileFile(file:File|PackedMobileFile):File {
-  if(file instanceof Blob)return file instanceof File?file:new File([file],'kanit',{type:file.type});
+  if(file instanceof Blob)return new File([file],file.name||'kanit',{type:file.type,lastModified:file.lastModified||0});
   return new File([new Uint8Array(file.bytes).buffer],file.name,{type:file.type,lastModified:file.lastModified});
 }
 export interface MobileSession {
