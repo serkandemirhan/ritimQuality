@@ -130,6 +130,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
   const [entryError,setEntryError]=useState('');
   const pendingChoiceConfirmation=useRef<string|null>(null);
+  const pendingUploadFocus=useRef<string|null>(null);
   useEffect(()=>setEntryError(''),[activePointNo,activeSampleIndex]);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -336,15 +337,27 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   };
 
   const handleEvidenceUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file=event.target.files?.[0]; if(!file||!currentCharacteristic||submissionRef.current) return;
+    const fileInput=event.currentTarget;
+    const file=fileInput.files?.[0]; if(!file||!currentCharacteristic||submissionRef.current) return;
     const sampleIndex=activeSampleIndex; const characteristicId=currentCharacteristic.id;
     setMediaUploading(true);
     try {
       const attachment=await SaasApi.uploadFile(file);
+      pendingUploadFocus.current=sampleIndex+':'+characteristicId;
       setSamples(previous=>previous.map(sample=>sample.sampleIndex===sampleIndex?{...sample,evidence:{...(sample.evidence||{}),[characteristicId]:[...((sample.evidence||{})[characteristicId]||[]),attachment]}}:sample));
     } catch(error){alert(error instanceof Error?error.message:'Kanıt yüklenemedi.');}
-    finally{setMediaUploading(false);event.target.value='';}
+    finally{setMediaUploading(false);fileInput.value='';}
   };
+
+  useEffect(()=>{
+    if(mediaUploading||!pendingUploadFocus.current)return;
+    const cell=pendingUploadFocus.current;pendingUploadFocus.current=null;
+    if(phoneInput||cell!==activeSampleIndex+':'+currentCharacteristic?.id)return;
+    setEntryError('');
+    const confirm=document.querySelector<HTMLButtonElement>('#btn-save-inspection-log');
+    if(confirm&&!confirm.disabled)confirm.focus({preventScroll:true});
+    else (inputRef.current||document.querySelector<HTMLButtonElement>('.rq-measurement-choices [aria-pressed="true"],.rq-measurement-choices button'))?.focus({preventScroll:true});
+  },[samples,mediaUploading,activePointNo,activeSampleIndex,phoneInput]);
 
   // Set precise nominal or offset value with one tap
   const handleSetPresetValue = (value: number) => {

@@ -14,6 +14,8 @@ for(const [index,type] of ['boolean','single_select','multi_select','ok_nok'].en
 const app=express();app.get('/api/bootstrap',(_,res)=>res.json({company:{id:'review',name:'Ölçüm İncelemesi',plan_id:'enterprise',subscription_status:'active',billing_period:'yearly'},currentUserId:'review-user',users:[{id:'review-user',name:'Operatör',role:'admin',status:'active',email:'review@example.test'}],products:[product],controlPlans:[{...plan,isActive:true,status:'active',defaultSampleCount:2}],inspectionLogs:[],usage:{control_plans:1,users:1,monthly_measurements:0}}));
 app.get('/api/inspection-rules',(_,res)=>res.json({requireActivePlan:false,requireLotNumber:false,requireOrderNumber:false}));
 app.get('/api/work',(_,res)=>res.json({tasks:[],cases:[],approvals:[],notifications:[]}));
+app.get('/api/media/config',(_,res)=>res.json({provider:'local',maxBytes:10*1024*1024}));
+app.post('/api/media',express.json({limit:'10mb'}),(req,res)=>setTimeout(()=>res.json({id:crypto.randomUUID(),fileName:req.body.fileName,mimeType:req.body.mimeType,kind:req.body.kind,url:'fixture-only',createdAt:new Date().toISOString()}),200));
 app.get('/api/*',(_,res)=>res.json([]));app.use(express.static('dist'));
 const server=app.listen(3345,'127.0.0.1');
 const edge=spawn(process.env.EDGE_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',['--headless=new','--remote-debugging-port=9345','--user-data-dir='+resolve(out,'profile'),'--no-first-run','--disable-gpu','about:blank'],{windowsHide:true,stdio:'ignore'});
@@ -67,7 +69,7 @@ await evaluate(`document.querySelector('.quality-drawing button[title="Yakınla�
 await assert(`document.querySelector('.quality-drawing button[title="100% Boyut"]').innerText!=='100%'`,'Drawing zoom did not change');
 await evaluate(`document.querySelector('.quality-drawing button[title="100% Boyut"]').click()`);await delay(100);
 await assert(`document.querySelector('.quality-drawing button[title="100% Boyut"]').innerText==='100%'`,'Drawing zoom did not reset');
-const key=async(key,code=key)=>{await cmd('Input.dispatchKeyEvent',{type:'keyDown',key,code,windowsVirtualKeyCode:key==='Enter'?13:key===' '?32:key==='ArrowRight'?39:37});await cmd('Input.dispatchKeyEvent',{type:'keyUp',key,code});await delay(120);};
+const key=async(key,code=key)=>{await cmd('Input.dispatchKeyEvent',{type:'keyDown',key,code,text:key==='Enter'?'\r':key===' '?' ':undefined,windowsVirtualKeyCode:key==='Enter'?13:key===' '?32:key==='ArrowRight'?39:37});await cmd('Input.dispatchKeyEvent',{type:'keyUp',key,code});await delay(120);};
 const point=async index=>{await evaluate(`document.querySelector('.rq-point-menu').open=true;document.querySelectorAll('.rq-point-menu-grid button')[${index}].click()`);await delay(120);};
 await evaluate(`document.querySelector('.measurement-value').focus()`);await key('Enter');
 await assert(`!!document.querySelector('.rq-entry-error')&&document.querySelector('.rq-desktop-point-nav').innerText.includes('Nokta 3')`,'Empty numeric input advanced');
@@ -91,6 +93,22 @@ await key('Enter');await assert(`document.querySelector('.measurement-evidence')
 await assert(`document.querySelector('.quality-measurement-actions').getBoundingClientRect().bottom<=innerHeight`,'Footer left viewport');
 await assert(`getComputedStyle(document.querySelector('.quality-drawing>div>div:nth-child(2)')).backgroundColor==='rgb(238, 242, 246)'`,'Drawing theme is not light');
 await writeFile(resolve(out,'keyboard-choices.png'),Buffer.from((await cmd('Page.captureScreenshot',{format:'png'})).data,'base64'));
+const upload=async(name,bytes)=>{
+  const file=resolve(out,name);await writeFile(file,bytes);
+  const {root}=await cmd('DOM.getDocument');const {nodeId}=await cmd('DOM.querySelector',{nodeId:root.nodeId,selector:'.measurement-evidence input[type="file"]'});
+  await cmd('DOM.setFileInputFiles',{nodeId,files:[file]});await delay(700);
+};
+await upload('keyboard-evidence.png',Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jC1sAAAAASUVORK5CYII=','base64'));
+await assert(`document.activeElement.id==='btn-save-inspection-log'`,'Photo upload did not restore confirmation focus');
+await key('Enter');
+await assert(`document.querySelector('#sample-tab-2').getAttribute('aria-pressed')==='true'&&document.querySelector('.rq-desktop-point-nav').innerText.includes('Nokta 1')`,'Enter after photo upload did not advance: '+await evaluate('document.body.innerText'));
+await evaluate(`document.querySelector('#sample-tab-1').click()`);await point(numericCount+3);
+await evaluate(`document.querySelector('.measurement-evidence').open=true`);
+await upload('keyboard-evidence.pdf',Buffer.from('%PDF-1.4\n% Isolated upload-transport fixture\n%%EOF'));
+await assert(`document.activeElement.id==='btn-save-inspection-log'`,'PDF upload did not restore confirmation focus');
+await key('Enter');
+await assert(`document.querySelector('#sample-tab-2').getAttribute('aria-pressed')==='true'&&document.querySelector('.rq-desktop-point-nav').innerText.includes('Nokta 1')`,'Enter after PDF upload did not advance');
+console.log('PASS: photo/PDF upload restores confirmation focus and Enter advances through existing validation.');
 await writeFile(resolve(out,'console-errors.json'),JSON.stringify(errors,null,2));if(errors.length)throw Error('Browser console errors: '+JSON.stringify(errors));
 console.log('PASS: nominal, preset, Enter, focus, previous, sample isolation, point grid, drawing zoom/reset, no console errors. Real persistence/PDF/offline require integration validation.');
 }finally{socket?.close();edge.kill();server.close();}
