@@ -1,5 +1,5 @@
 import { hasValidSession, pendingStore, sessionScope } from './pendingInspections';
-import type { BillingPeriod, SubscriptionPlanId } from '../types';
+import type { BillingPeriod, SubscriptionPlanId, ControlPlan } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 const TOKEN_KEY = 'qualitrack_access_token';
@@ -97,7 +97,8 @@ export const SaasApi = {
   }>('/bootstrap'),
   saveProduct: (value: { id: string }) => request(`/products/${encodeURIComponent(value.id)}`, { method: 'PUT', body: JSON.stringify(value) }),
   deleteProduct: (id: string) => request(`/products/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  saveControlPlan: (value: { id: string }) => request(`/control-plans/${encodeURIComponent(value.id)}`, { method: 'PUT', body: JSON.stringify(value) }),
+  saveControlPlan: (value: { id: string }, guard?:{expected:string;active?:string}) => request<ControlPlan>(`/control-plans/${encodeURIComponent(value.id)}`, { method: 'PUT', body: JSON.stringify(value),headers:guard?{'X-Plan-Expected':guard.expected,...guard.active!==undefined?{'X-Active-Plan-Expected':guard.active}:{}}:{} }),
+  controlPlanRevisionUsage: (id:string) => request<{used:boolean;token:string;payload:unknown}>(`/control-plans/${encodeURIComponent(id)}/revision-usage`),
   deleteControlPlan: (id: string) => request(`/control-plans/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   saveInspectionLog: (value: { id: string; mobileMeasurement?: unknown; draftId?: string }) => {
     const payload = value.mobileMeasurement && value.draftId ? { ...value, draftId: undefined } : value;

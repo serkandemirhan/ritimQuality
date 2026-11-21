@@ -1,0 +1,36 @@
+.rq-plan-editor-page{font-family:"Segoe UI",sans-serif}
+body:has(.rq-plan-focus-view) .rq-shell-content{padding-left:0!important}
+.rq-plan-editor-page fieldset{min-inline-size:0;min-width:0}.rq-plan-editor-page .rq-plan-structure{min-width:0}
+.rq-plan-editor-page .rq-page-header{gap:16px}.rq-plan-editor-page .rq-page-header h1{font-weight:600}
+.rq-plan-editor-page .rq-plan-workspace{grid-template-columns:220px minmax(0,1fr);gap:14px}
+.rq-plan-editor-page .rq-plan-structure{padding:12px;display:flex;flex-direction:column;max-height:calc(100dvh - 40px)}
+.rq-plan-editor-page .rq-plan-structure .rq-section-title{margin:8px 0;font-size:13px}
+.rq-plan-editor-page .rq-collapse-points{font-size:11px;min-height:28px;color:#64748b}
+.rq-plan-editor-page .rq-plan-point-list{gap:4px;flex:1;min-height:80px;max-height:48vh;overflow:auto;scrollbar-width:thin;padding:2px}
+.rq-plan-editor-page .rq-plan-point-list .rq-button{height:36px;min-height:36px;flex-wrap:nowrap;padding:6px;gap:7px;border-radius:6px;background:#fff;font-weight:400}
+.rq-plan-editor-page .rq-plan-point-list strong{font:400 12px "Segoe UI",sans-serif;line-height:20px}
+.rq-plan-editor-page .rq-plan-point-list .rq-button[aria-pressed=true]{border-color:#6497ea;box-shadow:inset 0 0 0 1px #dbeafe;background:#f8fbff}
+.rq-plan-editor-page .rq-plan-point-list .rq-button[aria-pressed=true]:after{display:none}
+.rq-plan-editor-page .rq-point-number{padding:0;background:transparent;min-width:17px;text-align:center;font:500 11px "Segoe UI",sans-serif;color:#64748b}
+.rq-plan-editor-page .rq-point-type{display:flex;flex:none;color:#8091a6}
+.rq-plan-editor-page .rq-point-actions{display:grid;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid #e8edf3;flex-shrink:0}
+.rq-plan-editor-page .rq-point-actions .rq-button{min-height:32px;font-weight:400;font-size:11px}.rq-plan-editor-page .rq-point-actions .rq-button:last-child{background:#fff;border-color:transparent;color:#b64444}
+.rq-plan-editor-page .rq-bulk-disclosure{margin-top:12px;font-size:11px;color:#64748b}.rq-bulk-disclosure>summary{display:flex;align-items:center;justify-content:space-between;cursor:pointer;min-height:30px}
+.rq-plan-editor-page .rq-characteristic-editor{grid-template-columns:minmax(0,1fr) 320px;gap:14px}
+.rq-plan-editor-page .rq-characteristic-properties{padding:16px;position:sticky;top:16px;max-height:calc(100dvh - 40px);overflow:auto;scrollbar-width:thin;min-width:0;border-radius:10px}
+.rq-plan-editor-page .rq-characteristic-properties>.rq-collapse-points{float:right;width:auto;min-height:24px;padding:0 0 0 6px;font-size:10px}
+.rq-property-heading{font-size:14px;font-weight:600;line-height:24px;margin:0 0 6px}
+.rq-property-fields{display:grid;gap:16px;margin-top:16px}.rq-property-group{display:grid;gap:12px;min-width:0;border-top:1px solid #e8edf3;padding-top:14px}.rq-property-group:first-child{border-top:0;padding-top:0}
+.rq-property-group h4{font-size:11px;font-weight:600;letter-spacing:.02em;color:#64748b;margin:0}.rq-property-group .rq-field{margin:0;gap:5px;min-width:0}
+.rq-plan-editor-page .rq-characteristic-properties .rq-field>span{font-size:11px;font-weight:400;color:#526175}
+.rq-plan-editor-page .rq-characteristic-properties .rq-input{min-height:36px;padding:7px 9px;font-size:12px;font-weight:400;border-radius:6px;width:100%;min-width:0}
+.rq-plan-editor-page .rq-characteristic-properties .rq-choice-field legend{font-size:11px;font-weight:400}.rq-plan-editor-page .rq-characteristic-properties .rq-choice-options span{font-size:11px;font-weight:400;min-height:33px}
+.rq-property-group>details{padding:10px;background:#f8fafc;border:1px solid #e8edf3;border-radius:6px;font-size:11px}.rq-property-group>details summary{cursor:pointer;color:#526175}
+.rq-property-group>fieldset.rounded-xl{border-radius:6px;padding:10px}.rq-property-group>fieldset.rounded-xl legend{font-size:11px;font-weight:500}.rq-property-group .rq-helper{font-size:10px;line-height:1.5}
+.rq-plan-editor-page .rq-reference-toolbar{gap:6px;min-height:36px}.rq-plan-editor-page .rq-reference-toolbar .rq-button,.rq-plan-editor-page .rq-reference-toolbar label{font-size:11px;font-weight:400;min-height:32px}
+.rq-revision-explanation{font-size:13px;line-height:1.7;color:#526175;margin:0 0 18px}.rq-revision-form{display:grid;gap:16px}.rq-revision-actions{justify-content:flex-end;margin-top:20px}
+.rq-plan-editor-page .rq-plan-workspace.rq-plan-collapsed{grid-template-columns:110px minmax(0,1fr)}.rq-plan-editor-page .rq-characteristic-editor.rq-properties-collapsed{grid-template-columns:minmax(0,1fr) 130px}
+@media(min-width:1024px){body:has(.rq-plan-editor-page) .rq-navigation.is-collapsed .rq-nav-group{font-size:0!important;overflow:hidden}}
+@media(min-width:1700px){.rq-plan-editor-page .rq-plan-workspace{grid-template-columns:240px minmax(0,1fr)}.rq-plan-editor-page .rq-characteristic-editor{grid-template-columns:minmax(0,1fr) 340px}}
+@media(min-width:768px) and (max-width:1100px){.rq-plan-editor-page .rq-plan-workspace{grid-template-columns:190px minmax(0,1fr)}.rq-plan-editor-page .rq-characteristic-editor{grid-template-columns:minmax(0,1fr)}.rq-plan-editor-page .rq-characteristic-properties{position:static;max-height:none}}
+@media(max-width:767px){.rq-plan-editor-page .rq-plan-workspace{display:block}.rq-plan-editor-page .rq-plan-structure{max-height:none;position:static}.rq-plan-editor-page .rq-characteristic-editor{display:block}.rq-plan-editor-page .rq-characteristic-properties{position:static;max-height:none}.rq-plan-editor-page .rq-plan-point-list{min-height:0}.rq-plan-editor-page .rq-point-actions{grid-template-columns:repeat(3,minmax(0,1fr))}.rq-plan-editor-page .rq-point-actions .rq-button{padding:6px}.rq-plan-editor-page .rq-characteristic-properties>.rq-collapse-points{float:none}}

@@ -22,7 +22,7 @@ export interface PinCoordinate {
   y: number; // 0-100%
 }
 
-export interface ProductImage { id:string; name:string; url:string; mimeType?:string; }
+export interface ProductImage { id:string; name:string; url:string; mimeType?:string; revision?:string; }
 export type ImageAnnotation =
   | {id:string;type:'pin';x:number;y:number;label?:string;color?:string}
   | {id:string;type:'measurement_line';startX:number;startY:number;endX:number;endY:number;label?:string;color?:string}
@@ -77,6 +77,7 @@ export interface ControlPlan {
   author: string;
   approvedBy: string;
   drawingImageUrl: string;
+  drawingRevision?: string;
   defaultSampleCount?: number;
   characteristics: Characteristic[];
   characteristicImageLinks?: CharacteristicImageLink[];

@@ -37,6 +37,11 @@ export default function App() {
   const openRecord=(id:string)=>{void StorageService.hydrateFromApi().then(()=>{loadData();setRecordId(id);setActiveTab('logs');}).catch(StorageService.reportSyncError);};
   const [planProductId,setPlanProductId] = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('ritim:sidebar-collapsed') === 'true');
+  const [planEditorOpen,setPlanEditorOpen]=useState(false);
+  const [planSidebarCollapsed,setPlanSidebarCollapsed]=useState(()=>localStorage.getItem('ritim:plan-sidebar-collapsed')!=='false');
+  const editorNavigation=activeTab==='control-plans'&&planEditorOpen;
+  const effectiveSidebarCollapsed=editorNavigation?planSidebarCollapsed:sidebarCollapsed;
+  const toggleNavigation=()=>{if(editorNavigation)setPlanSidebarCollapsed(value=>{localStorage.setItem('ritim:plan-sidebar-collapsed',String(!value));return !value;});else toggleSidebar();};
   const toggleSidebar = () => setSidebarCollapsed(value => {localStorage.setItem('ritim:sidebar-collapsed', String(!value));return !value;});
   const [measurementActive, setMeasurementActive] = useState(false);
   const [kiosk,setKiosk] = useState(false);
@@ -209,7 +214,7 @@ export default function App() {
   if(offlineMobile)return <><MobileInspectionUploads onConfirmed={log=>{handleInspectionSaved(log);setCertificateLog(previous=>previous?.id===log.id?log:previous);}}/>{certificateLog?<InspectionCertificateModal log={certificateLog} company={company} product={certificateProduct} controlPlan={certificatePlan} onClose={()=>{setCertificateLog(null);setOfflineMobile(false);}}/>:<MobileMeasurementShell onSaved={()=>{}} onCompleted={setCertificateLog} onExit={()=>setOfflineMobile(false)}/>}</>;
   if(!hydrated)return <main className="p-8"><p role="status">{syncError || 'Çalışma alanı yükleniyor…'}</p>{syncError&&<button type="button" className="mt-4 rounded-lg border p-3" onClick={()=>window.location.reload()}>Yeniden dene</button>}</main>;
   return (
-    <AppShell style={{'--rq-sidebar-width':sidebarCollapsed?'72px':'240px'} as React.CSSProperties}>
+    <AppShell style={{'--rq-sidebar-width':effectiveSidebarCollapsed?'72px':'240px'} as React.CSSProperties}>
       <a className="rq-skip-link" href="#main-content">İçeriğe geç</a>
       <Toast/>
       {offlineCatalogAt&&<div role="status" className="sticky top-0 z-[90] bg-amber-100 px-4 py-2 text-center text-sm font-semibold text-amber-950">Çevrimdışı çalışma · {new Date(offlineCatalogAt).toLocaleString('tr-TR')} tarihinde cihazda saklanan aktif kontrol planları kullanılıyor.</div>}
@@ -219,7 +224,7 @@ export default function App() {
         </button>
       )}
       {!kiosk && !measurementActive && <Navbar
-        collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar}
+        collapsed={effectiveSidebarCollapsed} onToggleCollapse={toggleNavigation}
         activeTab={activeTab}
         onOpenRecord={openRecord}
         onTabChange={setActiveTab}
@@ -267,6 +272,7 @@ export default function App() {
 
         {activeTab === 'control-plans' && ['admin','quality_engineer'].includes(currentUser.role) && (
           <ControlPlanEditor
+            onEditingChange={setPlanEditorOpen} navigationCollapsed={effectiveSidebarCollapsed} onToggleNavigation={toggleNavigation}
             onInspect={handleSelectProductForInspection}
             initialProductId={planProductId}
             onCreateProduct={()=>setActiveTab('products')}

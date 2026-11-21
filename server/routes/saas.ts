@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { withTenant } from '../db/pool.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { assertQuota, assertSubscription, audit } from '../services/access.js';
+import {assertPlanPreconditions} from '../services/planConcurrency.js';
 
 export const saasRouter = Router();
 saasRouter.use(requireAuth);
@@ -113,6 +114,17 @@ saasRouter.delete('/products/:id', requireRole('admin'), async (req, res, next) 
   } catch (error) { next(error); }
 });
 
+saasRouter.get('/control-plans/:id/revision-usage', requireRole('admin', 'quality_engineer'), async (req,res,next)=>{
+  try {
+    const id=idSchema.parse(req.params.id);const {tenantId}=req.auth!;
+    const result=await withTenant(tenantId,async client=>{
+      const plan=await client.query('SELECT payload FROM control_plans WHERE tenant_id=$1 AND id=$2',[tenantId,id]);
+      if(!plan.rowCount)throw Object.assign(new Error('Kontrol planı bulunamadı.'),{status:404});
+      const usage=await client.query("SELECT EXISTS(SELECT 1 FROM inspection_logs WHERE tenant_id=$1 AND control_plan_id=$2) OR EXISTS(SELECT 1 FROM quality_tasks WHERE tenant_id=$1 AND request_context->>'planId'=$2 AND completed_at IS NULL) AS used",[tenantId,id]);
+      return {used:Boolean(usage.rows[0].used),token:inspectionSignature(plan.rows[0].payload),payload:plan.rows[0].payload};
+    });res.json(result);
+  }catch(error){next(error);}
+});
 saasRouter.put('/control-plans/:id', requireRole('admin', 'quality_engineer'), async (req, res, next) => {
   try {
     const id = idSchema.parse(req.params.id); const payload = planSchema.parse(req.body);
@@ -124,6 +136,10 @@ saasRouter.put('/control-plans/:id', requireRole('admin', 'quality_engineer'), a
       await client.query('SELECT id FROM products WHERE tenant_id=$1 AND id=$2 FOR UPDATE', [tenantId, productId]);
       if((await client.query('SELECT 1 FROM control_plans WHERE tenant_id=$1 AND product_id=$2 AND version=$3 AND id<>$4',[tenantId,productId,version,id])).rowCount)conflict('Bu plan sürümü zaten var. Listeyi yenileyip yeni revizyon oluşturun.');
       const prior = (await client.query('SELECT payload FROM control_plans WHERE tenant_id=$1 AND id=$2 FOR UPDATE', [tenantId,id])).rows[0]?.payload;
+      const expected=req.get('X-Plan-Expected');
+      const expectedActive=req.get('X-Active-Plan-Expected');
+      const active=isActive&&expectedActive!==undefined?(await client.query('SELECT id FROM control_plans WHERE tenant_id=$1 AND product_id=$2 AND is_active FOR UPDATE',[tenantId,productId])).rows[0]?.id||'none':'none';
+      assertPlanPreconditions(prior,expected,active,isActive?expectedActive:undefined);
       if(prior&&(await client.query("SELECT 1 FROM quality_tasks WHERE tenant_id=$1 AND request_context->>'planId'=$2 AND completed_at IS NULL LIMIT 1",[tenantId,id])).rowCount)assertRevisionUnchanged(prior,payload);
       if (prior && (await client.query('SELECT 1 FROM inspection_logs WHERE tenant_id=$1 AND control_plan_id=$2 LIMIT 1',[tenantId,id])).rowCount) assertRevisionUnchanged(prior,payload);
       const exists = await client.query('SELECT 1 FROM control_plans WHERE tenant_id=$1 AND id=$2', [tenantId, id]);
