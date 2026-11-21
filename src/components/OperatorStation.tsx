@@ -419,7 +419,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
       const errors=evidenceErrors(currentCharacteristic,evaluated.result,sample?.evidence?.[currentCharacteristic.id]||[],sample?.pointNotes?.[currentCharacteristic.id]||'','');
       if(errors.length){const details=document.querySelector<HTMLDetailsElement>('.measurement-evidence');if(details){details.open=true;details.querySelector<HTMLElement>('input,textarea')?.focus();}throw new Error(errors.join(' '));}
       if(isLastMeasurement&&!isComplete){setEntryError('Eksik ölçüm veya zorunlu kanıt var. Nokta ve numune seçiminden eksikleri tamamlayın.');return;}
-      setEntryError('');if(isLastMeasurement)void handleSaveInspection();else handleAdvanceNext();
+      setEntryError('');if(isComplete||isLastMeasurement)void handleSaveInspection();else handleAdvanceNext();
     }catch(error){setEntryError(error instanceof Error?error.message:'Geçerli bir ölçüm girin.');}
   };
 
@@ -528,6 +528,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
     onInspectionSaved(confirmed);
     setSavedLog(confirmed);
     localStorage.removeItem(draftKey); setDraftAvailable(false);setDraftId(null);void refreshDrafts().catch(()=>{});
+    if(!phoneInput)setIsSessionActive(false);
 
     if (overallResult === 'pass') {
       confetti({
@@ -555,6 +556,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
   return (
     <div className={'w-full quality-operator'+(selectedProductId&&!isSessionActive?' rq-operator-ready':'')}>
+      {!isSessionActive&&savedLog&&<div role="status" className="mb-4 rounded-xl bg-emerald-50 p-4 text-emerald-900"><p>Ölçüm kaydedildi ve oturum kapatıldı.</p><Button onClick={()=>onOpenCertificate(savedLog)}>PDF kalite raporunu aç</Button></div>}
       {!isSessionActive&&<PageHeader title="Ölçüm hazırlığı" description="Ürün, kontrol planı ve üretim bilgilerini doğrulayarak ölçümü başlatın." actions={<IconButton label={soundEnabled?'Sesli uyarıyı kapat':'Sesli uyarıyı aç'} onClick={()=>setSoundEnabled(!soundEnabled)}>{soundEnabled?<Volume2 size={17}/>:<VolumeX size={17}/>}</IconButton>}/>}
       {rulesError && <p role="alert" className="mb-3 text-sm text-red-700">İş kuralları yüklenemedi: {rulesError}</p>}
       {!isSessionActive&&mobileAvailable&&<div className="mb-4 rounded-xl bg-blue-50 p-4"><p>Bu cihazda saklanan mobil kontrol var.</p><Button onClick={()=>setMobileResume(true)}>Mobil kontrole devam et</Button></div>}
@@ -1134,7 +1136,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                         className={`w-full text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition disabled:opacity-40 ${isComplete?'bg-emerald-700 hover:bg-emerald-600':'bg-slate-900 hover:bg-slate-800'}`}
                       >
                         <Save className="w-4 h-4 text-blue-400" />
-                        <span>{!phoneInput&&!isLastMeasurement?'Kaydet ve sonraki':`Ölçümleri Kaydet (${totalChecked}/${totalPossible})`}</span>
+                        <span>{saving?'Kaydediliyor…':!phoneInput&&(isComplete||isLastMeasurement)?'Ölçümü kaydet ve kapat':!phoneInput?'Kaydet ve sonraki':`Ölçümleri Kaydet (${totalChecked}/${totalPossible})`}</span>
                       </button>
                     )}
                   </div>

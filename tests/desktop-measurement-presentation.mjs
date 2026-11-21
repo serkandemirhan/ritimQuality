@@ -16,6 +16,8 @@ app.get('/api/inspection-rules',(_,res)=>res.json({requireActivePlan:false,requi
 app.get('/api/work',(_,res)=>res.json({tasks:[],cases:[],approvals:[],notifications:[]}));
 app.get('/api/media/config',(_,res)=>res.json({provider:'local',maxBytes:10*1024*1024}));
 app.post('/api/media',express.json({limit:'10mb'}),(req,res)=>setTimeout(()=>res.json({id:crypto.randomUUID(),fileName:req.body.fileName,mimeType:req.body.mimeType,kind:req.body.kind,url:'fixture-only',createdAt:new Date().toISOString()}),200));
+const submissions=[];
+app.post('/api/inspection-logs',express.json({limit:'10mb'}),(req,res)=>{submissions.push(req.body);if(submissions.length===1)return res.status(503).json({error:'Fixture: retry save'});res.json(req.body);});
 app.get('/api/*',(_,res)=>res.json([]));app.use(express.static('dist'));
 const server=app.listen(3345,'127.0.0.1');
 const edge=spawn(process.env.EDGE_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',['--headless=new','--remote-debugging-port=9345','--user-data-dir='+resolve(out,'profile'),'--no-first-run','--disable-gpu','about:blank'],{windowsHide:true,stdio:'ignore'});
@@ -109,6 +111,31 @@ await assert(`document.activeElement.id==='btn-save-inspection-log'`,'PDF upload
 await key('Enter');
 await assert(`document.querySelector('#sample-tab-2').getAttribute('aria-pressed')==='true'&&document.querySelector('.rq-desktop-point-nav').innerText.includes('Nokta 1')`,'Enter after PDF upload did not advance');
 console.log('PASS: photo/PDF upload restores confirmation focus and Enter advances through existing validation.');
+const sampleTotal=await evaluate(`document.querySelectorAll('.rq-desktop-samples [id^="sample-tab-"]').length`);
+for(let sample=1;sample<=sampleTotal;sample++){
+  await evaluate(`document.querySelector('#sample-tab-${sample}').click()`);await delay(80);
+  for(let index=0;index<plan.characteristics.length;index++){
+    await point(index);
+    if(sample===sampleTotal&&index===plan.characteristics.length-1)break;
+    await evaluate(`(()=>{const preset=document.querySelector('.measurement-presets button');if(preset)preset.click();else{const option=document.querySelector('.rq-measurement-choices button');if(option?.getAttribute('aria-pressed')!=='true')option?.click();}})()`);await delay(80);
+    if(index===plan.characteristics.length-1){await evaluate(`document.querySelector('.measurement-evidence').open=true`);await upload('completion-evidence.pdf',Buffer.from('%PDF-1.4\n%%EOF'));}
+  }
+}
+await assert(`document.querySelector('#btn-save-inspection-log').innerText.includes('Ölçümü kaydet ve kapat')`,'Last measurement has no save-and-close action');
+await assert(`document.querySelector('#btn-save-inspection-log').disabled`,'Incomplete last measurement can be submitted');
+await evaluate(`document.querySelector('.rq-measurement-choices button').click();document.querySelector('.measurement-evidence').open=true`);await delay(80);
+await upload('final-evidence.pdf',Buffer.from('%PDF-1.4\n%%EOF'));
+await assert(`!document.querySelector('#btn-save-inspection-log').disabled`,'Complete session cannot be saved');
+await point(0);
+await assert(`document.querySelector('#btn-save-inspection-log').innerText.includes('Ölçümü kaydet ve kapat')`,'Completion action depends on current point instead of all samples');
+socket.addEventListener('message',e=>{if(JSON.parse(e.data).method==='Page.javascriptDialogOpening')void cmd('Page.handleJavaScriptDialog',{accept:true});});
+await evaluate(`document.querySelector('#btn-save-inspection-log').click()`);await delay(500);
+await assert(`!!document.querySelector('.quality-session')`,'Failed save closed the session');
+await evaluate(`document.querySelector('#btn-save-inspection-log').click()`);await delay(600);
+await assert(`!document.querySelector('.quality-session')&&document.body.innerText.includes('Ölçüm kaydedildi ve oturum kapatıldı.')`,'Successful save did not close session');
+await assert(`Array.from(document.querySelectorAll('button')).some(b=>b.innerText==='PDF kalite raporunu aç')`,'Closing session removed report access');
+if(submissions.length!==2||submissions[0].id!==submissions[1].id||submissions[1].samples.length!==sampleTotal||submissions[1].samples.at(-1).values['keyboard-ok_nok']!==true)throw Error('Save retry changed identity or lost final answer');
+console.log('PASS: all-sample completion action, required evidence, failed-save retention, stable retry, final answer, save-and-close and report access. Fixture API only.');
 await writeFile(resolve(out,'console-errors.json'),JSON.stringify(errors,null,2));if(errors.length)throw Error('Browser console errors: '+JSON.stringify(errors));
 console.log('PASS: nominal, preset, Enter, focus, previous, sample isolation, point grid, drawing zoom/reset, no console errors. Real persistence/PDF/offline require integration validation.');
 }finally{socket?.close();edge.kill();server.close();}
