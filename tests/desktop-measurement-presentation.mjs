@@ -1,0 +1,70 @@
+// Isolated presentation fixture only; does not verify real API persistence or authentication.
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {spawn} from 'node:child_process';
+import {resolve} from 'node:path';
+import express from 'express';
+import ts from 'typescript';
+const out=resolve('.runtime/ui-redesign');await mkdir(out,{recursive:true});
+const source=await readFile('src/data/mockData.ts','utf8');
+await writeFile(resolve(out,'mock.mjs'),ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText);
+const data=await import('../.runtime/ui-redesign/mock.mjs');
+const product=data.INITIAL_PRODUCTS[0];const plans=data.INITIAL_CONTROL_PLANS.filter(p=>p.productId===product.id);const plan=plans.find(p=>p.isActive)||plans[0];
+const app=express();app.get('/api/bootstrap',(_,res)=>res.json({company:{id:'review',name:'Ölçüm İncelemesi',plan_id:'enterprise',subscription_status:'active',billing_period:'yearly'},currentUserId:'review-user',users:[{id:'review-user',name:'Operatör',role:'admin',status:'active',email:'review@example.test'}],products:[product],controlPlans:[{...plan,isActive:true,status:'active',defaultSampleCount:2}],inspectionLogs:[],usage:{control_plans:1,users:1,monthly_measurements:0}}));
+app.get('/api/inspection-rules',(_,res)=>res.json({requireActivePlan:false,requireLotNumber:false,requireOrderNumber:false}));
+app.get('/api/work',(_,res)=>res.json({tasks:[],cases:[],approvals:[],notifications:[]}));
+app.get('/api/*',(_,res)=>res.json([]));app.use(express.static('dist'));
+const server=app.listen(3345,'127.0.0.1');
+const edge=spawn(process.env.EDGE_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',['--headless=new','--remote-debugging-port=9345','--user-data-dir='+resolve(out,'profile'),'--no-first-run','--disable-gpu','about:blank'],{windowsHide:true,stdio:'ignore'});
+const delay=ms=>new Promise(r=>setTimeout(r,ms));let socket;
+try {
+let target;for(let i=0;i<40;i++){try{target=(await(await fetch('http://127.0.0.1:9345/json')).json()).find(t=>t.type==='page');if(target)break;}catch{}await delay(250);}if(!target)throw Error('Browser unavailable');
+socket=new WebSocket(target.webSocketDebuggerUrl);await new Promise(r=>socket.addEventListener('open',r,{once:true}));let seq=0;const pending=new Map();
+socket.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.id){const h=pending.get(m.id);pending.delete(m.id);m.error?h.reject(m.error):h.resolve(m.result);}});
+const cmd=(method,params={})=>new Promise((resolve,reject)=>{const id=++seq;pending.set(id,{resolve,reject});socket.send(JSON.stringify({id,method,params}));});
+const evaluate=async expression=>{const r=await cmd('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result?.value;};
+const errors=[];socket.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.method==='Runtime.exceptionThrown'||(m.method==='Runtime.consoleAPICalled'&&m.params.type==='error'))errors.push(m.params);});
+await cmd('Page.enable');await cmd('Runtime.enable');await cmd('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.clear();localStorage.setItem('qualitrack_access_token','review.eyJ0ZW5hbnRJZCI6InJldmlldyIsInVzZXJJZCI6InJldmlldy11c2VyIn0.preview');`});
+await cmd('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});await cmd('Page.navigate',{url:'http://127.0.0.1:3345'});await delay(4000);
+await evaluate(`document.querySelector('#nav-tab-operator')?.click()`);await delay(300);
+await evaluate(`(()=>{const s=document.querySelector('#select-operator-product');if(!s)throw Error(document.body.innerText);s.value=${JSON.stringify(product.id)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`);await delay(350);
+await evaluate(`(()=>{const picker=document.querySelector('.rq-sample-trigger');if(picker)picker.click();else document.querySelectorAll('.rq-sample-chips button')[1].click();})()`);await delay(80);
+await evaluate(`document.querySelectorAll('.rq-sample-grid button')[1]?.click()`);await delay(80);
+await evaluate(`document.querySelector('#btn-start-inspection')?.click()`);await delay(500);
+if(!await evaluate(`!!document.querySelector('[id^="input-measured-value"]')`))throw Error(await evaluate('document.body.innerText'));
+const metrics=[];
+for(const [name,width,height,mobile,focus] of [['desktop-1920',1920,1080,false,false],['desktop-1600',1600,900,false,false],['desktop-1366',1366,768,false,false]]){
+await cmd('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});await cmd('Emulation.setTouchEmulationEnabled',{enabled:mobile});await delay(300);
+await evaluate(`document.activeElement?.blur();window.scrollTo(0,0);document.querySelector('main')?.scrollTo(0,0);`);
+if(focus)await evaluate(`document.querySelector('[id^="input-measured-value"]').focus();document.querySelector('[id^="input-measured-value"]').scrollIntoView({block:'center'});`);
+await delay(250);const shot=await cmd('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(resolve(out,name+'.png'),Buffer.from(shot.data,'base64'));
+metrics.push({name,width,height,...await evaluate(`(()=>{const rect=s=>{const e=document.querySelector(s);if(!e)return null;const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,font:getComputedStyle(e).fontSize}};return {scrollWidth:document.documentElement.scrollWidth,scrollHeight:document.documentElement.scrollHeight,drawing:rect('.quality-drawing'),input:rect('[id^="input-measured-value"]'),grid:rect('.quality-measurement-grid')}})()`)});
+}
+await writeFile(resolve(out,'metrics.json'),JSON.stringify(metrics,null,2));for (const item of metrics) {if (item.scrollHeight > item.height) throw Error(item.name + ': vertical page overflow'); if (item.scrollWidth > item.width) throw Error(item.name + ': horizontal overflow'); if (item.drawing.x + item.drawing.width > item.input.x) throw Error(item.name + ': drawing overlaps input');} console.log('PASS: layout at '+metrics.length+' device sizes; screenshots in '+out);
+const assert=async(expression,message)=>{if(!await evaluate(expression))throw Error(message);};
+await assert(`document.documentElement.scrollHeight<=innerHeight`,'Page has vertical overflow');
+await evaluate(`document.querySelector('.measurement-presets button').click()`);await delay(100);
+const firstValue=await evaluate(`document.querySelector('.measurement-value').value`);
+await assert(`document.querySelector('.measurement-result').innerText.includes('Uygun')`,'Nominal is not conforming');
+await evaluate(`document.querySelectorAll('.measurement-presets button')[2].click()`);await delay(80);
+await assert(`Number(document.querySelector('.measurement-value').value.replace(',','.'))===${Number(firstValue.replace(',','.'))+.01}`,'Preset changed behavior');
+await evaluate(`document.querySelector('.measurement-presets button').click();document.querySelector('.measurement-value').focus()`);
+await cmd('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await cmd('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await delay(150);
+await assert(`document.querySelector('.rq-desktop-point-nav').innerText.includes('Nokta 2')`,'Enter did not advance');
+await assert(`document.activeElement===document.querySelector('.measurement-value')`,'Advance lost input focus');
+await evaluate(`document.querySelector('.rq-desktop-point-nav button').click()`);await delay(100);
+await assert(`document.querySelector('.measurement-value').value===${JSON.stringify(firstValue)}`,'Previous point lost value');
+// Both current and older preparation screens support at least three samples.
+await evaluate(`document.querySelector('#sample-tab-2').click()`);await delay(100);
+await assert(`document.querySelector('.measurement-value').value===''`,'Sample switch leaked value');
+await evaluate(`document.querySelector('#sample-tab-1').click()`);await delay(100);
+await assert(`document.querySelector('.measurement-value').value===${JSON.stringify(firstValue)}`,'Sample value was lost');
+await evaluate(`document.querySelector('.rq-point-menu').open=true;document.querySelectorAll('.rq-point-menu-grid button')[2].click()`);await delay(150);
+await assert(`document.querySelector('.rq-desktop-point-nav').innerText.includes('Nokta 3')`,'Grid did not select point');
+await assert(`!document.querySelector('.rq-point-menu').open`,'Grid did not close');
+await evaluate(`document.querySelector('.quality-drawing button[title="Yakınlaştır"]').click()`);await delay(100);
+await assert(`document.querySelector('.quality-drawing button[title="100% Boyut"]').innerText!=='100%'`,'Drawing zoom did not change');
+await evaluate(`document.querySelector('.quality-drawing button[title="100% Boyut"]').click()`);await delay(100);
+await assert(`document.querySelector('.quality-drawing button[title="100% Boyut"]').innerText==='100%'`,'Drawing zoom did not reset');
+await writeFile(resolve(out,'console-errors.json'),JSON.stringify(errors,null,2));if(errors.length)throw Error('Browser console errors: '+JSON.stringify(errors));
+console.log('PASS: nominal, preset, Enter, focus, previous, sample isolation, point grid, drawing zoom/reset, no console errors. Real persistence/PDF/offline require integration validation.');
+}finally{socket?.close();edge.kill();server.close();}

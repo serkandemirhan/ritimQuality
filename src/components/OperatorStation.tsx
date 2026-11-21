@@ -617,8 +617,9 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
               </span>
             </div>
 
+{!phoneInput && (<div className="rq-terminal-context" aria-label="Kontrol kimliği"><span><small>Ürün</small><strong>{currentProduct?.code}</strong></span><span><small>İş emri</small><strong>{orderNumber||'Belirtilmedi'}</strong></span><span><small>İstasyon</small><strong>{machineNo||'Belirtilmedi'}</strong></span><span><small>Operatör</small><strong>{operatorName}</strong></span><span><small>Numune</small><strong>{activeSampleIndex} / {sampleCount}</strong></span><span><small>Ölçüm ilerlemesi</small><progress value={totalChecked} max={Math.max(1,totalPossible)} aria-label="Tamamlanan ölçümler"/><strong>{totalChecked} / {totalPossible}</strong></span></div>)}
             {/* Center: Numune Selector Pills (#1, #2, #3, #4, #5) */}
-            <div className="measurement-samples flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-700/80">
+            {phoneInput && (<div className="measurement-samples flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-700/80">
               <span className="text-[10px] font-bold text-slate-400 px-1 hidden lg:inline">NUMUNE:</span>
               {samples.map(s => {
                 const isSelected = activeSampleIndex === s.sampleIndex;
@@ -651,8 +652,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                   </button>
                 );
               })}
-            </div>
-
+            </div>)}
             {/* Right: Actions, Auto Test, Audio & Close */}
             <div className="flex items-center gap-1.5 shrink-0">
               {/* Progress pill */}
@@ -703,7 +703,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
             </div>
           </div>
 
-          <div className="rq-terminal-context" aria-label="Kontrol kimliği"><span><small>Ürün</small><strong>{currentProduct?.code}</strong></span><span><small>İş emri</small><strong>{orderNumber||'Belirtilmedi'}</strong></span><span><small>İstasyon</small><strong>{machineNo||'Belirtilmedi'}</strong></span><span><small>Operatör</small><strong>{operatorName}</strong></span><span><small>Numune</small><strong>{activeSampleIndex} / {sampleCount}</strong></span><span><small>Ölçüm ilerlemesi</small><progress value={totalChecked} max={Math.max(1,totalPossible)} aria-label="Tamamlanan ölçümler"/><strong>{totalChecked} / {totalPossible}</strong></span></div>
+{phoneInput && (<div className="rq-terminal-context" aria-label="Kontrol kimliği"><span><small>Ürün</small><strong>{currentProduct?.code}</strong></span><span><small>İş emri</small><strong>{orderNumber||'Belirtilmedi'}</strong></span><span><small>İstasyon</small><strong>{machineNo||'Belirtilmedi'}</strong></span><span><small>Operatör</small><strong>{operatorName}</strong></span><span><small>Numune</small><strong>{activeSampleIndex} / {sampleCount}</strong></span><span><small>Ölçüm ilerlemesi</small><progress value={totalChecked} max={Math.max(1,totalPossible)} aria-label="Tamamlanan ölçümler"/><strong>{totalChecked} / {totalPossible}</strong></span></div>)}
           <div className="mobile-measurement-mode" aria-label="Mobil ölçüm görünümü">
             <button type="button" aria-pressed={mobileLayoutMode==='drawing'} onClick={()=>setMobileLayoutMode('drawing')}>Teknik resim</button>
             <button type="button" aria-pressed={mobileLayoutMode==='card'} onClick={()=>setMobileLayoutMode('card')}>Ölçüm girişi</button>
@@ -735,8 +735,67 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                 stepper navigation, and save buttons - all without scrolling!
                 ========================================================================= */}
             <div className="measurement-deck">
+{!phoneInput && <section className="rq-desktop-samples" aria-label="Numune seçimi"><div className="measurement-samples flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-700/80">
+              <span className="text-[10px] font-bold text-slate-400 px-1 hidden lg:inline">NUMUNE:</span>
+              {samples.map(s => {
+                const isSelected = activeSampleIndex === s.sampleIndex;
+                const statuses = Object.values(s.statuses);
+                const hasFail = statuses.some(st => st === 'fail');
+                const isFilled = statuses.length > 0 && statuses.every(st => st !== 'empty');
+
+                return (
+                  <button
+                    key={s.sampleIndex}
+                    id={`sample-tab-${s.sampleIndex}`}
+                    type="button"
+                    onClick={() => setActiveSampleIndex(s.sampleIndex)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                      isSelected
+                        ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400/50'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                    aria-pressed={isSelected}
+                    title={`Numune #${s.sampleIndex}`}
+                  >
+                    <span className="rq-sample-label">N{s.sampleIndex}<small title={serialNumber || lotNumber}>{(serialNumber || lotNumber || "—").slice(-12)}</small></span>
+                    {isFilled && (
+                      hasFail ? (
+                        <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
+                      ) : (
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+                      )
+                    )}
+                  </button>
+                );
+              })}
+            </div><div className="rq-sample-progress"><span>Toplam ilerleme</span><span>{totalChecked} / {totalPossible}</span><progress value={totalChecked} max={Math.max(1,totalPossible)} aria-label="Toplam ölçüm ilerlemesi" /></div></section>}
               {currentCharacteristic && (
                 <div className="measurement-deck-inner">
+{!phoneInput && <div className="rq-desktop-point-nav"><div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        disabled={activePointNo <= 1 && activeSampleIndex <= 1}
+                        onClick={handleGoPrevious}
+                        className="flex-1 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center gap-1 transition disabled:opacity-30"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        <span>Önceki</span>
+                      </button>
+
+                      <div className="text-xs text-slate-700 font-mono font-bold text-center px-1">
+                        Nokta {activePointNo} / {characteristics.length}
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={isLastMeasurement}
+                        onClick={handleAdvanceNext}
+                        className="flex-1 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1 transition shadow-sm disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+                      >
+                        <span>{isLastMeasurement?'Son nokta':'Sonraki'}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div><details className="rq-point-menu"><summary aria-label="Ölçüm noktalarını aç">Noktalar ▦</summary><div className="rq-point-menu-grid">{characteristics.map(c=><button key={c.id} type="button" aria-pressed={activePointNo===c.pointNo} onClick={event=>{setActivePointNo(c.pointNo);event.currentTarget.closest("details")?.removeAttribute("open");}}>{c.pointNo} · {c.name}</button>)}</div></details></div>}
                   {/* Point Top Info Row */}
                   <div className="measurement-info">
                     <div className="measurement-point-title flex items-center justify-between pb-2 border-b border-slate-100 gap-2">
@@ -923,7 +982,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                   </div>
 
                   {/* Horizontal Point Quick Strip (1-tap direct jump to any point) */}
-                  <div className="measurement-points">
+                  <details className="rq-existing-point-picker" open={phoneInput || undefined}><summary>Tüm nokta sonuçları</summary><div className="measurement-points">
                     <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                       <span>Parça Noktaları (#{activeSampleIndex}):</span>
                       <span className="font-mono">
@@ -964,6 +1023,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                     </div>
                   </div>
 
+</details>
                   {phoneInput && (currentCharacteristic.type || 'numeric') === 'numeric' && <div className="measurement-keypad" aria-label="Sayısal tuş takımı">
                     {['7','8','9','⌫','4','5','6','±','1','2','3',','].map(key => <button key={key} type="button" disabled={!!submissionRef.current || !!savedLog} aria-label={key === '⌫' ? 'Son rakamı sil' : key === ',' ? 'Ondalık ayırıcı' : key === '±' ? 'İşareti değiştir' : key} onClick={() => pressNumber(key)}>{key}</button>)}
                     <button type="button" disabled={!!submissionRef.current || !!savedLog} onClick={() => pressNumber('0')} aria-label="0">0</button>
@@ -982,7 +1042,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
                   {/* Stepper Navigation & Next / Save Button */}
                   <div className="quality-measurement-actions bg-white p-2 border-t border-slate-100 flex flex-col gap-2">
-                    <div className="flex items-center justify-between gap-2">
+{phoneInput && (<div className="flex items-center justify-between gap-2">
                       <button
                         type="button"
                         disabled={activePointNo <= 1 && activeSampleIndex <= 1}
@@ -1006,8 +1066,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                         <span>{isLastMeasurement?'Son nokta':'Sonraki'}</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
-                    </div>
-
+                    </div>)}
                     {!savedLog&&<details className="measurement-other"><summary>Diğer işlemler</summary><div className="grid grid-cols-2 gap-2 mt-2"><button disabled={draftBusy} type="button" className="quality-secondary" onClick={()=>void saveServerDraft(false)}>{draftBusy?'Kaydediliyor…':'Taslağı kaydet'}</button><button disabled={draftBusy} type="button" className="quality-secondary" onClick={()=>void saveServerDraft(true)}>Kaydet ve devret</button></div></details>}
 
                     {savedLog?.overallStatus==='fail'&&<div role="status" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">Uygunsuzluk otomatik oluşturuldu ve kalite ekibine iletildi.{onOpenActions&&currentUser.role!=='operator'&&<button type="button" onClick={onOpenActions} className="mt-2 block font-semibold underline">Uygunsuzluğu ve aksiyonları aç</button>}</div>}

@@ -472,7 +472,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
                 {/* Main Pin Circle Button */}
                 <div
-                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-black shadow-xl transition-transform active:scale-90 ${balloonMode==='embedded'?'rq-embedded-balloon':style.bg}`} aria-label={`Nokta ${char.pointNo}`} data-selected={isActive}
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-black shadow-xl transition-transform active:scale-90 ${balloonMode==='embedded'?'rq-embedded-balloon':style.bg}`} aria-label={`Nokta ${char.pointNo}`} data-selected={isActive} data-measurement-status={pointStatuses[char.id] || "empty"}
                 >
                   {balloonMode!=='embedded'&&<span>{char.pointNo}</span>}
                 </div>
