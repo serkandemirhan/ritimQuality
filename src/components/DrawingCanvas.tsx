@@ -489,7 +489,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
                       {(char.type||'numeric')==='numeric'?<><span className="text-white font-black">{char.nominal}{char.unit}</span><span className="text-[9px] text-slate-400">[{char.lsl}~{char.usl}]</span></>:<span className="text-white font-black">{char.type==='ok_nok'?'Uygun / Uygunsuz':char.type==='single_select'?'Tekli Seçim':'Çoklu Seçim'}</span>}
                       {measuredVal !== null && measuredVal !== undefined && (
                         <span className="ml-1 px-1 py-0.2 rounded bg-black/50 text-amber-300 font-black">
-                          {Array.isArray(measuredVal)?measuredVal.join(', '):String(measuredVal)}
+                          {Array.isArray(measuredVal)?measuredVal.join(', '):measuredVal===true?'Uygun':measuredVal===false?'Uygunsuz':measuredVal==='yes'?'Evet':measuredVal==='no'?'Hayır':String(measuredVal)}
                         </span>
                       )}
                       {style.icon}

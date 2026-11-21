@@ -1,3 +1,4 @@
+import { MeasurementChoices } from './MeasurementChoices';
 import { PageHeader, Button, IconButton, Card, FormSection, Field, Input, Select, NumberInput, StatusBadge } from './ui';
 import { MediaImage } from './MediaImage';
 import { InspectionQR } from './InspectionQR';
@@ -37,7 +38,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { MobileMeasurementShell } from './MobileMeasurementShell';
-import { evaluateMeasurement,readMobileSession, type MobileSession } from '../services/mobileMeasurement';
+import { evaluateMeasurement,evidenceErrors,readMobileSession, type MobileSession } from '../services/mobileMeasurement';
 import {readOfflineCatalog,saveOfflineRules} from '../services/offlineCatalog';
 
 interface OperatorStationProps {
@@ -127,6 +128,9 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [mobileLayoutMode, setMobileLayoutMode] = useState<'drawing' | 'card'>('card');
 
+  const [entryError,setEntryError]=useState('');
+  const pendingChoiceConfirmation=useRef<string|null>(null);
+  useEffect(()=>setEntryError(''),[activePointNo,activeSampleIndex]);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!isSessionActive || savedLog) return;
@@ -371,7 +375,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const handleInputKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleAdvanceNext();
+      if(phoneInput)handleAdvanceNext();else confirmMeasurement();
     }
   };
 
@@ -385,6 +389,31 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
     if(index>0)setActivePointNo(characteristics[index-1].pointNo);
     else if(activeSampleIndex>1){setActiveSampleIndex(value=>value-1);setActivePointNo(characteristics.at(-1)!.pointNo);}
   };
+
+  // Confirmation reuses the shared validator; upper navigation remains browse-only.
+  const confirmMeasurement = (override?:MeasurementValue) => {
+    if(saving||mediaUploading||savedLog)return;
+    if(submissionRef.current){void handleSaveInspection();return;}
+    const sample=samples.find(s=>s.sampleIndex===activeSampleIndex);
+    // Wait for the controlled answer to render before final submission reads samples.
+    if(override!==undefined&&JSON.stringify(override)!==JSON.stringify(sample?.values[currentCharacteristic.id])){
+      pendingChoiceConfirmation.current=activeSampleIndex+':'+currentCharacteristic.id;return;
+    }
+    const value=override===undefined?sample?.values[currentCharacteristic.id]:override;
+    try {
+      const raw=(currentCharacteristic.type||'numeric')==='numeric'?numericText:value===true?'OK':value===false?'NOK':value;
+      const evaluated=evaluateMeasurement(currentCharacteristic,raw as string|string[]);
+      const errors=evidenceErrors(currentCharacteristic,evaluated.result,sample?.evidence?.[currentCharacteristic.id]||[],sample?.pointNotes?.[currentCharacteristic.id]||'','');
+      if(errors.length){const details=document.querySelector<HTMLDetailsElement>('.measurement-evidence');if(details){details.open=true;details.querySelector<HTMLElement>('input,textarea')?.focus();}throw new Error(errors.join(' '));}
+      if(isLastMeasurement&&!isComplete){setEntryError('Eksik ölçüm veya zorunlu kanıt var. Nokta ve numune seçiminden eksikleri tamamlayın.');return;}
+      setEntryError('');if(isLastMeasurement)void handleSaveInspection();else handleAdvanceNext();
+    }catch(error){setEntryError(error instanceof Error?error.message:'Geçerli bir ölçüm girin.');}
+  };
+
+  useEffect(()=>{
+    const pending=pendingChoiceConfirmation.current;pendingChoiceConfirmation.current=null;
+    if(pending===activeSampleIndex+':'+currentCharacteristic?.id)confirmMeasurement();
+  },[samples,activePointNo,activeSampleIndex]);
 
   // Demo auto-fill
   const handleFillDemoValues = () => {
@@ -757,7 +786,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                     aria-pressed={isSelected}
                     title={`Numune #${s.sampleIndex}`}
                   >
-                    <span className="rq-sample-label">N{s.sampleIndex}<small title={serialNumber || lotNumber}>{(serialNumber || lotNumber || "—").slice(-12)}</small></span>
+                    <span className="rq-sample-label">N{s.sampleIndex}<small title={serialNumber || lotNumber}>{(serialNumber || lotNumber || "Seri/lot yok").slice(-12)}</small></span>
                     {isFilled && (
                       hasFail ? (
                         <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
@@ -771,6 +800,23 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
             </div><div className="rq-sample-progress"><span>Toplam ilerleme</span><span>{totalChecked} / {totalPossible}</span><progress value={totalChecked} max={Math.max(1,totalPossible)} aria-label="Toplam ölçüm ilerlemesi" /></div></section>}
               {currentCharacteristic && (
                 <div className="measurement-deck-inner">
+                  {/* Point Top Info Row */}
+                  <div className="measurement-info">
+                    <div className="measurement-point-title flex items-center justify-between pb-2 border-b border-slate-100 gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-600 text-white font-black text-sm sm:text-base flex items-center justify-center shadow-md shadow-blue-500/25 shrink-0">
+                          {currentCharacteristic.pointNo}
+                        </div>
+                        <div className="min-w-0">
+                          <h2 className="font-bold text-slate-900 text-xs sm:text-sm truncate">
+                            {currentCharacteristic.name}
+                          </h2>
+                          <div className="measurement-tool text-[10px] sm:text-[11px] text-slate-500 font-mono truncate">
+                            Ölçüm Aleti: <strong className="text-slate-800">{currentCharacteristic.tool}</strong>
+                          </div>
+                        </div>
+                      </div>
+
 {!phoneInput && <div className="rq-desktop-point-nav"><div className="flex items-center justify-between gap-2">
                       <button
                         type="button"
@@ -796,23 +842,6 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div><details className="rq-point-menu"><summary aria-label="Ölçüm noktalarını aç">Noktalar ▦</summary><div className="rq-point-menu-grid">{characteristics.map(c=><button key={c.id} type="button" aria-pressed={activePointNo===c.pointNo} onClick={event=>{setActivePointNo(c.pointNo);event.currentTarget.closest("details")?.removeAttribute("open");}}>{c.pointNo} · {c.name}</button>)}</div></details></div>}
-                  {/* Point Top Info Row */}
-                  <div className="measurement-info">
-                    <div className="measurement-point-title flex items-center justify-between pb-2 border-b border-slate-100 gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-blue-600 text-white font-black text-sm sm:text-base flex items-center justify-center shadow-md shadow-blue-500/25 shrink-0">
-                          {currentCharacteristic.pointNo}
-                        </div>
-                        <div className="min-w-0">
-                          <h2 className="font-bold text-slate-900 text-xs sm:text-sm truncate">
-                            {currentCharacteristic.name}
-                          </h2>
-                          <div className="measurement-tool text-[10px] sm:text-[11px] text-slate-500 font-mono truncate">
-                            Ölçüm Aleti: <strong className="text-slate-800">{currentCharacteristic.tool}</strong>
-                          </div>
-                        </div>
-                      </div>
-
                       <span className={`measurement-critical px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shrink-0 ${
                         currentCharacteristic.criticalClass === 'critical'
                           ? 'bg-rose-50 text-rose-700 border-rose-200'
@@ -930,6 +959,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                         </button>
                       </div>
                       </> : (
+                        !phoneInput && currentCharacteristic.type!=='text' ? <MeasurementChoices key={activeSampleIndex+':'+currentCharacteristic.id} focusKey={activeSampleIndex+':'+currentCharacteristic.id} characteristic={currentCharacteristic} value={currentVal} disabled={saving||mediaUploading||!!savedLog||!!submissionRef.current} onChange={value=>setQualitativeValue(currentCharacteristic,value)} onConfirm={confirmMeasurement}/> :
                         <div className="grid grid-cols-2 gap-2">
                           {currentCharacteristic.type==='text'?<textarea aria-label="Metin sonucu" maxLength={currentCharacteristic.policy?.maxTextLength||2000} value={typeof currentVal==='string'?currentVal:''} onChange={e=>setQualitativeValue(currentCharacteristic,e.target.value)}/>:currentCharacteristic.type==='ok_nok'||currentCharacteristic.type==='visual' ? <>
                             <button type="button" onClick={()=>setQualitativeValue(currentCharacteristic,true)} className={`rounded-2xl border px-4 py-4 font-black ${currentVal===true?'border-emerald-600 bg-emerald-600 text-white':'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>✓ Uygun</button>
@@ -955,7 +985,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                                 Uygun
                               </span>
-                              <span className="font-mono">{typeof currentVal==='number'?`Sapma: ${currentDeviation&&currentDeviation>0?'+':''}${currentDeviation} ${currentCharacteristic.unit}`:Array.isArray(currentVal)?currentVal.join(', '):String(currentVal)}</span>
+                              <span className="font-mono">{typeof currentVal==='number'?`Sapma: ${currentDeviation&&currentDeviation>0?'+':''}${currentDeviation} ${currentCharacteristic.unit}`:Array.isArray(currentVal)?currentVal.join(', '):currentVal==='yes'?'Evet':currentVal==='no'?'Hayır':currentVal===true?'Uygun':currentVal===false?'Uygunsuz':String(currentVal)}</span>
                             </div>
                           )}
                           {currentValStatus === 'warning' && (
@@ -964,7 +994,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                                 <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                                 Sınıra yakın
                               </span>
-                              <span className="font-mono">{typeof currentVal==='number'?`Sapma: ${currentDeviation&&currentDeviation>0?'+':''}${currentDeviation} ${currentCharacteristic.unit}`:Array.isArray(currentVal)?currentVal.join(', '):String(currentVal)}</span>
+                              <span className="font-mono">{typeof currentVal==='number'?`Sapma: ${currentDeviation&&currentDeviation>0?'+':''}${currentDeviation} ${currentCharacteristic.unit}`:Array.isArray(currentVal)?currentVal.join(', '):currentVal==='yes'?'Evet':currentVal==='no'?'Hayır':currentVal===true?'Uygun':currentVal===false?'Uygunsuz':String(currentVal)}</span>
                             </div>
                           )}
                           {currentValStatus === 'fail' && (
@@ -973,7 +1003,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                                 <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                                 Uygunsuz · Tolerans dışı
                               </span>
-                              <span className="font-mono">{typeof currentVal==='number'?`Sapma: ${currentDeviation&&currentDeviation>0?'+':''}${currentDeviation} ${currentCharacteristic.unit}`:Array.isArray(currentVal)?currentVal.join(', '):String(currentVal)}</span>
+                              <span className="font-mono">{typeof currentVal==='number'?`Sapma: ${currentDeviation&&currentDeviation>0?'+':''}${currentDeviation} ${currentCharacteristic.unit}`:Array.isArray(currentVal)?currentVal.join(', '):currentVal==='yes'?'Evet':currentVal==='no'?'Hayır':currentVal===true?'Uygun':currentVal===false?'Uygunsuz':String(currentVal)}</span>
                             </div>
                           )}
                         </div>
@@ -981,6 +1011,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                     </div>
                   </div>
 
+                  {entryError&&<p role="alert" className="rq-entry-error">{entryError}</p>}
                   {/* Horizontal Point Quick Strip (1-tap direct jump to any point) */}
                   <details className="rq-existing-point-picker" open={phoneInput || undefined}><summary>Tüm nokta sonuçları</summary><div className="measurement-points">
                     <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
@@ -1085,12 +1116,12 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                       <button
                         id="btn-save-inspection-log"
                         type="button"
-                        aria-busy={saving} onClick={handleSaveInspection}
-                        disabled={!isComplete || saving || mediaUploading}
+                        aria-busy={saving} onClick={phoneInput?handleSaveInspection:()=>confirmMeasurement()}
+                        disabled={saving || mediaUploading || (phoneInput||isLastMeasurement ? !isComplete : false)}
                         className={`w-full text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition disabled:opacity-40 ${isComplete?'bg-emerald-700 hover:bg-emerald-600':'bg-slate-900 hover:bg-slate-800'}`}
                       >
                         <Save className="w-4 h-4 text-blue-400" />
-                        <span>Ölçümleri Kaydet ({totalChecked}/{totalPossible})</span>
+                        <span>{!phoneInput&&!isLastMeasurement?'Kaydet ve sonraki':`Ölçümleri Kaydet (${totalChecked}/${totalPossible})`}</span>
                       </button>
                     )}
                   </div>
