@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import {loginSchema,findLoginUser} from '../services/loginIdentity.js';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { pool, withTenant } from '../db/pool.js';
@@ -77,8 +78,6 @@ authRouter.post('/register', requestLimit('register',10,3600), async (req, res, 
   } catch (error) { next(error); }
 });
 
-const loginSchema = z.object({ workspace: z.string().min(3), email: z.string().email(), password: z.string().min(1) });
-
 authRouter.post('/login', requestLimit('login',60), async (req, res, next) => {
   try {
     const input = loginSchema.parse(req.body);
@@ -89,12 +88,7 @@ authRouter.post('/login', requestLimit('login',60), async (req, res, next) => {
     const tenantId = tenantResult.rows[0]?.id;
     if (!tenantId) { res.status(401).json({ error: 'Çalışma alanı veya giriş bilgileri hatalı.' }); return; }
     const user = await withTenant(tenantId, async client => {
-      const result = await client.query(
-        `SELECT id, tenant_id, name, email, password_hash, role, department, status, session_version
-         FROM users WHERE tenant_id = $1 AND email = $2`,
-        [tenantId, input.email.toLowerCase()],
-      );
-      return result.rows[0];
+      return findLoginUser(client,tenantId,input.email);
     });
     if (!user || user.status !== 'active' || !(await bcrypt.compare(input.password, user.password_hash))) {
       res.status(401).json({ error: 'Çalışma alanı veya giriş bilgileri hatalı.' }); return;
