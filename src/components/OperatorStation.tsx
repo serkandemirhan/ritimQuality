@@ -821,7 +821,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                       <button
                         type="button"
                         disabled={activePointNo <= 1 && activeSampleIndex <= 1}
-                        aria-label="?nceki ?l??m noktas?" onClick={handleGoPrevious}
+                        aria-label="Önceki ölçüm noktası" onClick={handleGoPrevious}
                         className="flex-1 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center gap-1 transition disabled:opacity-30"
                       >
                         <ArrowLeft className="w-3.5 h-3.5" />
@@ -835,7 +835,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                       <button
                         type="button"
                         disabled={isLastMeasurement}
-                        aria-label="Sonraki ?l??m noktas?" onClick={handleAdvanceNext}
+                        aria-label="Sonraki ölçüm noktası" onClick={handleAdvanceNext}
                         className="flex-1 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1 transition shadow-sm disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
                       >
                         <span>{isLastMeasurement?'Son nokta':'Sonraki'}</span>
@@ -1077,7 +1077,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                       <button
                         type="button"
                         disabled={activePointNo <= 1 && activeSampleIndex <= 1}
-                        aria-label="?nceki ?l??m noktas?" onClick={handleGoPrevious}
+                        aria-label="Önceki ölçüm noktası" onClick={handleGoPrevious}
                         className="flex-1 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center gap-1 transition disabled:opacity-30"
                       >
                         <ArrowLeft className="w-3.5 h-3.5" />
@@ -1091,7 +1091,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                       <button
                         type="button"
                         disabled={isLastMeasurement}
-                        aria-label="Sonraki ?l??m noktas?" onClick={handleAdvanceNext}
+                        aria-label="Sonraki ölçüm noktası" onClick={handleAdvanceNext}
                         className="flex-1 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1 transition shadow-sm disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
                       >
                         <span>{isLastMeasurement?'Son nokta':'Sonraki'}</span>
