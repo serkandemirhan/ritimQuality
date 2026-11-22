@@ -1,3 +1,4 @@
+import {SampleCountPicker} from './SampleCountPicker';
 import {SampleSerialDialog,PointNavigator} from './MeasurementNavigation';
 import {ContinuingControls,PlanSearchList,type PreparationDraft} from './PreparationLists';
 import {MeasurementMatrix} from './MeasurementMatrix';
@@ -114,9 +115,6 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const [source, setSource] = useState<MeasurementSource>('manual');
   const [equipmentId, setEquipmentId] = useState<string>(currentUser?.stationOrMachine || 'MANUEL-ISTASYON-01');
   const [sampleCount, setSampleCount] = useState<number>(1);
-  const [samplePickerOpen, setSamplePickerOpen] = useState(false);
-  const [samplePickerMore, setSamplePickerMore] = useState(false);
-  const [sampleManual, setSampleManual] = useState('');
   const [planPublication,setPlanPublication]=useState<{id:string;publishedAt:string|null;publishedBy:string|null;error?:boolean}|null>(null);
   const publicationRequest=useRef(0);
   const [mediaUploading, setMediaUploading] = useState(false);
@@ -246,7 +244,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
     sessionStartedAt.current=new Date().toISOString();
     if(phoneInput) {
-      if(sampleCount>5||characteristics.length>50){alert('Mobil ölçüm 1–5 numune ve en fazla 50 karakteristik destekler.');return;}
+      if(sampleCount>100||characteristics.length>50){alert('Mobil ölçüm en fazla 100 numune ve 50 karakteristik destekler.');return;}
       mobileSeed.current={taskId:request?.taskId,id:crypto.randomUUID(),scope:SaasApi.scope(),plan:structuredClone(currentPlan),product:structuredClone(currentProduct!),count:sampleCount,operatorId:currentUser!.id,operatorName:currentUser!.name,orderNumber,lotNumber,serialNumber,instrumentId:equipmentId,source,active:{sample:1,characteristic:characteristics[0].id},order:'sample',drafts:{},attempts:[],media:{},createdAt:new Date().toISOString()};
       setMobileResume(true);return;
     }
@@ -609,16 +607,12 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                 {!request&&selectedProductId&&selectablePlans.length>1&&<details className="rq-plan-override"><summary>Revizyonu değiştir</summary><Field label="Kontrol planı revizyonu"><Select id="select-operator-plan" value={selectedPlanId} onChange={e=>{setSelectedPlanId(e.target.value);setSampleCount(1);}}>{selectablePlans.map(cp=><option key={cp.id} value={cp.id}>{cp.version} · {cp.isActive?'Aktif':cp.status==='draft'?'Taslak':'Arşiv'} · {cp.characteristics.length} nokta</option>)}</Select></Field></details>}
               </div>
             </FormSection>
-            {selectedProductId&&<section className="rq-quick-start-panel" aria-label="Üretim bilgileri">
+
+          </Card>
+          <Card className="rq-preparation-summary"><h2 className="rq-section-title">Başlatılacak kontrol</h2>{currentProduct?<><p className="rq-helper rq-technical">{currentProduct.code}</p><h3 className="font-semibold mb-4">{currentProduct.name}</h3>{previewDrawing?.source&&<MediaImage src={previewDrawing.source} alt={currentProduct.name+' teknik resmi'} className="h-44 w-full rounded-lg bg-white object-contain"/>}<dl className="rq-properties"><div><dt>Kontrol planı</dt><dd>{currentPlan?<details key={currentPlan.id} className="rq-publication" onToggle={e=>{if(!e.currentTarget.open)return;const id=currentPlan.id;const seq=++publicationRequest.current;setPlanPublication(null);void SaasApi.controlPlanPublication(id).then(data=>{if(seq===publicationRequest.current)setPlanPublication({id,...data});}).catch(()=>{if(seq===publicationRequest.current)setPlanPublication({id,publishedAt:null,publishedBy:null,error:true});});}}><summary aria-label={`Plan ${currentPlan.version}, yayın bilgileri`}>{currentPlan.version} · Bilgi <span aria-hidden="true">ⓘ</span></summary><div className="rq-publication-card" role="status"><strong>Plan {currentPlan.version}</strong>{planPublication?.id!==currentPlan.id?<p>Yayın bilgisi yükleniyor…</p>:planPublication.error?<p>Yayın bilgisi alınamadı. Tekrar denemek için kapatıp açın.</p>:planPublication.publishedAt?<><p>Yayın tarihi: {new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium',timeStyle:'short'}).format(new Date(planPublication.publishedAt))}</p><p>Yayınlayan: {planPublication.publishedBy||'Kayıt bulunamadı'}</p></>:<p>Yayın bilgisi kayıtlarında bulunamadı.</p>}</div></details>:'Seçilmedi'}</dd></div><div><dt>Ölçüm noktası</dt><dd>{characteristics.length}</dd></div><div><dt>Operatör</dt><dd>{operatorName}</dd></div>{orderNumber&&<div><dt>İş emri</dt><dd className="rq-technical">{orderNumber}</dd></div>}</dl>{currentPlan&&<div className="rq-revision-summary">Plan: {currentPlan.version} · Çizim: {drawingStatus?.expected||'Belirtilmemiş'}{drawingStatus?.mismatch?<strong role="alert"> Çizim revizyonu uyuşmuyor: {drawingStatus.known.join(', ')}</strong>:drawingStatus?.unverified?<span> · Çizim revizyonu doğrulanamadı</span>:null}</div>}{currentPlan&&<div className="mt-4"><StatusBadge status={currentPlan.status}/></div>}</>:<p className="rq-helper">Kontrol özetini görmek için ürün seçin.</p>}            {selectedProductId&&<section className="rq-quick-start-panel" aria-label="Üretim bilgileri">
               <div className="rq-quick-start-head">
                 <div><h2 className="rq-section-title">İzlenebilirlik</h2><p className="rq-helper">Zorunlu bilgileri girip ölçüme geçin.</p></div>
-                <div className="rq-sample-picker">
-                  <button type="button" className="rq-sample-trigger" disabled={!!request} aria-expanded={samplePickerOpen} aria-controls="sample-picker-options" onClick={()=>{setSamplePickerOpen(v=>!v);setSamplePickerMore(false);setSampleManual('');}}>Numune sayısı: <strong>{sampleCount}</strong> <span aria-hidden="true">▾</span></button>
-                  {samplePickerOpen&&!request&&<div id="sample-picker-options" className="rq-sample-options" aria-label="Numune sayısı seçimi" onKeyDown={e=>{if(e.key==='Escape')setSamplePickerOpen(false);}}>
-                    <div className="rq-sample-grid">{Array.from({length:samplePickerMore?20:10},(_,i)=>i+1).map(count=><button type="button" key={count} aria-pressed={sampleCount===count} onClick={()=>{setSampleCount(count);setSamplePickerOpen(false);}}>{count}</button>)}</div>
-                    {!samplePickerMore?<button type="button" className="rq-sample-more" onClick={()=>setSamplePickerMore(true)}>Daha fazla</button>:<form onSubmit={e=>{e.preventDefault();const value=Number(sampleManual);if(Number.isInteger(value)&&value>=1&&value<=100){setSampleCount(value);setSamplePickerOpen(false);}}}><label htmlFor="sample-manual">Elle gir (1–100)</label><div><input id="sample-manual" type="number" inputMode="numeric" min="1" max="100" step="1" required value={sampleManual} onChange={e=>setSampleManual(e.target.value)}/><button type="submit">Uygula</button></div></form>}
-                  </div>}
-                </div>
+                <SampleCountPicker count={sampleCount} onChange={setSampleCount} locked={!!request} max={100}/>
               </div>
               <div className="rq-quick-fields">
                 <Field label={'İş emri '+(rules?.requireOrderNumber?'*':'')}><Input readOnly={!!request} id="inspection-work-order" required={rules?.requireOrderNumber} maxLength={120} value={orderNumber} onChange={e=>setOrderNumber(e.target.value)} placeholder="WO-..." className="rq-technical"/></Field>
@@ -634,9 +628,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                   <Field label="Ekipman"><Input value={equipmentId} onChange={e=>setEquipmentId(e.target.value)} className="rq-technical"/></Field>
                 </div>
               </details>
-            </section>}
-          </Card>
-          <Card className="rq-preparation-summary"><h2 className="rq-section-title">Başlatılacak kontrol</h2>{currentProduct?<><p className="rq-helper rq-technical">{currentProduct.code}</p><h3 className="font-semibold mb-4">{currentProduct.name}</h3>{previewDrawing?.source&&<MediaImage src={previewDrawing.source} alt={currentProduct.name+' teknik resmi'} className="h-44 w-full rounded-lg bg-slate-950 object-contain"/>}<dl className="rq-properties"><div><dt>Kontrol planı</dt><dd>{currentPlan?<details key={currentPlan.id} className="rq-publication" onToggle={e=>{if(!e.currentTarget.open)return;const id=currentPlan.id;const seq=++publicationRequest.current;setPlanPublication(null);void SaasApi.controlPlanPublication(id).then(data=>{if(seq===publicationRequest.current)setPlanPublication({id,...data});}).catch(()=>{if(seq===publicationRequest.current)setPlanPublication({id,publishedAt:null,publishedBy:null,error:true});});}}><summary aria-label={`Plan ${currentPlan.version}, yayın bilgileri`}>{currentPlan.version} · Bilgi <span aria-hidden="true">ⓘ</span></summary><div className="rq-publication-card" role="status"><strong>Plan {currentPlan.version}</strong>{planPublication?.id!==currentPlan.id?<p>Yayın bilgisi yükleniyor…</p>:planPublication.error?<p>Yayın bilgisi alınamadı. Tekrar denemek için kapatıp açın.</p>:planPublication.publishedAt?<><p>Yayın tarihi: {new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium',timeStyle:'short'}).format(new Date(planPublication.publishedAt))}</p><p>Yayınlayan: {planPublication.publishedBy||'Kayıt bulunamadı'}</p></>:<p>Yayın bilgisi kayıtlarında bulunamadı.</p>}</div></details>:'Seçilmedi'}</dd></div><div><dt>Ölçüm noktası</dt><dd>{characteristics.length}</dd></div><div><dt>Numune</dt><dd>{sampleCount}</dd></div><div><dt>Operatör</dt><dd>{operatorName}</dd></div>{orderNumber&&<div><dt>İş emri</dt><dd className="rq-technical">{orderNumber}</dd></div>}</dl>{currentPlan&&<div className="rq-revision-summary">Plan: {currentPlan.version} · Çizim: {drawingStatus?.expected||'Belirtilmemiş'}{drawingStatus?.mismatch?<strong role="alert"> Çizim revizyonu uyuşmuyor: {drawingStatus.known.join(', ')}</strong>:drawingStatus?.unverified?<span> · Çizim revizyonu doğrulanamadı</span>:null}</div>}<details className="rq-start-context"><summary>İş ve istasyon bilgileri</summary><p>İş emri: {orderNumber||'Belirtilmedi'} · Lot: {lotNumber||'Belirtilmedi'}</p><p>İstasyon: {machineNo||'Belirtilmedi'}</p></details>{currentPlan&&<div className="mt-4"><StatusBadge status={currentPlan.status}/></div>}</>:<p className="rq-helper">Kontrol özetini görmek için ürün seçin.</p>}<Button id="btn-start-inspection" variant="primary" disabled={!rules||!currentPlan||!characteristics.length} onClick={handleStartSession} className="mt-5 w-full"><Play size={16}/>Ölçüme başla</Button>{!rules&&!rulesError&&<p role="status" className="rq-helper">İş kuralları yükleniyor…</p>}</Card>
+            </section>}<Button id="btn-start-inspection" variant="primary" disabled={!rules||!currentPlan||!characteristics.length} onClick={handleStartSession} className="mt-5 w-full"><Play size={16}/>Ölçüme başla</Button>{!rules&&!rulesError&&<p role="status" className="rq-helper">İş kuralları yükleniyor…</p>}</Card>
         </div>
       ) : (
         /* =========================================================================

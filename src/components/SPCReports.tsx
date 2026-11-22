@@ -1,6 +1,8 @@
+import {SPCRevisionReport} from './SPCRevisionReport';
+import {revisionCatalog} from '../services/spcRevisions';
 import {chartColors, chartAxis, chartTooltip, chartDate} from './ui/chartTheme';
 import {Card, Field, Select, MetricCard, DataTable, Badge, Button, EmptyState, ToleranceBand} from './ui';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Product, ControlPlan, InspectionLog, SPCMetric } from '../types';
 import { SPCEngine, selectPlanLogs } from '../services/spcEngine';
 import {formatSpcMeasurement,formatCapability} from '../services/spcFormat';
@@ -44,18 +46,20 @@ export const SPCReports: React.FC<SPCReportsProps> = ({
   controlPlans,
   inspectionLogs,
 }) => {
+  const [scope,setScope]=useState<'revision'|'compatible'|'compare'>('compatible');
   const [selectedProductId, setSelectedProductId] = useState<string>(products[0]?.id || '');
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [selectedCharId, setSelectedCharId] = useState<string>('');
 
+  useEffect(()=>{if(!products.some(p=>p.id===selectedProductId)){setSelectedProductId(products[0]?.id||'');setSelectedPlanId('');setSelectedCharId('');}},[products,selectedProductId]);
   // Optional Filters
   const [operatorFilter, setOperatorFilter] = useState<string>('all');
   const [lotFilter, setLotFilter] = useState<string>('all');
 
   // Filter plans for this product
   const productPlans = useMemo(() => {
-    return controlPlans.filter(cp => cp.productId === selectedProductId);
-  }, [controlPlans, selectedProductId]);
+    return revisionCatalog(selectedProductId,controlPlans,inspectionLogs);
+  }, [controlPlans, selectedProductId,inspectionLogs]);
 
   // Current active plan
   const currentPlan = useMemo(() => {
@@ -66,7 +70,7 @@ export const SPCReports: React.FC<SPCReportsProps> = ({
   }, [productPlans, selectedPlanId]);
 
   // Set default characteristic
-  const characteristics = currentPlan?.characteristics || [];
+  const characteristics = scope==='revision'?(currentPlan?.characteristics||[]):[...new Map([...productPlans.filter(p=>p.id!==currentPlan?.id).flatMap(p=>p.characteristics),...(currentPlan?.characteristics||[])].map(c=>[c.id,c])).values()];
   const activeChar = useMemo(() => {
     if (selectedCharId) {
       return characteristics.find(c => c.id === selectedCharId) || characteristics[0];
@@ -77,11 +81,11 @@ export const SPCReports: React.FC<SPCReportsProps> = ({
   // Unique operators and lots for filter dropdowns
   const operatorsList = useMemo(() => {
     const set = new Set<string>();
-    (currentPlan?selectPlanLogs(currentPlan,inspectionLogs):[]).forEach(l => {
+    (scope==='revision'?(currentPlan?selectPlanLogs(currentPlan,inspectionLogs):[]):inspectionLogs.filter(l=>l.productId===selectedProductId)).forEach(l => {
       if (l.productId === selectedProductId) set.add(l.operatorName);
     });
     return Array.from(set);
-  }, [inspectionLogs, selectedProductId, currentPlan]);
+  }, [inspectionLogs, selectedProductId, currentPlan,scope]);
 
   const lotsList = useMemo(() => {
     const set = new Set<string>();
@@ -143,8 +147,8 @@ export const SPCReports: React.FC<SPCReportsProps> = ({
   const format=(value:number)=>activeChar?formatSpcMeasurement(value,activeChar):String(value);
   const capabilityTone=(value:number|null):'neutral'|'danger'|'warning'|'success'=>value===null?'neutral':value<1?'danger':value<1.33?'warning':'success';
   return <div className="space-y-5 rq-spc-workspace">
-    <Card><div className="rq-spc-filters"><Field label="Parça / ürün"><Select value={selectedProductId} onChange={event=>{setSelectedProductId(event.target.value);setSelectedPlanId('');setSelectedCharId('');setOperatorFilter('all');setLotFilter('all');}}>{products.map(p=><option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}</Select></Field><Field label="Kontrol planı revizyonu"><Select value={currentPlan?.id||''} onChange={event=>{setSelectedPlanId(event.target.value);setSelectedCharId('');setOperatorFilter('all');setLotFilter('all');}}>{productPlans.map(p=><option key={p.id} value={p.id}>{p.version} · {p.isActive?'Aktif':p.status}</option>)}</Select></Field><Field label="Karakteristik"><Select value={activeChar?.id||''} onChange={event=>setSelectedCharId(event.target.value)}>{characteristics.map(c=><option key={c.id} value={c.id}>#{c.pointNo} · {c.name}</option>)}</Select></Field><Field label="Parti / lot"><Select value={lotFilter} onChange={event=>setLotFilter(event.target.value)}><option value="all">Tüm partiler</option>{lotsList.map(lot=><option key={lot} value={lot}>{lot||'Belirtilmedi'}</option>)}</Select></Field><Field label="Operatör"><Select value={operatorFilter} onChange={event=>setOperatorFilter(event.target.value)}><option value="all">Tüm operatörler</option>{operatorsList.map(name=><option key={name}>{name}</option>)}</Select></Field></div></Card>
-    {spcMetric?<>
+    <Card><div className="rq-spc-filters"><Field label="Analiz kapsamı"><Select aria-label="Analiz kapsamı" value={scope} onChange={e=>setScope(e.target.value as typeof scope)}><option value="revision">Bu revizyon</option><option value="compatible">Uyumlu revizyonlar</option><option value="compare">Tüm revizyonlarda karşılaştır</option></Select></Field><Field label="Parça / ürün"><Select value={selectedProductId} onChange={event=>{setSelectedProductId(event.target.value);setSelectedPlanId('');setSelectedCharId('');setOperatorFilter('all');setLotFilter('all');}}>{products.map(p=><option key={p.id} value={p.id}>{p.code} · {p.name}</option>)}</Select></Field><Field label="Kontrol planı revizyonu"><Select value={currentPlan?.id||''} onChange={event=>{setSelectedPlanId(event.target.value);setSelectedCharId('');setOperatorFilter('all');setLotFilter('all');}}>{productPlans.map(p=><option key={p.id} value={p.id}>{p.version} · {p.isActive?'Aktif':p.status}</option>)}</Select></Field><Field label="Karakteristik"><Select value={activeChar?.id||''} onChange={event=>setSelectedCharId(event.target.value)}>{characteristics.map(c=><option key={c.id} value={c.id}>#{c.pointNo} · {c.name}</option>)}</Select></Field><Field label="Parti / lot"><Select value={lotFilter} onChange={event=>setLotFilter(event.target.value)}><option value="all">Tüm partiler</option>{lotsList.map(lot=><option key={lot} value={lot}>{lot||'Belirtilmedi'}</option>)}</Select></Field><Field label="Operatör"><Select value={operatorFilter} onChange={event=>setOperatorFilter(event.target.value)}><option value="all">Tüm operatörler</option>{operatorsList.map(name=><option key={name}>{name}</option>)}</Select></Field></div></Card>
+    {scope!=='revision'?(activeChar&&currentPlan?<SPCRevisionReport key={selectedProductId+activeChar.id} anchor={currentPlan.characteristics.some(c=>c.id===activeChar.id)?currentPlan:productPlans.find(p=>p.characteristics.some(c=>c.id===activeChar.id))!} characteristic={activeChar} plans={productPlans} logs={inspectionLogs} mode={scope} operator={operatorFilter==='all'?undefined:operatorFilter} lot={lotFilter==='all'?undefined:lotFilter}/>:<EmptyState title="Analiz için karakteristik bulunamadı" description="Ürün ve kontrol planı seçin."/>):spcMetric?<>
       <div className="rq-metrics-row"><MetricCard label="Cp · Süreç yeteneği" value={formatCapability(spcMetric.cp)} detail={'Cpu '+formatCapability(spcMetric.cpu)+' · Cpl '+formatCapability(spcMetric.cpl)}/><MetricCard label="Cpk · Merkezlenmiş yetenek" value={formatCapability(spcMetric.cpk)} detail={getCpkBadge(spcMetric.cpk).label} tone={capabilityTone(spcMetric.cpk)}/><MetricCard label={'Ortalama · '+spcMetric.unit} value={format(spcMetric.mean)} detail={'Hedeften sapma: '+format(spcMetric.mean-spcMetric.nominal)}/><MetricCard label="Standart sapma · s" value={format(spcMetric.stdDev)} detail={'En düşük '+format(spcMetric.min)+' · En yüksek '+format(spcMetric.max)}/><MetricCard label="Numune sayısı" value={spcMetric.count} detail={spcMetric.outOfSpecCount+' uygunsuz · %'+spcMetric.outOfSpecRate.toFixed(2)} tone={spcMetric.outOfSpecCount?'danger':'neutral'}/></div>
       {spcMetric.capabilityUnavailableReason&&<p role="status" className="rq-helper">{spcMetric.capabilityUnavailableReason}</p>}
       <Card><div className="rq-chart-heading"><div><span className="rq-eyebrow">ÖLÇÜM TRENDİ</span><h2 className="rq-section-title">{activeChar?.name}</h2><p className="rq-helper">Kronolojik bireysel ölçümler · Plan {currentPlan?.version} · {spcMetric.count} geçerli numune · Spesifikasyon ve hesaplanan kontrol sınırları</p></div><ToleranceBand nominal={spcMetric.nominal} lsl={spcMetric.lsl} usl={spcMetric.usl} unit={spcMetric.unit}/></div>

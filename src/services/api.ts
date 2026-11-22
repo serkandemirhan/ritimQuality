@@ -43,6 +43,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 const pending = pendingStore(TOKEN_KEY);
 export const SaasApi = {
+  spcCharacteristicLinks: (productId:string) => request<import('./spcRevisions').SPCLink[]>('/spc-characteristic-links/'+encodeURIComponent(productId)),
+  saveSpcCharacteristicLink: (productId:string,link:import('./spcRevisions').SPCLink) => request('/spc-characteristic-links/'+encodeURIComponent(productId),{method:'POST',body:JSON.stringify(link)}),
   authCapabilities: () => request<{accountEmail:boolean}>('/auth/capabilities'),
   accountProfile: () => request<{email:string;workspace:string;email_verified_at:string|null}>('/auth/me'),
   requestAccountLink: (body:{workspace:string;email:string;purpose:'reset'|'verify'}) => request<{message:string}>('/auth/account-link',{method:'POST',body:JSON.stringify(body)}),
@@ -98,7 +100,7 @@ export const SaasApi = {
   saveProduct: (value: { id: string }) => request(`/products/${encodeURIComponent(value.id)}`, { method: 'PUT', body: JSON.stringify(value) }),
   deleteProduct: (id: string) => request(`/products/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   saveControlPlan: (value: { id: string }, guard?:{expected:string;active?:string}) => request<ControlPlan>(`/control-plans/${encodeURIComponent(value.id)}`, { method: 'PUT', body: JSON.stringify(value),headers:guard?{'X-Plan-Expected':guard.expected,...guard.active!==undefined?{'X-Active-Plan-Expected':guard.active}:{}}:{} }),
-  controlPlanCatalogMetadata: () => request<{id:string;updatedAt:string|null;publishedAt:string|null;publishedBy:string|null}[]>('/control-plan-catalog-metadata'),
+  controlPlanCatalogMetadata: (all=false) => request<{id:string;updatedAt:string|null;updatedBy:string|null;publishedAt:string|null;publishedBy:string|null}[]>('/control-plan-catalog-metadata'+(all?'?all=true':'')),
   controlPlanPublication: (id:string) => request<{publishedAt:string|null;publishedBy:string|null}>(`/control-plans/${encodeURIComponent(id)}/publication`),
   controlPlanRevisionUsage: (id:string) => request<{used:boolean;token:string;payload:unknown}>(`/control-plans/${encodeURIComponent(id)}/revision-usage`),
   deleteControlPlan: (id: string) => request(`/control-plans/${encodeURIComponent(id)}`, { method: 'DELETE' }),

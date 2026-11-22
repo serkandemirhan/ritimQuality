@@ -38,6 +38,7 @@ await evaluate(`document.querySelector('#nav-tab-operator')?.click()`);await del
 await evaluate(`(()=>{const s=document.querySelector('#select-operator-product');if(!s)throw Error(document.body.innerText);s.value=${JSON.stringify(product.id)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`);await delay(350);
 await evaluate(`(()=>{const picker=document.querySelector('.rq-sample-trigger');if(picker)picker.click();else document.querySelectorAll('.rq-sample-chips button')[1].click();})()`);await delay(80);
 await evaluate(`document.querySelectorAll('.rq-sample-grid button')[1]?.click()`);await delay(80);
+await evaluate(`document.querySelector('.rq-count-dialog[open] form')?.requestSubmit()`);await delay(80);
 await evaluate(`document.querySelector('#btn-start-inspection')?.click()`);await delay(500);
 if(!await evaluate(`!!document.querySelector('[id^="input-measured-value"]')`))throw Error(await evaluate('document.body.innerText'));
 const metrics=[];

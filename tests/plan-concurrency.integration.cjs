@@ -27,6 +27,7 @@ const port=()=>new Promise((resolve,reject)=>{const s=net.createServer();s.on('e
   await admin.query("INSERT INTO inspection_logs(id,tenant_id,product_id,control_plan_id,session_code,occurred_at,payload) VALUES('history',$1,'part','base','HISTORY',now(),$2)",[tenant,history]);
   const baseUsage=await call('/control-plans/base/revision-usage',tokens[0]);assert.equal(baseUsage.status,200);assert.equal(baseUsage.body.used,true);
   const initialCatalog=await call('/control-plan-catalog-metadata',tokens[0]);assert.equal(initialCatalog.status,200);assert.equal(initialCatalog.body.length,1);assert.equal(initialCatalog.body[0].publishedAt,null);assert.ok(initialCatalog.body[0].updatedAt);
+  const allCatalog=await call('/control-plan-catalog-metadata?all=true',tokens[0]);assert.equal(allCatalog.status,200);assert.equal(allCatalog.body.length,3);assert.equal(allCatalog.body[0].updatedBy,null);
   const overwrite=await call('/control-plans/base',tokens[0],'PUT',{...base,characteristics:[{...base.characteristics[0],name:'Changed'}]},{'X-Plan-Expected':baseUsage.body.token});assert.equal(overwrite.status,409);
   const usage=(await call('/control-plans/draft-a/revision-usage',tokens[0])).body;
   const concurrent=await Promise.all(tokens.map((token,i)=>call('/control-plans/draft-a',token,'PUT',{...usage.payload,revisionNote:'editor-'+i},{'X-Plan-Expected':usage.token})));
@@ -35,8 +36,15 @@ const port=()=>new Promise((resolve,reject)=>{const s=net.createServer();s.on('e
   const publish=await Promise.all([[ua,tokens[0]],[ub,tokens[1]]].map(([u,token])=>call('/control-plans/'+u.payload.id,token,'PUT',{...u.payload,status:'active',isActive:true},{'X-Plan-Expected':u.token,'X-Active-Plan-Expected':'base'})));
   assert.deepEqual(publish.map(r=>r.status).sort(),[200,409]);
   const catalog=await call('/control-plan-catalog-metadata',tokens[0]);assert.equal(catalog.status,200);assert.equal(catalog.body.length,1);assert.ok(catalog.body[0].publishedAt);assert.ok(catalog.body[0].publishedBy);assert.notEqual(catalog.body[0].id,'base');
+  assert.ok([first,second].includes(catalog.body[0].updatedBy));
   const foreignUser=crypto.randomUUID();await admin.query("INSERT INTO users(id,tenant_id,name,email,password_hash,role) VALUES($1,$2,'Other','other@example.invalid','unused','operator')",[foreignUser,other]);
   const foreignToken=auth.signToken({userId:foreignUser,tenantId:other,role:'operator'});const foreignCatalog=await call('/control-plan-catalog-metadata',foreignToken);assert.equal(foreignCatalog.status,200);assert.deepEqual(foreignCatalog.body,[]);
+  const decision={sourcePlanId:'base',sourceCharacteristicId:'point',targetPlanId:'draft-a',targetCharacteristicId:'point',enabled:true,reason:'Aynı fiziksel ölçüm doğrulandı'};
+  assert.equal((await call('/spc-characteristic-links/part',tokens[0],'POST',decision)).status,200);
+  const associations=await call('/spc-characteristic-links/part',tokens[0]);assert.equal(associations.status,200);assert.equal(associations.body.length,1);assert.equal(associations.body[0].enabled,true);assert.equal(associations.body[0].approvedBy,first);
+  assert.equal((await call('/spc-characteristic-links/part',foreignToken,'POST',decision)).status,403);assert.deepEqual((await call('/spc-characteristic-links/part',foreignToken)).body,[]);
+  assert.equal((await call('/spc-characteristic-links/part',tokens[0],'POST',{...decision,targetCharacteristicId:'missing'})).status,409);
+  assert.equal((await call('/spc-characteristic-links/part',tokens[0],'POST',{...decision,enabled:false,reason:'Eşleştirme geri alındı'})).status,200);assert.equal((await call('/spc-characteristic-links/part',tokens[0])).body[0].enabled,false);
   const rows=await admin.query('SELECT id FROM control_plans WHERE tenant_id=$1 AND is_active',[tenant]);assert.equal(rows.rowCount,1);assert.notEqual(rows.rows[0].id,'base');
   const fork={...base,id:'history-fork',version:'v2.0',status:'draft',isActive:false,characteristics:[{...base.characteristics[0],name:'Changed in new revision'}]};
   assert.equal((await call('/control-plans/history-fork',tokens[0],'PUT',fork,{'X-Plan-Expected':'missing'})).status,200);

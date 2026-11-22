@@ -1,3 +1,4 @@
+import {ControlPlanList} from './ControlPlanList';
 import './planEditor.css';
 import {nextPlanVersion} from '../services/planVersion';
 import { PageHeader, Button, DataTable, SearchInput, TableToolbar, StatusBadge, Badge, Breadcrumb, Card, Select, Input, NumberInput, Textarea, Field, FormSection, Modal } from './ui';
@@ -71,7 +72,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
   const [activePointNo, setActivePointNo] = useState<number | null>(1);
   const [isSavedBanner, setIsSavedBanner] = useState<boolean>(false);
   const [detailOpen, setDetailOpen] = useState(Boolean(initialProductId));
-  const [searchTerm, setSearchTerm] = useState('');
+
   const [focusMode,setFocusMode]=useState(false);
   const [revisionUsage,setRevisionUsage]=useState<{id:string;used:boolean;token:string}|null>(null);
   const [usageError,setUsageError]=useState('');
@@ -338,19 +339,8 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
   const unitOptions: MeasurementUnit[] = ['mm', 'inch', 'µm', '°', 'N', 'Ra', 'kg', 'bar', 'adet'];
 
   if (!detailOpen) {
-    const term = searchTerm.trim().toLocaleLowerCase('tr-TR');
-    const filteredProducts = products.filter(product => !term || [product.code, product.name, product.customer, product.category]
-      .some(value => value.toLocaleLowerCase('tr-TR').includes(term)));
-
     const openPlan=(product:Product,plan?:ControlPlan)=>{requestedPlan.current=selectedProductId===product.id?null:plan?.id||null;if(selectedProductId===product.id&&plan)handleSelectPlan(plan.id);setSelectedProductId(product.id);setDetailOpen(true);};
-    return <div className="space-y-5">
-      <PageHeader title="Kontrol planları" description="Ürün revizyonları, ölçüm noktaları ve yayın durumları." summary={<><span><strong>{controlPlans.length}</strong> revizyon</span><span><strong>{controlPlans.filter(p=>p.isActive&&p.status==='active').length}</strong> aktif plan</span><span><strong>{products.length}</strong> ürün</span></>} actions={onOpenQrLabels&&<Button onClick={onOpenQrLabels}>QR etiketlerini yazdır</Button>}/>
-      <TableToolbar><SearchInput value={searchTerm} onChange={event=>setSearchTerm(event.target.value)} placeholder="Ürün kodu, adı veya müşteri ara…" aria-label="Kontrol planı ara"/><span className="rq-helper m-0">{filteredProducts.length} ürün</span></TableToolbar>
-      <DataTable className="rq-plan-list-table" label="Kontrol planları ve revizyonlar"><thead><tr><th>Ürün / parça</th><th>Müşteri</th><th>Revizyon</th><th>Durum</th><th>Aktif</th><th>Nokta</th><th>Revizyon tarihi</th><th>Hazırlayan</th><th>İşlem</th></tr></thead><tbody>
-      {filteredProducts.flatMap(product=>{const plans=controlPlans.filter(plan=>plan.productId===product.id);return plans.length?plans.map(plan=><tr key={plan.id}><td><button type="button" className="rq-row-link" onClick={()=>openPlan(product,plan)}>{product.name}<small className="rq-technical">{product.code}</small></button></td><td>{product.customer||'—'}</td><td className="rq-technical">{plan.version}</td><td><StatusBadge status={plan.status}/></td><td>{plan.isActive&&plan.status==='active'?<Badge tone="success">Aktif</Badge>:<span className="rq-helper">—</span>}</td><td className="rq-technical">{plan.characteristics.length}</td><td className="rq-technical">{plan.revisionDate}</td><td>{plan.author}</td><td><Button onClick={()=>openPlan(product,plan)}>Aç <ChevronRight size={14}/></Button></td></tr>):[<tr key={product.id}><td><button type="button" className="rq-row-link" onClick={()=>openPlan(product)}>{product.name}<small className="rq-technical">{product.code}</small></button></td><td>{product.customer||'—'}</td><td>—</td><td><Badge>Plan yok</Badge></td><td>—</td><td>0</td><td>—</td><td>—</td><td><Button onClick={()=>openPlan(product)}>Plan hazırla</Button></td></tr>];})}
-      </tbody></DataTable>
-      {!filteredProducts.length&&<EmptyState title="Kontrol planı bulunamadı" description="Ürün aramasını değiştirin veya ilk ürününüzü oluşturun." label="Ürün oluştur" action={onCreateProduct}/>}
-    </div>;
+    return <ControlPlanList products={products} plans={controlPlans} onOpen={openPlan} onQr={onOpenQrLabels} onCreate={onCreateProduct}/>;
   }
 
   const publishPlan=async()=>{

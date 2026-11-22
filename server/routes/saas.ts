@@ -17,6 +17,16 @@ saasRouter.use(requireAuth);
 const entitySchema = z.record(z.unknown());
 const idSchema = z.string().min(1).max(120);
 
+// Associations are append-only audit decisions; measurement snapshots remain untouched.
+saasRouter.get('/spc-characteristic-links/:productId',async(req,res,next)=>{
+ try{const productId=idSchema.parse(req.params.productId);const rows=await withTenant(req.auth!.tenantId,c=>c.query(`SELECT DISTINCT ON (a.after_data->>'sourcePlanId',a.after_data->>'sourceCharacteristicId',a.after_data->>'targetPlanId',a.after_data->>'targetCharacteristicId') a.after_data AS decision,u.name AS "approvedBy",a.created_at AS "approvedAt" FROM audit_logs a LEFT JOIN users u ON u.tenant_id=a.tenant_id AND u.id=a.actor_user_id WHERE a.tenant_id=$1 AND a.entity_type='spc_characteristic_link' AND a.entity_id=$2 ORDER BY a.after_data->>'sourcePlanId',a.after_data->>'sourceCharacteristicId',a.after_data->>'targetPlanId',a.after_data->>'targetCharacteristicId',a.created_at DESC,a.id DESC`,[req.auth!.tenantId,productId]));res.json(rows.rows.map(r=>({...r.decision,approvedBy:r.approvedBy,approvedAt:r.approvedAt})));}catch(e){next(e);}
+});
+saasRouter.post('/spc-characteristic-links/:productId',requireRole('admin','quality_engineer'),async(req,res,next)=>{
+ try{const productId=idSchema.parse(req.params.productId),input=z.object({sourcePlanId:idSchema,sourceCharacteristicId:idSchema,targetPlanId:idSchema,targetCharacteristicId:idSchema,enabled:z.boolean(),reason:z.string().trim().min(3).max(500)}).parse(req.body);if(input.sourcePlanId===input.targetPlanId)conflict('Aynı revizyondaki iki nokta birleştirilemez.');const {tenantId,userId}=req.auth!;
+ const decision=await withTenant(tenantId,async c=>{await assertSubscription(c,tenantId);const result=await c.query('SELECT id,payload FROM control_plans WHERE tenant_id=$1 AND product_id=$2 AND id=ANY($3::text[])',[tenantId,productId,[input.sourcePlanId,input.targetPlanId]]);for(const [planId,charId] of [[input.sourcePlanId,input.sourceCharacteristicId],[input.targetPlanId,input.targetCharacteristicId]])if(!result.rows.find(r=>r.id===planId)?.payload.characteristics?.some((ch:{id:string})=>ch.id===charId))conflict('Eşleştirilen karakteristik bu ürünün revizyonunda bulunamadı.');const value=JSON.stringify([input.sourcePlanId,input.sourceCharacteristicId])<JSON.stringify([input.targetPlanId,input.targetCharacteristicId])?input:{...input,sourcePlanId:input.targetPlanId,sourceCharacteristicId:input.targetCharacteristicId,targetPlanId:input.sourcePlanId,targetCharacteristicId:input.sourceCharacteristicId};await audit(c,{tenantId,userId,action:input.enabled?'spc.characteristic.linked':'spc.characteristic.unlinked',entityType:'spc_characteristic_link',entityId:productId,after:value,ip:req.ip});return value;});res.json(decision);
+ }catch(e){next(e);}
+});
+
 saasRouter.get('/bootstrap', async (req, res, next) => {
   try {
     const { tenantId } = req.auth!;
@@ -116,7 +126,7 @@ saasRouter.delete('/products/:id', requireRole('admin'), async (req, res, next) 
 
 saasRouter.get('/control-plan-catalog-metadata',async(req,res,next)=>{
  try{const rows=await withTenant(req.auth!.tenantId,c=>c.query(`
- SELECT p.id,p.updated_at AS "updatedAt",publication.created_at AS "publishedAt",u.name AS "publishedBy"
+ SELECT p.id,p.updated_at AS "updatedAt",editor.name AS "updatedBy",publication.created_at AS "publishedAt",u.name AS "publishedBy"
  FROM control_plans p LEFT JOIN LATERAL (
  SELECT a.created_at,a.actor_user_id FROM audit_logs a WHERE a.tenant_id=p.tenant_id
  AND a.entity_type='control_plan' AND a.entity_id=p.id AND a.action IN ('control_plan.created','control_plan.updated')
@@ -124,7 +134,9 @@ saasRouter.get('/control-plan-catalog-metadata',async(req,res,next)=>{
  AND (a.before_data IS NULL OR a.before_data->>'isActive' IS DISTINCT FROM 'true' OR a.before_data->>'status' IS DISTINCT FROM 'active')
  ORDER BY a.created_at DESC,a.id DESC LIMIT 1) publication ON true
  LEFT JOIN users u ON u.tenant_id=p.tenant_id AND u.id=publication.actor_user_id
- WHERE p.tenant_id=$1 AND p.is_active=true AND p.status='active'`,[req.auth!.tenantId]));res.json(rows.rows);}catch(error){next(error);}
+ LEFT JOIN LATERAL (SELECT a.actor_user_id FROM audit_logs a WHERE a.tenant_id=p.tenant_id AND a.entity_type='control_plan' AND a.entity_id=p.id AND a.action IN ('control_plan.created','control_plan.updated') ORDER BY a.created_at DESC,a.id DESC LIMIT 1) latest ON true
+ LEFT JOIN users editor ON editor.tenant_id=p.tenant_id AND editor.id=latest.actor_user_id
+ WHERE p.tenant_id=$1 AND ($2 OR (p.is_active=true AND p.status='active'))`,[req.auth!.tenantId,req.query.all==='true']));res.json(rows.rows);}catch(error){next(error);}
 });
 saasRouter.get('/control-plans/:id/publication', async(req,res,next)=>{
   try {
