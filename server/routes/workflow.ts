@@ -26,6 +26,28 @@ workflowRouter.get('/work',async(req,res,next)=>{
     });res.json(result);
   }catch(error){next(error);}
 });
+workflowRouter.get('/cases/catalog',async(req,res,next)=>{try{
+ const input=z.object({search:z.string().max(250).default(''),state:z.enum(['','open','action','verification','closed']).default(''),severity:z.enum(['','minor','major','critical']).default(''),owner:z.string().max(120).default(''),creator:z.string().max(120).default(''),from:z.string().datetime().optional(),to:z.string().datetime().optional(),page:z.coerce.number().int().min(1).max(100000).default(1),pageSize:z.coerce.number().refine(n=>[50,100].includes(n)).default(50),sort:z.enum(['title','product_code','lot_number','machine_no','severity','state','owner_name','created_at','created_by_name','due_at']).default('created_at'),direction:z.enum(['asc','desc']).default('desc')}).parse(req.query);
+ const {tenantId,userId,role}=req.auth!;
+ const order={title:'title',product_code:'product_code',lot_number:'lot_number',machine_no:'machine_no',severity:"CASE severity WHEN 'critical' THEN 3 WHEN 'major' THEN 2 ELSE 1 END",state:"CASE state WHEN 'open' THEN 1 WHEN 'action' THEN 2 WHEN 'verification' THEN 3 ELSE 4 END",owner_name:'owner_name',created_at:'created_at',created_by_name:'created_by_name',due_at:'due_at'}[input.sort];
+ const result=await withTenant(tenantId,async client=>{
+ const row=(await client.query(`WITH scoped AS (
+ SELECT c.*,l.payload->>'productCode' product_code,l.payload->>'lotNumber' lot_number,l.payload->>'machineNo' machine_no,
+ owner.name owner_name,creator.name created_by_name,creation.actor_user_id created_by
+ FROM quality_cases c LEFT JOIN inspection_logs l ON l.tenant_id=c.tenant_id AND l.id=c.inspection_id
+ LEFT JOIN users owner ON owner.tenant_id=c.tenant_id AND owner.id=c.owner_id
+ LEFT JOIN LATERAL (SELECT a.actor_user_id FROM audit_logs a WHERE a.tenant_id=c.tenant_id AND a.entity_type='quality_workflow' AND a.entity_id=c.id::text AND a.action='ncr.created' ORDER BY a.created_at,a.id LIMIT 1) creation ON true
+ LEFT JOIN users creator ON creator.tenant_id=c.tenant_id AND creator.id=creation.actor_user_id
+ WHERE c.tenant_id=$1 AND ($2::boolean=false OR c.owner_id=$3)
+ ), filtered AS (SELECT * FROM scoped WHERE ($4='' OR strpos(lower(concat_ws(' ',title,product_code,lot_number,machine_no,owner_name,created_by_name)),lower($4))>0)
+ AND ($5='' OR state=$5) AND ($6='' OR severity=$6) AND ($7='' OR ($7='unassigned' AND owner_id IS NULL) OR owner_id=$7)
+ AND ($8='' OR created_by=$8) AND ($9::timestamptz IS NULL OR created_at>=$9) AND ($10::timestamptz IS NULL OR created_at<$10)
+ ), paged AS (SELECT * FROM filtered ORDER BY ${order} ${input.direction} NULLS LAST,id ASC LIMIT $11 OFFSET $12)
+ SELECT (SELECT count(*)::int FROM filtered) total,COALESCE((SELECT json_agg(paged) FROM paged),'[]'::json) items,
+ COALESCE((SELECT json_agg(v ORDER BY v.name) FROM (SELECT DISTINCT owner_id id,owner_name name FROM scoped WHERE owner_id IS NOT NULL) v),'[]'::json) owners,
+ COALESCE((SELECT json_agg(v ORDER BY v.name) FROM (SELECT DISTINCT created_by id,created_by_name name FROM scoped WHERE created_by IS NOT NULL) v),'[]'::json) creators`,[tenantId,role==='operator',userId,input.search,input.state,input.severity,input.owner,input.creator,input.from||null,input.to||null,input.pageSize,(input.page-1)*input.pageSize])).rows[0];return row;
+ });res.json(result);
+}catch(error){next(error);}});
 workflowRouter.patch('/notifications/:id/read',async(req,res,next)=>{
   try{const {tenantId,userId}=req.auth!;await withTenant(tenantId,client=>client.query('UPDATE quality_notifications SET read_at=COALESCE(read_at,now()) WHERE tenant_id=$1 AND user_id=$2 AND id=$3',[tenantId,userId,z.coerce.number().int().positive().parse(req.params.id)]));res.status(204).end();}catch(error){next(error);}
 });

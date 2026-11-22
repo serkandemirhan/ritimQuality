@@ -61,6 +61,7 @@ export const SaasApi = {
   pushConfig: () => request('/push/config'),
   subscribePush: (body:unknown) => request('/push/subscriptions',{method:'POST',body:JSON.stringify(body)}),
   unsubscribePush: () => request('/push/subscriptions',{method:'DELETE'}),
+  caseCatalog: (query:URLSearchParams,signal?:AbortSignal) => request('/cases/catalog?'+query.toString(),{signal}),
   work: () => request('/work'),
   discardInspectionDraft: (id:string) => request('/inspection-drafts/'+encodeURIComponent(id),{method:'DELETE'}),
   inspectionDrafts: () => request('/inspection-drafts'),

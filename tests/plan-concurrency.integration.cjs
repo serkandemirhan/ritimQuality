@@ -51,6 +51,26 @@ const port=()=>new Promise((resolve,reject)=>{const s=net.createServer();s.on('e
   assert.equal((await call('/control-plans/duplicate-version',tokens[0],'PUT',{...fork,id:'duplicate-version'},{'X-Plan-Expected':'missing'})).status,409);
   assert.deepEqual((await admin.query("SELECT payload FROM inspection_logs WHERE tenant_id=$1 AND id='history'",[tenant])).rows[0].payload,history);
   assert.deepEqual((await admin.query("SELECT payload FROM control_plans WHERE tenant_id=$1 AND id='base'",[tenant])).rows[0].payload.characteristics,base.characteristics);
+  await admin.query(`INSERT INTO inspection_logs(id,tenant_id,product_id,control_plan_id,session_code,occurred_at,payload)
+   SELECT 'catalog-'||n,$1,'part','base','CAT-'||n,now(),jsonb_build_object('productCode','PRODUCT-'||lpad(n::text,3,'0'),'lotNumber','LOT-'||(n%4),'machineNo','CNC-'||(n%3)) FROM generate_series(1,260) n`,[tenant]);
+  await admin.query(`INSERT INTO quality_cases(tenant_id,inspection_id,title,owner_id,severity,created_at)
+   SELECT $1,'catalog-'||n,'Case '||lpad(n::text,3,'0'),CASE WHEN n%2=0 THEN $2 ELSE NULL END,CASE WHEN n%2=0 THEN 'critical' ELSE 'major' END,'2026-11-01T00:00:00Z'::timestamptz+n*interval '1 minute' FROM generate_series(1,260) n`,[tenant,first]);
+  await admin.query(`INSERT INTO audit_logs(tenant_id,actor_user_id,action,entity_type,entity_id,after_data)
+   SELECT $1,$2,'ncr.created','quality_workflow',id::text,'{}'::jsonb FROM quality_cases WHERE tenant_id=$1`,[tenant,second]);
+  const listing=await call('/cases/catalog?pageSize=100',tokens[0]);assert.equal(listing.status,200);assert.equal(listing.body.total,260);assert.equal(listing.body.items.length,100);assert.equal(listing.body.items[0].title,'Case 260');assert.equal(listing.body.items[0].created_by,second);assert.equal(listing.body.items[0].created_by_name,second);assert.equal(listing.body.items[0].product_code,'PRODUCT-260');
+  const page3=await call('/cases/catalog?pageSize=100&page=3',tokens[0]);assert.equal(page3.body.items.length,60);assert.equal(page3.body.items[0].title,'Case 060');
+  const ascending=await call('/cases/catalog?sort=title&direction=asc',tokens[0]);assert.equal(ascending.body.items[0].title,'Case 001');
+  for(const sort of ['title','product_code','lot_number','machine_no','severity','state','owner_name','created_at','created_by_name','due_at'])assert.equal((await call('/cases/catalog?sort='+sort,tokens[0])).status,200);
+  assert.equal((await call('/cases/catalog?search=PRODUCT-259',tokens[0])).body.total,1);
+  assert.equal((await call('/cases/catalog?severity=critical&owner='+first+'&creator='+second,tokens[0])).body.total,130);
+  assert.equal((await call('/cases/catalog?owner=unassigned',tokens[0])).body.total,130);
+  assert.equal((await call('/cases/catalog?from=2026-11-01T00:00:00Z&to=2026-11-01T00:11:00Z',tokens[0])).body.total,10);
+  assert.equal((await call('/cases/catalog',foreignToken)).body.total,0);
+  await admin.query("UPDATE users SET role='operator' WHERE tenant_id=$1 AND id=$2",[tenant,first]);
+  const scopedOperator=auth.signToken({userId:first,tenantId:tenant,role:'operator'});assert.equal((await call('/cases/catalog',scopedOperator)).body.total,130);
+  await admin.query("UPDATE users SET role='admin' WHERE tenant_id=$1 AND id=$2",[tenant,first]);
+  assert.equal((await call('/cases/catalog?pageSize=999',tokens[0])).status,400);
+  console.log('PASS: 260-case full catalog, 50/100 paging, all sort columns, metadata, combined filters and operator/tenant scope');
   const discardId=crypto.randomUUID();
   await admin.query('INSERT INTO inspection_drafts(id,tenant_id,created_by,claimed_by,product_id,control_plan_id,payload) VALUES($1,$2,$3,$3,$4,$5,$6)',[discardId,tenant,first,'part','base',{}]);
   const discard=async(token,id=discardId)=>fetch(origin+'/api/inspection-drafts/'+id,{method:'DELETE',headers:{Authorization:'Bearer '+token}});
