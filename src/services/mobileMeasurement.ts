@@ -38,6 +38,16 @@ export async function archiveMobileSession(scope:string) {
     tx.oncomplete=()=>resolve();tx.onabort=tx.onerror=()=>reject(new Error('Yalnızca sunucu kabulü doğrulanmış oturum arşivlenebilir.'));
   });
 }
+export async function discardMobileSession(scope:string,id:string):Promise<void>{
+ if(SaasApi.scope()!==scope)throw new Error('Bu cihaz oturumu için yetkiniz yok.');
+ const database=await db();
+ return new Promise((resolve,reject)=>{
+  const tx=database.transaction('sessions','readwrite'),store=tx.objectStore('sessions');let error:unknown;
+  const request=store.get(scope);
+  request.onsuccess=()=>{try{const s=request.result as MobileSession|undefined;if(!s||s.id!==id||s.submissionRequested||s.submission||s.confirmed)throw new Error('Gönderilen veya başka bir oturum silinemez.');store.delete(scope);}catch(e){error=e;tx.abort();}};
+  tx.oncomplete=()=>resolve();tx.onabort=tx.onerror=()=>reject(error||new Error('Ölçüm silinemedi; cihazdaki veriler korunuyor.'));
+ });
+}
 export async function readMobileSession(scope: string): Promise<MobileSession | undefined> {
   const database = await db();
   return new Promise((resolve, reject) => {

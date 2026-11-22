@@ -56,7 +56,7 @@ assert.equal(await evaluate(`document.querySelector('#mobile-measured-value').ge
 assert.ok(await evaluate(`document.querySelector('.mm-value-row .mm-feedback').textContent.includes('Cihazda kaydedildi')`),'Save feedback stays beside the measured value');
 await click('Kaydet ve ilerle');assert.equal(await evaluate(`(await core.readMobileSession('review:user')).attempts.length`),1,'empty value rejected');
 await press(['1','8',',']);await click('Kaydet ve ilerle');assert.equal(await evaluate(`(await core.readMobileSession('review:user')).active.characteristic`),'c2','partial decimal does not advance');
-await click('Sonraki eksik');assert.ok(await evaluate(`document.querySelector('dialog[open]').textContent.includes('Kaydedilmemiş')`));await click('Vazgeç');
+await click('Eksik noktaya git');assert.ok(await evaluate(`document.querySelector('dialog[open]').textContent.includes('Kaydedilmemiş')`));await click('Vazgeç');
 await cmd('Page.reload');await delay(1300);await evaluate(`document.querySelector('#nav-tab-operator').click()`);await delay(250);await click('Devam et');await delay(300);assert.equal(await evaluate(`document.querySelector('#mobile-measured-value').value`),'18,','draft recovers after reload');
 await evaluate(`window.core=await import('/test-core.js')`);
 const dimensions=[];
