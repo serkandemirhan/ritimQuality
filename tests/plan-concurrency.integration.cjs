@@ -52,7 +52,7 @@ const port=()=>new Promise((resolve,reject)=>{const s=net.createServer();s.on('e
   assert.deepEqual((await admin.query("SELECT payload FROM inspection_logs WHERE tenant_id=$1 AND id='history'",[tenant])).rows[0].payload,history);
   assert.deepEqual((await admin.query("SELECT payload FROM control_plans WHERE tenant_id=$1 AND id='base'",[tenant])).rows[0].payload.characteristics,base.characteristics);
   await admin.query(`INSERT INTO inspection_logs(id,tenant_id,product_id,control_plan_id,session_code,occurred_at,payload)
-   SELECT 'catalog-'||n,$1,'part','base','CAT-'||n,now(),jsonb_build_object('productCode','PRODUCT-'||lpad(n::text,3,'0'),'lotNumber','LOT-'||(n%4),'machineNo','CNC-'||(n%3)) FROM generate_series(1,260) n`,[tenant]);
+   SELECT 'catalog-'||n,$1,'part','base','CAT-'||n,now(),jsonb_build_object('productCode','PRODUCT-'||lpad(n::text,3,'0'),'lotNumber','LOT-'||(n%4),'machineNo','CNC-'||(n%3),'operatorName','Operator '||(n%2),'controlPlanVersion','v'||(n%3)) FROM generate_series(1,260) n`,[tenant]);
   await admin.query(`INSERT INTO quality_cases(tenant_id,inspection_id,title,owner_id,severity,created_at)
    SELECT $1,'catalog-'||n,'Case '||lpad(n::text,3,'0'),CASE WHEN n%2=0 THEN $2 ELSE NULL END,CASE WHEN n%2=0 THEN 'critical' ELSE 'major' END,'2026-11-01T00:00:00Z'::timestamptz+n*interval '1 minute' FROM generate_series(1,260) n`,[tenant,first]);
   await admin.query(`INSERT INTO audit_logs(tenant_id,actor_user_id,action,entity_type,entity_id,after_data)
@@ -70,6 +70,25 @@ const port=()=>new Promise((resolve,reject)=>{const s=net.createServer();s.on('e
   const scopedOperator=auth.signToken({userId:first,tenantId:tenant,role:'operator'});assert.equal((await call('/cases/catalog',scopedOperator)).body.total,130);
   await admin.query("UPDATE users SET role='admin' WHERE tenant_id=$1 AND id=$2",[tenant,first]);
   assert.equal((await call('/cases/catalog?pageSize=999',tokens[0])).status,400);
+
+  await admin.query("INSERT INTO inspection_approvals(tenant_id,inspection_id,status,reason) SELECT $1,'catalog-'||n,CASE WHEN n%2=0 THEN 'approved' ELSE 'pending' END,'Reason '||n FROM generate_series(1,260) n",[tenant]);
+  const approvals=await call('/approvals/catalog?pageSize=100&sort=product_code&direction=asc',tokens[0]);assert.equal(approvals.status,200,JSON.stringify(approvals.body));assert.equal(approvals.body.total,260);assert.equal(approvals.body.items.length,100);assert.equal(approvals.body.items[0].product_code,'PRODUCT-001');
+  assert.equal((await call('/approvals/catalog?pageSize=100&page=3',tokens[0])).body.items.length,60);
+  for(const sort of ['session_code','product_code','product_name','revision','operator_name','measured_at','status','reason','reviewer_name','reviewed_at'])assert.equal((await call('/approvals/catalog?sort='+sort,tokens[0])).status,200);
+  assert.equal((await call('/approvals/catalog?status=pending',tokens[0])).body.total,130);
+  assert.equal((await call('/approvals/catalog?product=PRODUCT-259&status=pending',tokens[0])).body.total,1);
+  assert.equal((await call('/approvals/catalog?operator=Operator%201&revision=v1&status=pending',tokens[0])).body.total,44);
+  assert.equal((await call('/approvals/catalog?search=Reason%20259',tokens[0])).body.total,1);
+  assert.equal((await call('/approvals/catalog',foreignToken)).status,403);
+  const foreignAdmin=auth.signToken({userId:foreignUser,tenantId:other,role:'admin'});
+  // Authorization is verified against the user's stored role; upgrade the disposable fixture only.
+  await admin.query("UPDATE users SET role='admin' WHERE tenant_id=$1 AND id=$2",[other,foreignUser]);
+  assert.equal((await call('/approvals/catalog',foreignAdmin)).body.total,0);
+  assert.equal((await call('/approvals/catalog?sort=invalid',tokens[0])).status,400);
+  assert.equal((await call('/approvals/catalog?pageSize=999',tokens[0])).status,400);
+  assert.equal((await call('/approvals/catalog?from=2099-01-01T00:00:00Z',tokens[0])).body.total,0);
+  assert.equal((await call('/approvals/catalog?from=2026-02-01T00:00:00Z&to=2026-01-01T00:00:00Z',tokens[0])).status,400);
+  console.log('PASS: full approval catalog, all sort columns, combined filters, date range, paging and tenant/role isolation');
   console.log('PASS: 260-case full catalog, 50/100 paging, all sort columns, metadata, combined filters and operator/tenant scope');
   const discardId=crypto.randomUUID();
   await admin.query('INSERT INTO inspection_drafts(id,tenant_id,created_by,claimed_by,product_id,control_plan_id,payload) VALUES($1,$2,$3,$3,$4,$5,$6)',[discardId,tenant,first,'part','base',{}]);

@@ -29,6 +29,29 @@ workflowRouter.get('/work',async(req,res,next)=>{
     });res.json(result);
   }catch(error){next(error);}
 });
+workflowRouter.get('/approvals/catalog',requireRole('admin','quality_engineer','auditor'),async(req,res,next)=>{try{
+ const keys=['session_code','product_code','product_name','revision','operator_name','measured_at','status','reason','reviewer_name','reviewed_at'] as const;
+ const input=z.object({search:z.string().max(250).default(''),status:z.enum(['','pending','approved','rejected']).default(''),product:z.string().max(250).default(''),revision:z.string().max(250).default(''),operator:z.string().max(250).default(''),from:z.string().datetime().optional(),to:z.string().datetime().optional(),page:z.coerce.number().int().min(1).max(100000).default(1),pageSize:z.coerce.number().refine(n=>[50,100].includes(n)).default(50),sort:z.enum(keys).default('measured_at'),direction:z.enum(['asc','desc']).default('desc')}).parse(req.query);
+ if(input.from&&input.to&&input.from>=input.to)throw Object.assign(new Error('Geçersiz tarih aralığı.'),{status:400});
+ const result=await withTenant(req.auth!.tenantId,async client=>(await client.query(`WITH scoped AS (
+ SELECT a.*,COALESCE(l.control_number,l.payload->>'sessionCode',l.id) session_code,
+ l.payload->>'productCode' product_code,l.payload->>'productName' product_name,l.payload->>'controlPlanVersion' revision,
+ l.payload->>'operatorName' operator_name,l.occurred_at measured_at,u.name reviewer_name
+ FROM inspection_approvals a JOIN inspection_logs l ON l.tenant_id=a.tenant_id AND l.id=a.inspection_id
+ LEFT JOIN users u ON u.tenant_id=a.tenant_id AND u.id=a.reviewed_by
+ WHERE a.tenant_id=$1 AND l.voided_at IS NULL
+ ), filtered AS (SELECT * FROM scoped WHERE
+ ($2='' OR strpos(lower(concat_ws(' ',session_code,product_code,product_name,revision,operator_name,reason,reviewer_name)),lower($2))>0)
+ AND ($3='' OR status=$3) AND ($4='' OR product_code=$4) AND ($5='' OR revision=$5) AND ($6='' OR operator_name=$6)
+ AND ($7::timestamptz IS NULL OR measured_at>=$7) AND ($8::timestamptz IS NULL OR measured_at<$8)
+ ), paged AS (SELECT * FROM filtered ORDER BY ${input.sort} ${input.direction} NULLS LAST,inspection_id ASC LIMIT $9 OFFSET $10)
+ SELECT (SELECT count(*)::int FROM filtered) total,COALESCE((SELECT json_agg(paged) FROM paged),'[]'::json) items,
+ COALESCE((SELECT json_agg(v.product_code ORDER BY v.product_code) FROM (SELECT DISTINCT product_code FROM scoped WHERE product_code IS NOT NULL) v),'[]'::json) products,
+ COALESCE((SELECT json_agg(v.revision ORDER BY v.revision) FROM (SELECT DISTINCT revision FROM scoped WHERE revision IS NOT NULL) v),'[]'::json) revisions,
+ COALESCE((SELECT json_agg(v.operator_name ORDER BY v.operator_name) FROM (SELECT DISTINCT operator_name FROM scoped WHERE operator_name IS NOT NULL) v),'[]'::json) operators`,
+ [req.auth!.tenantId,input.search,input.status,input.product,input.revision,input.operator,input.from||null,input.to||null,input.pageSize,(input.page-1)*input.pageSize])).rows[0]);
+ res.json(result);
+}catch(error){next(error);}});
 workflowRouter.get('/cases/catalog',async(req,res,next)=>{try{
  const input=z.object({search:z.string().max(250).default(''),state:z.enum(['','open','action','verification','closed']).default(''),severity:z.enum(['','minor','major','critical']).default(''),owner:z.string().max(120).default(''),creator:z.string().max(120).default(''),from:z.string().datetime().optional(),to:z.string().datetime().optional(),page:z.coerce.number().int().min(1).max(100000).default(1),pageSize:z.coerce.number().refine(n=>[50,100].includes(n)).default(50),sort:z.enum(['title','product_code','lot_number','machine_no','severity','state','owner_name','created_at','created_by_name','due_at']).default('created_at'),direction:z.enum(['asc','desc']).default('desc')}).parse(req.query);
  const {tenantId,userId,role}=req.auth!;
