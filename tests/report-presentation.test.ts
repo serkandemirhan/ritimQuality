@@ -5,7 +5,7 @@ import {createReportPdf} from '../src/services/reportPdf';
 import {reportHeading,reportApprovalState} from '../src/services/reportPresentation';
 import type {ControlPlan,InspectionLog} from '../src/types';
 const plan={id:'p',productId:'part',version:'v1',requiresApproval:true,characteristics:[{id:'c',pointNo:1,name:'Çap',nominal:10,lsl:9,usl:11,unit:'mm',pin:{x:50,y:50}}]} as ControlPlan;
-const log={id:'r',controlNumber:'KNT-1',productCode:'PART',productName:'Test',controlPlanSnapshot:plan,timestamp:'2026-11-22T08:00:00Z',sampleCount:1,samples:[{sampleIndex:1,values:{c:10},statuses:{c:'pass'}}]} as InspectionLog;
+const log={id:'r',sessionCode:'INS-R',productId:'part',controlPlanId:'p',controlPlanVersion:'v1',operatorName:'Test',lotNumber:'LOT',orderNumber:'WO',machineNo:'CNC',overallStatus:'pass',totalPointsChecked:1,failedPointsCount:0,warningPointsCount:0,controlNumber:'KNT-1',productCode:'PART',productName:'Test',controlPlanSnapshot:plan,timestamp:'2026-11-22T08:00:00Z',sampleCount:1,samples:[{sampleIndex:1,values:{c:10},statuses:{c:'pass'}}]} as InspectionLog;
 test('report headings distinguish approval from technical conformance',()=>{
  for(const [status,title,tone] of [['pending','KALİTE RAPORU — ONAY BEKLİYOR','warning'],['approved','ONAYLANMIŞ KALİTE RAPORU','success'],['rejected','KALİTE RAPORU — REDDEDİLDİ','danger'],['not_required','KALİTE RAPORU','info']] as const){const h=reportHeading({...log,approval:{status}});assert.equal(h.title,title);assert.equal(h.tone,tone);assert.equal(h.state,status);}
  assert.equal(reportApprovalState(log),'pending');assert.equal(reportApprovalState({...log,operatorRoleAtMeasurement:'admin'}),'not_required');
