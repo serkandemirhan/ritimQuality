@@ -1,0 +1,17 @@
+.rq-shell .rq-records-workspace .rq-record-filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px;margin-bottom:0}
+.rq-shell .rq-records-workspace .rq-record-filters>.rq-search{width:300px;max-width:100%;flex:0 1 300px}
+.rq-shell .rq-records-workspace .rq-record-filter-fields{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rq-shell .rq-records-workspace .rq-record-filter-fields>select{width:150px;max-width:100%;flex:none}
+.rq-shell .rq-records-workspace .rq-record-filter-fields>select:first-child{width:230px}
+.rq-record-advanced{position:relative;flex:none}
+.rq-record-advanced summary{list-style:none;white-space:nowrap}.rq-record-advanced summary::-webkit-details-marker{display:none}
+.rq-record-advanced:not([open])>.rq-record-advanced-grid{display:none!important}
+.rq-record-advanced[open]>summary{border-color:#93b4fb;background:#eff6ff;color:#1d4ed8}
+.rq-record-advanced-grid{position:absolute;right:0;top:calc(100% + 8px);z-index:20;width:640px;max-width:calc(100vw - 64px);padding:12px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;background:#fff;border:1px solid #dfe5ee;border-radius:9px;box-shadow:0 8px 24px #0f172a1a}
+.rq-record-advanced-grid select{width:100%;min-width:0}
+.rq-record-toolbar-end{display:flex;align-items:center;gap:10px;margin-left:auto;white-space:nowrap;font-size:12px;color:#64748b}
+.rq-record-active-filters{display:flex;align-items:center;flex-wrap:wrap;gap:6px;flex-basis:100%;padding-top:4px}
+.rq-record-active-filters button{display:flex;align-items:center;gap:8px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:4px 8px;border:1px solid #dfe5ee;border-radius:5px;font-size:11px;color:#475569;background:#f8fafc}
+.rq-record-active-filters .rq-record-clear{background:transparent;border-color:transparent;color:#2563eb}
+@media(max-width:1100px){.rq-record-advanced[open]{flex-basis:100%}.rq-record-advanced-grid{position:static;width:min(640px,100%);max-width:100%;margin-top:8px}.rq-shell .rq-records-workspace .rq-record-filter-fields>select:first-child{width:200px}.rq-shell .rq-records-workspace .rq-record-filter-fields>select{width:140px}}
+@media(max-width:767px){.rq-shell .rq-records-workspace .rq-record-filters>.rq-search{width:100%;flex-basis:100%}.rq-shell .rq-records-workspace .rq-record-filter-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}.rq-shell .rq-records-workspace .rq-record-filter-fields>select,.rq-shell .rq-records-workspace .rq-record-filter-fields>select:first-child{width:100%;min-width:0}.rq-record-advanced-grid{position:static;width:auto;max-width:100%;grid-template-columns:1fr;box-shadow:none;margin-top:8px}.rq-record-advanced[open]{flex-basis:100%}.rq-record-toolbar-end{flex:1;justify-content:flex-end}.rq-record-active-filters button{max-width:100%}}

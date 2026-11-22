@@ -1,3 +1,4 @@
+import './recordFilters.css';
 import {orderedMeasurements} from '../services/measurementOrder';
 import {InspectionTrace} from './InspectionTrace';
 import {ApprovalSummary} from './ApprovalSummary';
@@ -121,11 +122,15 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
     });
   }, [logs, products, searchTerm, productFilter, statusFilter, dateFilter,customerFilter,revisionFilter,sourceFilter,operatorFilter,equipmentFilter,characteristicFilter]);
 
-  // Daily statistics
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const todayLogs = logs.filter(l => l.timestamp.slice(0, 10) === todayStr);
-  const passedCount = filteredLogs.filter(l => l.overallStatus !== 'fail').length;
-  const passRate = filteredLogs.length > 0 ? (passedCount / filteredLogs.length) * 100 : null;
+  const filters=[
+    {label:'Arama',value:searchTerm,set:setSearchTerm,empty:'',text:searchTerm},
+    {label:'Parça',value:productFilter,set:setProductFilter,empty:'all',text:products.find(p=>p.id===productFilter)?.name||productFilter},
+    {label:'Sonuç',value:statusFilter,set:setStatusFilter,empty:'all',text:({pass:'Uygun',warning:'Şartlı kabul',fail:'Uygunsuz'} as Record<string,string>)[statusFilter]},
+    {label:'Tarih',value:dateFilter,set:setDateFilter,empty:'all',text:({today:'Bugün',week:'Son 7 gün',month:'Son 30 gün'} as Record<string,string>)[dateFilter]},
+    ...[{label:'Müşteri',value:customerFilter,set:setCustomerFilter},{label:'Revizyon',value:revisionFilter,set:setRevisionFilter},{label:'Kaynak',value:sourceFilter,set:setSourceFilter},{label:'Operatör',value:operatorFilter,set:setOperatorFilter},{label:'Cihaz',value:equipmentFilter,set:setEquipmentFilter},{label:'Karakteristik',value:characteristicFilter,set:setCharacteristicFilter}].map(f=>({...f,empty:'all',text:f.label==='Kaynak'?SOURCE_LABELS[f.value as keyof typeof SOURCE_LABELS]:f.label==='Karakteristik'?controlPlans.flatMap(p=>p.characteristics).find(c=>c.id===f.value)?.name:f.value}))
+  ];
+  const activeFilters=filters.filter(f=>f.value!==f.empty);
+  const advancedCount=filters.slice(4).filter(f=>f.value!==f.empty).length;
 
   const handleDeleteLog = async (logId: string) => {
     try {
@@ -139,14 +144,7 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
 
   return (
     <div className="rq-records-workspace space-y-5">
-      {onOpenSPC&&<Button className="quality-secondary" onClick={onOpenSPC}>SPC Analizine Git</Button>}
-      <div className="rq-metrics-row"><MetricCard label="Kayıtlı kontrol oturumları" value={logs.length} detail={'Bugün: '+todayLogs.length}/><MetricCard label="Uygun / uyarılı" value={passedCount} detail="Geçerli filtrelerdeki oturumlar" tone="success"/><MetricCard label="Uygunsuz" value={filteredLogs.filter(log=>log.overallStatus==='fail').length} detail="Geçerli filtrelerdeki oturumlar" tone="danger"/><MetricCard label="Uygunluk oranı" value={passRate===null?'—':'%'+passRate.toFixed(1)} detail="Uyarılı sonuçlar dahil"/></div>
-      <div className="rq-actions"><Button onClick={()=>{setExportMessage('');setExportOpen(true);}}><Download size={16}/>Dışa Aktar</Button><span className="rq-helper m-0">{filteredLogs.length} / {logs.length} kontrol oturumu</span></div>
       <Modal open={exportOpen} title="Kontrol kayıtlarını dışa aktar" onClose={()=>setExportOpen(false)}><div className="space-y-5"><Card><h3 className="rq-section-title">Geçerli filtrelerin sonucu</h3><p className="rq-helper">{filteredLogs.length} kontrol oturumu dışa aktarılacak. Arama, parça, sonuç, tarih ve gelişmiş filtreler uygulanır.</p><div className="rq-summary"><Badge>{exportFormat==='csv'?'CSV · UTF-8':'Excel · XML'}</Badge><span>{filteredLogs.reduce((sum,log)=>sum+log.sampleCount,0)} numune</span></div></Card><Field label="Dosya biçimi"><Select value={exportFormat} onChange={event=>setExportFormat(event.target.value as 'csv'|'excel')}><option value="csv">CSV (.csv)</option><option value="excel">Excel çalışma sayfası (.xml)</option></Select></Field><p className="rq-helper">Sütunlar: oturum, tarih, parça ve revizyonlar, parti, seri, iş emri, operatör, istasyon, numune sayısı, sonuç ve hatalı nokta sayısı.</p>{exportMessage&&<p role="status" className="rq-feedback rq-tone-info">{exportMessage}</p>}<PageActions><Button onClick={()=>setExportOpen(false)}>Kapat</Button><Button variant="primary" disabled={!filteredLogs.length} onClick={()=>{try{exportInspectionRecords(filteredLogs,exportFormat);setExportMessage('Dosya hazırlandı; tarayıcı indirmesi başlatıldı.');}catch{setExportMessage('Dosya hazırlanamadı. Lütfen yeniden deneyin.');}}}><Download size={16}/>Dosyayı indir</Button></PageActions></div></Modal>
-
-      <div className="rq-record-source-summary border-y border-slate-200 py-3">
-        <div className="flex flex-wrap items-center gap-3 text-xs"><span className="font-bold text-slate-800">Kaynak Özeti:</span>{(['manual','gauge','import','cmm'] as const).map(source=><span key={source} className="rounded-lg bg-slate-100 px-2.5 py-1 font-mono font-bold uppercase text-slate-700">{SOURCE_LABELS[source]}: {filteredLogs.filter(log=>(log.source||'manual')===source).reduce((total,log)=>total+log.samples.reduce((sum,sample)=>sum+Object.values(sample.statuses).filter(status=>status!=='empty').length,0),0)}</span>)}<span className="ml-auto font-bold text-emerald-700">Uygun: {filteredLogs.filter(log=>log.overallStatus==='pass').length} / {filteredLogs.length}</span></div>
-      </div>
 
       {/* Main Table Card */}
       <div className="rq-records-list">
@@ -187,7 +185,7 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
               <option value="week">Son 7 Gün</option>
               <option value="month">Son 30 Gün</option>
             </Select>
-            <details><summary className="rq-button cursor-pointer">Gelişmiş Filtreler</summary><div className="rq-form-grid mt-3">
+            </div><details className="rq-record-advanced"><summary className="rq-button cursor-pointer">Diğer filtreler{advancedCount>0?` (${advancedCount})`:''}</summary><div className="rq-record-advanced-grid">
             <Select aria-label="Müşteri filtresi" value={customerFilter} onChange={e=>setCustomerFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Müşteriler</option>{[...new Set(products.map(p=>p.customer))].map(value=><option key={value}>{value}</option>)}</Select>
             <Select aria-label="Revizyon filtresi" value={revisionFilter} onChange={e=>setRevisionFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Revizyonlar</option>{[...new Set(products.map(p=>p.revision||'').filter(Boolean))].map(value=><option key={value}>{value}</option>)}</Select>
             <Select aria-label="Kaynak filtresi" value={sourceFilter} onChange={e=>setSourceFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Kaynaklar</option><option value="manual">Manuel</option><option value="gauge">Ölçüm cihazı</option><option value="import">Dosyadan aktarım</option><option value="cmm">CMM</option></Select>
@@ -195,7 +193,8 @@ export const MeasurementLogs: React.FC<MeasurementLogsProps> = ({
             <Select aria-label="Ekipman filtresi" value={equipmentFilter} onChange={e=>setEquipmentFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Cihazlar</option>{[...new Set(logs.map(l=>l.equipmentId||l.machineNo).filter(Boolean))].map(value=><option key={value}>{value}</option>)}</Select>
             <Select aria-label="Karakteristik filtresi" value={characteristicFilter} onChange={e=>setCharacteristicFilter(e.target.value)} className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-slate-800 font-semibold"><option value="all">Tüm Karakteristikler</option>{controlPlans.flatMap(plan=>plan.characteristics).filter((char,index,array)=>array.findIndex(item=>item.id===char.id)===index).map(char=><option key={char.id} value={char.id}>#{char.pointNo} {char.name}</option>)}</Select>
             </div></details>
-          </div>
+          <div className="rq-record-toolbar-end"><span role="status">{filteredLogs.length} kayıt{activeFilters.length>0?` / ${logs.length}`:''}</span><Button onClick={()=>{setExportMessage('');setExportOpen(true);}}><Download size={14}/>Dışa aktar</Button></div>
+          {activeFilters.length>0&&<div className="rq-record-active-filters" aria-label="Seçili filtreler">{activeFilters.map(f=><button key={f.label} type="button" onClick={()=>f.set(f.empty)} aria-label={f.label+' filtresini kaldır'} title={f.label+': '+f.text}>{f.label}: {f.text}<span aria-hidden="true">×</span></button>)}<button type="button" className="rq-record-clear" onClick={()=>filters.forEach(f=>f.set(f.empty))}>Tümünü temizle</button></div>}
         </div>
 
         {/* Logs Table */}
