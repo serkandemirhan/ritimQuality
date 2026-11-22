@@ -32,7 +32,7 @@ export function WorkCenter({users,products,currentUser,onInspect,section,onSecti
   const [audit,setAudit]=useState<Record<string,unknown>[]>([]);
   const [organization,setOrganization]=useState<{plants:{id:string;name:string}[];departments:{id:string;plant_id:string;name:string}[];stations:{id:string;department_id:string;name:string}[]}>({plants:[],departments:[],stations:[]});
   const manager=['admin','quality_engineer'].includes(currentUser.role);
-  const reload=async()=>{try{if(currentUser.role==='admin')await SaasApi.resolveAdminMeasurementApprovals();setData(await SaasApi.work() as Work);}finally{setLoading(false);}};
+  const reload=async()=>{try{if(currentUser.role==='admin'){try{await SaasApi.resolveAdminMeasurementApprovals();}catch(error){setError(error instanceof Error?error.message:'Eski onay kayıtları güncellenemedi.');}}setData(await SaasApi.work() as Work);}finally{setLoading(false);}};
   const run=async(action:()=>Promise<unknown>)=>{if(busy)return;setBusy(true);setError('');try{await action();await reload();}catch(error){setError(error instanceof Error?error.message:'İşlem tamamlanamadı.');}finally{setBusy(false);}};
   useEffect(()=>{void reload().catch(error=>setError(String(error)));const timer=setInterval(()=>void reload().catch(()=>{}),30000);return()=>clearInterval(timer);},[]);
   useEffect(()=>{if(section==='audit')void run(async()=>setAudit(await SaasApi.auditLogs() as Record<string,unknown>[]));if(section==='organization')void run(async()=>setOrganization(await SaasApi.organization() as typeof organization));},[section]);
