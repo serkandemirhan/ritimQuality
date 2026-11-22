@@ -1,4 +1,6 @@
+import {MeasurementMatrix} from './MeasurementMatrix';
 import { MeasurementChoices } from './MeasurementChoices';
+import {planDrawing} from '../services/planDrawing';
 import { PageHeader, Button, IconButton, Card, FormSection, Field, Input, Select, NumberInput, StatusBadge } from './ui';
 import { MediaImage } from './MediaImage';
 import { InspectionQR } from './InspectionQR';
@@ -75,6 +77,17 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const sessionStartedAt=useRef('');
   const savingRef = useRef(false);
   const [saving,setSaving] = useState(false);
+  const [matrixOpen,setMatrixOpen] = useState(false);
+  useEffect(()=>{
+    const closeMenu=(event:PointerEvent|KeyboardEvent)=>{
+      const menu=document.querySelector<HTMLDetailsElement>('.rq-point-menu[open]');
+      if(!menu)return;
+      if(event instanceof KeyboardEvent){if(event.key!=='Escape')return;menu.removeAttribute('open');menu.querySelector('summary')?.focus();}
+      else if(event.target instanceof Node&&!menu.contains(event.target))menu.removeAttribute('open');
+    };
+    document.addEventListener('pointerdown',closeMenu);document.addEventListener('keydown',closeMenu);
+    return ()=>{document.removeEventListener('pointerdown',closeMenu);document.removeEventListener('keydown',closeMenu);};
+  },[]);
   const draftKey = 'quality:draft:' + SaasApi.scope();
   const restoredRef = useRef(false);
   const [draftAvailable,setDraftAvailable] = useState(() => Boolean(localStorage.getItem(draftKey)));
@@ -194,6 +207,10 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const currentPlan = controlPlans.find(cp => cp.id === selectedPlanId);
   const characteristics = currentPlan?.characteristics || [];
   const currentCharacteristic = characteristics.find(c => c.pointNo === activePointNo) || characteristics[0];
+  const [drawingImageId,setDrawingImageId]=useState<string>();
+  const currentDrawing=useMemo(()=>currentPlan&&currentProduct?planDrawing(currentPlan,currentProduct,currentCharacteristic?.id,drawingImageId):null,[currentPlan,currentProduct,currentCharacteristic?.id,drawingImageId]);
+  const previewDrawing=useMemo(()=>currentPlan&&currentProduct?planDrawing(currentPlan,currentProduct):null,[currentPlan,currentProduct]);
+  useEffect(()=>setDrawingImageId(undefined),[selectedPlanId,isSessionActive]);
   const selectablePlans = currentProduct
     ? controlPlans.filter(cp => cp.productId === currentProduct.id && (!rules?.requireActivePlan || (cp.isActive && cp.status === 'active')))
     : [];
@@ -361,10 +378,15 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
   // Set precise nominal or offset value with one tap
   const handleSetPresetValue = (value: number) => {
-    if (!currentCharacteristic) return;
-    const rounded = Number(value.toFixed(currentCharacteristic.unit === '°' ? 1 : 3));
+    if (!currentCharacteristic || saving || submissionRef.current || savedLog) return;
+    const rounded = Number(value.toFixed(Math.max(3,currentCharacteristic.precision??0)));
     setNumericText(String(rounded)); setReplaceNumeric(true);
     handleValueChange(currentCharacteristic.id, activeSampleIndex, String(rounded));
+  };
+  const adjustMeasuredValue = (delta:number) => {
+    if(!currentCharacteristic)return;
+    const value=numericText.trim()===''?NaN:Number(numericText.replace(',','.'));
+    handleSetPresetValue(Number.isFinite(value)?value+delta:currentCharacteristic.nominal);
   };
 
   useEffect(() => {
@@ -629,7 +651,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
               </details>
             </section>}
           </Card>
-          <Card className="rq-preparation-summary"><h2 className="rq-section-title">Başlatılacak kontrol</h2>{currentProduct?<><p className="rq-helper rq-technical">{currentProduct.code}</p><h3 className="font-semibold mb-4">{currentProduct.name}</h3>{(currentPlan?.drawingImageUrl||currentProduct.defaultDrawingUrl)&&<MediaImage src={currentPlan?.drawingImageUrl||currentProduct.defaultDrawingUrl} alt={currentProduct.name+' teknik resmi'} className="h-44 w-full rounded-lg bg-slate-950 object-contain"/>}<dl className="rq-properties"><div><dt>Kontrol planı</dt><dd>{currentPlan?.version||'Seçilmedi'}</dd></div><div><dt>Ölçüm noktası</dt><dd>{characteristics.length}</dd></div><div><dt>Numune</dt><dd>{sampleCount}</dd></div><div><dt>Operatör</dt><dd>{operatorName}</dd></div>{orderNumber&&<div><dt>İş emri</dt><dd className="rq-technical">{orderNumber}</dd></div>}</dl>{currentPlan&&<div className="mt-4"><StatusBadge status={currentPlan.status}/></div>}</>:<p className="rq-helper">Kontrol özetini görmek için ürün seçin.</p>}<Button id="btn-start-inspection" variant="primary" disabled={!rules||!currentPlan||!characteristics.length} onClick={handleStartSession} className="mt-5 w-full"><Play size={16}/>Ölçüme başla</Button>{!rules&&!rulesError&&<p role="status" className="rq-helper">İş kuralları yükleniyor…</p>}</Card>
+          <Card className="rq-preparation-summary"><h2 className="rq-section-title">Başlatılacak kontrol</h2>{currentProduct?<><p className="rq-helper rq-technical">{currentProduct.code}</p><h3 className="font-semibold mb-4">{currentProduct.name}</h3>{(previewDrawing?.source)&&<MediaImage src={currentPlan?.drawingImageUrl||currentProduct.defaultDrawingUrl} alt={currentProduct.name+' teknik resmi'} className="h-44 w-full rounded-lg bg-slate-950 object-contain"/>}<dl className="rq-properties"><div><dt>Kontrol planı</dt><dd>{currentPlan?.version||'Seçilmedi'}</dd></div><div><dt>Ölçüm noktası</dt><dd>{characteristics.length}</dd></div><div><dt>Numune</dt><dd>{sampleCount}</dd></div><div><dt>Operatör</dt><dd>{operatorName}</dd></div>{orderNumber&&<div><dt>İş emri</dt><dd className="rq-technical">{orderNumber}</dd></div>}</dl>{currentPlan&&<div className="mt-4"><StatusBadge status={currentPlan.status}/></div>}</>:<p className="rq-helper">Kontrol özetini görmek için ürün seçin.</p>}<Button id="btn-start-inspection" variant="primary" disabled={!rules||!currentPlan||!characteristics.length} onClick={handleStartSession} className="mt-5 w-full"><Play size={16}/>Ölçüme başla</Button>{!rules&&!rulesError&&<p role="status" className="rq-helper">İş kuralları yükleniyor…</p>}</Card>
         </div>
       ) : (
         /* =========================================================================
@@ -676,14 +698,14 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                     key={s.sampleIndex}
                     id={`sample-tab-${s.sampleIndex}`}
                     type="button"
-                    onClick={() => setActiveSampleIndex(s.sampleIndex)}
+                    onClick={() => {setActiveSampleIndex(s.sampleIndex);requestAnimationFrame(()=>document.querySelector<HTMLInputElement>('.rq-sample-serial input')?.focus());}}
                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
                       isSelected
                         ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400/50'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800'
                     }`}
                     aria-pressed={isSelected}
-                    title={`Numune #${s.sampleIndex}`}
+                    title={`Numune #${s.sampleIndex} — seri numarasını düzenle`}
                   >
                     <span>#{s.sampleIndex}</span>
                     {isFilled && (
@@ -759,10 +781,12 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                 Occupies ~60% on desktop/tablet landscape, top ~52% on mobile
                 ========================================================================= */}
             <div className="quality-drawing">
+              {currentDrawing&&currentDrawing.images.length>1&&<div className="rq-drawing-reference-picker" aria-label="Kontrol noktasının teknik resimleri">{currentDrawing.images.map(image=><button type="button" key={image.id} aria-pressed={image.url===currentDrawing.source} onClick={()=>setDrawingImageId(image.id)}>{image.name}</button>)}</div>}
+              {currentDrawing?.missing&&<p role="alert" className="rq-entry-error">Bu revizyona bağlı teknik resim ürün kayıtlarında bulunamadı. Kontrol planındaki görsel bağlantısını kontrol edin.</p>}
               <DrawingCanvas balloonMode={currentPlan.balloonMode}
-                key={`${currentPlan.id}:${currentPlan.drawingImageUrl}`}
-                imageUrl={currentPlan.drawingImageUrl || currentProduct?.defaultDrawingUrl || ''}
-                characteristics={characteristics}
+                key={`${currentPlan.id}:${currentDrawing?.source}`}
+                imageUrl={currentDrawing?.source||''}
+                characteristics={currentDrawing?.characteristics||[]}
                 activePointNo={activePointNo}
                 onPointSelect={(pNo) => {setActivePointNo(pNo);if(phoneInput)setMobileLayoutMode('card');}}
                 pointStatuses={activeSampleStatuses}
@@ -779,6 +803,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                 stepper navigation, and save buttons - all without scrolling!
                 ========================================================================= */}
             <div className="measurement-deck">
+<MeasurementMatrix open={matrixOpen} onClose={()=>setMatrixOpen(false)} samples={samples} characteristics={characteristics} saved={!!savedLog} onSelect={(sample,point)=>{setActiveSampleIndex(sample);setActivePointNo(point);}} />
 {!phoneInput && <section className="rq-desktop-samples" aria-label="Numune seçimi"><div className="measurement-samples flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-700/80">
               <span className="text-[10px] font-bold text-slate-400 px-1 hidden lg:inline">NUMUNE:</span>
               {samples.map(s => {
@@ -792,7 +817,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                     key={s.sampleIndex}
                     id={`sample-tab-${s.sampleIndex}`}
                     type="button"
-                    onClick={() => setActiveSampleIndex(s.sampleIndex)}
+                    onClick={() => {setActiveSampleIndex(s.sampleIndex);requestAnimationFrame(()=>document.querySelector<HTMLInputElement>('.rq-sample-serial input')?.focus());}}
                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
                       isSelected
                         ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400/50'
@@ -801,7 +826,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                     aria-pressed={isSelected}
                     title={`Numune #${s.sampleIndex}`}
                   >
-                    <span className="rq-sample-label">N{s.sampleIndex}<small title={serialNumber || lotNumber}>{(serialNumber || lotNumber || "Seri/lot yok").slice(-12)}</small></span>
+                    <span className="rq-sample-label">N{s.sampleIndex}<small title={s.serialNumber}>{s.serialNumber || "Seri no…"}</small></span><span className="rq-sample-edit" aria-hidden="true">⋯</span>
                     {isFilled && (
                       hasFail ? (
                         <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
@@ -812,7 +837,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                   </button>
                 );
               })}
-            </div><div className="rq-sample-progress"><span>Toplam ilerleme</span><span>{totalChecked} / {totalPossible}</span><progress value={totalChecked} max={Math.max(1,totalPossible)} aria-label="Toplam ölçüm ilerlemesi" /></div></section>}
+            </div><label className="rq-sample-serial">N{activeSampleIndex} seri numarası<input aria-label={`N${activeSampleIndex} seri numarası`} disabled={saving||!!savedLog||!!submissionRef.current} maxLength={120} placeholder="Numuneye özel seri numarası" value={samples.find(s=>s.sampleIndex===activeSampleIndex)?.serialNumber || ''} onChange={e=>{const value=e.target.value;setSamples(previous=>previous.map(s=>s.sampleIndex===activeSampleIndex?{...s,serialNumber:value}:s));}} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.stopPropagation();e.currentTarget.blur();}}} /></label><button type="button" className="rq-sample-progress" aria-label="Tüm ölçümleri aç" onClick={()=>setMatrixOpen(true)}><span>Toplam ilerleme</span><span>{totalChecked} / {totalPossible} · %{totalPossible?Math.round(totalChecked/totalPossible*100):0}</span><progress value={totalChecked} max={Math.max(1,totalPossible)} aria-label="Toplam ölçüm ilerlemesi" /></button></section>}
               {currentCharacteristic && (
                 <div className="measurement-deck-inner">
                   {/* Point Top Info Row */}
@@ -844,7 +869,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                       </button>
 
                       <div className="text-xs text-slate-700 font-mono font-bold text-center px-1">
-                        Nokta {activePointNo} / {characteristics.length}
+                        <span className="sr-only">Nokta </span>{activePointNo} / {characteristics.length}
                       </div>
 
                       <button
@@ -856,7 +881,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                         <span>{isLastMeasurement?'Son nokta':'Sonraki'}</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
-                    </div><details className="rq-point-menu"><summary aria-label="Ölçüm noktalarını aç">Noktalar ▦</summary><div className="rq-point-menu-grid">{characteristics.map(c=><button key={c.id} type="button" aria-pressed={activePointNo===c.pointNo} onClick={event=>{setActivePointNo(c.pointNo);event.currentTarget.closest("details")?.removeAttribute("open");}}>{c.pointNo} · {c.name}</button>)}</div></details></div>}
+                    </div><details className="rq-point-menu"><summary aria-label="Ölçüm noktalarını aç">Noktalar ▦</summary><div className="rq-point-menu-grid">{characteristics.map(c=><button key={c.id} type="button" title={c.name} aria-label={"#"+c.pointNo+" "+c.name} data-status={currentSampleObj?.statuses[c.id]||"empty"} aria-pressed={activePointNo===c.pointNo} onClick={event=>{setActivePointNo(c.pointNo);event.currentTarget.closest("details")?.removeAttribute("open");}}>{c.pointNo}</button>)}</div></details></div>}
                       <span className={`measurement-critical px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shrink-0 ${
                         currentCharacteristic.criticalClass === 'critical'
                           ? 'bg-rose-50 text-rose-700 border-rose-200'
@@ -946,28 +971,28 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleSetPresetValue(currentCharacteristic.nominal - 0.01)}
+                          onClick={() => adjustMeasuredValue(-0.01)}
                           className="px-1.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[10px] font-mono font-semibold transition shrink-0"
                         >
                           -0.01
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleSetPresetValue(currentCharacteristic.nominal + 0.01)}
+                          onClick={() => adjustMeasuredValue(0.01)}
                           className="px-1.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[10px] font-mono font-semibold transition shrink-0"
                         >
                           +0.01
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleSetPresetValue(currentCharacteristic.nominal - 0.02)}
+                          onClick={() => adjustMeasuredValue(-0.02)}
                           className="px-1.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[10px] font-mono font-semibold transition shrink-0"
                         >
                           -0.02
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleSetPresetValue(currentCharacteristic.nominal + 0.02)}
+                          onClick={() => adjustMeasuredValue(0.02)}
                           className="px-1.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[10px] font-mono font-semibold transition shrink-0"
                         >
                           +0.02

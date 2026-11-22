@@ -207,6 +207,13 @@ body:has(.quality-session) { padding-bottom:0; }
 
 .rq-report-export-status { padding:10px 14px; font-size:12px; }
 
+/* Compact, searchable handover queue on the measurement preparation screen. */
+.rq-drafts{border:1px solid #dce5e9;border-radius:10px;background:#fff;overflow:hidden}
+.rq-drafts-summary{min-height:48px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;color:#173443;font-size:13px}
+.rq-drafts-summary::-webkit-details-marker{display:none}.rq-drafts-summary>span:first-child{display:flex;align-items:center;gap:9px;min-width:0}.rq-drafts-summary svg{color:#587483;flex:none}.rq-drafts-count{background:#edf3f5;color:#405f6d;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700}.rq-drafts-toggle{color:#607886;font-size:11px;white-space:nowrap}.rq-drafts-summary:focus-visible,.rq-draft-action:focus-visible,.rq-drafts-search input:focus-visible{outline:2px solid #1479b5;outline-offset:2px}
+.rq-drafts-body{border-top:1px solid #e8eef0;padding:8px 12px 10px}.rq-drafts-search{display:flex;align-items:center;gap:8px;border:1px solid #d6e2e7;border-radius:7px;padding:0 10px;max-width:370px;margin-bottom:8px;color:#6b8794}.rq-drafts-search input{border:0;background:transparent;min-width:0;width:100%;height:36px;outline:0;font-size:12px;color:#193747}.rq-drafts-list{max-height:230px;overflow:auto;overscroll-behavior:contain}.rq-draft-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 2px;border-bottom:1px solid #edf1f2;min-height:48px}.rq-draft-row:last-child{border-bottom:0}.rq-draft-info{display:flex;align-items:center;gap:8px 18px;min-width:0;flex-wrap:wrap;color:#637987;font-size:12px}.rq-draft-info strong{color:#193747;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}.rq-draft-locked{color:#936820}.rq-draft-action{flex:none;border:1px solid #c8d9e1;background:#f8fbfc;color:#145573;border-radius:7px;min-height:36px;padding:0 14px;font-weight:650;font-size:12px;cursor:pointer}.rq-draft-action:hover:not(:disabled){background:#e7f3f8}.rq-draft-action:disabled{color:#8c9ca4;background:#f4f6f7;cursor:not-allowed}.rq-drafts-empty{padding:8px 2px;color:#677e89;font-size:12px}
+@media(max-width:600px){.rq-drafts-summary{padding:10px}.rq-drafts-toggle{font-size:10px}.rq-drafts-body{padding:8px}.rq-draft-info{gap:3px 10px}.rq-draft-info strong{width:100%;max-width:200px}.rq-draft-row{align-items:center}.rq-draft-action{min-height:40px;padding:0 10px}}
+
 /* Desktop operator presentation; workflow and mobile styles remain shared. */
 @media (min-width:1024px) {
  body:has(.rq-operator-workspace) .rq-terminal-page{max-width:none;padding:12px 16px;min-height:0;height:100dvh}
@@ -293,3 +300,36 @@ body:has(.quality-session) { padding-bottom:0; }
  .rq-operator-workspace .quality-drawing>div>div:first-child>div>div{background:#eef2f6;border-color:#dce2eb}
  .rq-operator-workspace .measurement-critical{flex-basis:100%;text-align:right;background:transparent;border:0;padding:0}
 }
+ .rq-sample-serial{display:grid;gap:4px;margin:10px 0;font-size:11px;color:#64748b}
+ .rq-sample-serial input{width:100%;min-width:0;padding:8px 10px;border:1px solid #dce2eb;border-radius:7px;background:#fff;color:#1e293b;font-size:13px}
+ .rq-sample-serial input:focus{outline:2px solid #93b4fa;outline-offset:1px}
+@media(min-width:1024px){
+ .rq-operator-workspace button.rq-sample-progress{width:100%;border:1px solid transparent;border-radius:6px;padding:7px 8px;background:#f8fafc;text-align:left;cursor:pointer;font-weight:400}
+ .rq-operator-workspace button.rq-sample-progress:hover{border-color:#a7c4ed;background:#f1f6ff}
+ .rq-operator-workspace button.rq-sample-progress:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+ .rq-operator-workspace .measurement-point-title{display:grid;grid-template-columns:minmax(0,1fr) 132px;column-gap:10px}
+ .rq-operator-workspace .measurement-point-title>div:first-child{min-width:0}
+ .rq-operator-workspace .rq-desktop-point-nav{width:132px;gap:4px;align-self:start}
+ .rq-operator-workspace .rq-desktop-point-nav>div{gap:4px;display:grid;grid-template-columns:26px 42px 26px}
+ .rq-operator-workspace .rq-desktop-point-nav button{width:26px;min-height:28px;height:28px;padding:4px;border-radius:6px}
+ .rq-operator-workspace .rq-desktop-point-nav>div>div{font:11px "Segoe UI",sans-serif;white-space:nowrap}
+ .rq-operator-workspace .measurement-critical{grid-column:1/-1;justify-self:end;flex-basis:auto}
+ .rq-point-menu>summary{width:26px;height:28px;padding:3px;border-radius:6px;color:#5376a2;background:#fff}
+ .rq-point-menu>summary:hover{background:#f1f6ff}.rq-point-menu>summary:focus-visible{outline:2px solid #2563eb}
+ .rq-operator-workspace .rq-point-menu-grid{top:calc(100% + 7px);right:0;width:232px;display:grid;grid-template-columns:repeat(5,36px);gap:8px;padding:9px;max-height:min(60vh,440px);overflow:auto;border:1px solid #dce2eb;border-radius:9px;background:#fff;box-shadow:0 8px 24px #0f172a1a}
+ .rq-operator-workspace .rq-point-menu-grid button{width:36px;height:36px;min-height:36px;padding:0;text-align:center;border:1px solid #dce2eb;border-radius:6px;background:#fff;color:#64748b;font:13px "Segoe UI",sans-serif}
+ .rq-operator-workspace .rq-point-menu-grid button[data-status=pass]{border-color:#34a874;color:#15803d}
+ .rq-operator-workspace .rq-point-menu-grid button[data-status=warning]{border-color:#ca8a04;color:#a16207}
+ .rq-operator-workspace .rq-point-menu-grid button[data-status=fail]{border-color:#e86976;color:#be123c}
+ .rq-operator-workspace .rq-point-menu-grid button[aria-pressed=true]{outline:1px solid #2563eb;border-color:#2563eb;color:#2563eb;background:#fff}
+ .rq-operator-workspace .rq-point-menu-grid button:hover{background:#f8fafc}.rq-operator-workspace .rq-point-menu-grid button:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+}
+ .rq-drawing-reference-picker{display:flex;gap:6px;overflow:auto;flex:none;padding:6px 10px;background:#f8fafc;border-bottom:1px solid #dce2eb}
+ .rq-drawing-reference-picker button{padding:5px 9px;border:1px solid #dce2eb;border-radius:6px;background:#fff;color:#64748b;font-size:11px;white-space:nowrap}
+ .rq-drawing-reference-picker button[aria-pressed=true]{border-color:#2563eb;color:#2563eb;background:#eff6ff}
+/* Keep secondary controls quiet; the active point and value carry emphasis. */
+.rq-operator-workspace .rq-point-menu-grid{width:232px;max-width:calc(100vw - 40px);grid-template-columns:repeat(5,minmax(0,1fr));background:#fff}
+.rq-operator-workspace .rq-point-menu-grid button{width:100%;min-width:0;overflow:hidden}
+.rq-operator-workspace .measurement-tool,.rq-operator-workspace .measurement-point-title h2,.rq-operator-workspace .measurement-tolerances>div,.rq-operator-workspace .measurement-presets button{background:transparent!important;box-shadow:none}
+.rq-operator-workspace .rq-sample-edit{font-size:17px;line-height:1;color:#64748b;align-self:flex-start}
+.rq-operator-workspace .rq-sample-progress{background:#fff!important}

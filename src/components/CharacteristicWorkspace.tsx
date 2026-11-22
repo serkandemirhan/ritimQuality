@@ -1,3 +1,5 @@
+import {editorDrawingImages} from '../services/planDrawing';
+import {BulkCharacteristicProperties} from './BulkCharacteristicProperties';
 import {Ruler,ListChecks,ToggleLeft,ScanEye,CheckSquare,Type,ChevronDown} from 'lucide-react';
 import { Button, Card, Field, Input, NumberInput, Select, Textarea, ToleranceBand, Badge } from './ui';
 import React,{useEffect,useMemo,useState} from 'react';
@@ -6,7 +8,7 @@ import {SaasApi} from '../services/api';
 import {StorageService} from '../services/storage';
 import {AnnotationCanvas} from './AnnotationCanvas';
 import {EmptyState} from './EmptyState';
-import {applyBulkTool,applyBulkTolerance,deleteBulkPoints} from '../services/bulkPlan';
+import {deleteBulkPoints} from '../services/bulkPlan';
 
 const field='rq-input';
 const typeLabel:Record<CharacteristicType,string>={numeric:'Sayısal',ok_nok:'Uygun / Uygunsuz',visual:'Görsel',single_select:'Tekli Seçim',multi_select:'Çoklu Seçim',boolean:'Evet / Hayır',text:'Metin'};
@@ -18,8 +20,7 @@ export function CharacteristicWorkspace({product,plan,onChange,onProductUpdated,
   const [all,setAll]=useState(false);
   const [mobilePane,setMobilePane]=useState<'drawing'|'properties'>('drawing');
   const [selected,setSelected]=useState<string[]>([]);
-  const [bulkTool,setBulkTool]=useState<MeasurementTool>('Dijital Kumpas 0.01');
-  const [lower,setLower]=useState('-0.1');const [upper,setUpper]=useState('0.1');
+  const bulkIds=selected.filter(id=>plan.characteristics.some(c=>c.id===id));
   const [bulkMessage,setBulkMessage]=useState('');
   const [structureCollapsed,setStructureCollapsed]=useState(false);
   const [propertiesCollapsed,setPropertiesCollapsed]=useState(false);
@@ -27,18 +28,19 @@ export function CharacteristicWorkspace({product,plan,onChange,onProductUpdated,
   useEffect(()=>setSelected([]),[product.id]);
   useEffect(()=>setSelected(previous=>{const valid=previous.filter(id=>plan.characteristics.some(c=>c.id===id));return valid.length===previous.length?previous:valid;}),[plan.characteristics]);
 
-  const [images,setImages]=useState<ProductImage[]>(()=>product.images?.length?product.images:product.defaultDrawingUrl?[{id:'legacy-drawing',name:'Teknik Resim',url:product.defaultDrawingUrl}]:[]);
+  const [images,setImages]=useState<ProductImage[]>(()=>editorDrawingImages(plan,product));
   const [imageId,setImageId]=useState('');
   const [uploading,setUploading]=useState(false);
   useEffect(()=>{onUploadingChange?.(uploading);},[uploading,onUploadingChange]);
 
   useEffect(()=>{if(!plan.characteristics.some(c=>c.id===activeId))setActiveId(plan.characteristics[0]?.id||'');},[plan.characteristics,activeId]);
-  useEffect(()=>{setImages(product.images?.length?product.images:product.defaultDrawingUrl?[{id:'legacy-drawing',name:'Teknik Resim',url:product.defaultDrawingUrl}]:[]);setImageId('');},[product.id,product.images,product.defaultDrawingUrl]);
+  useEffect(()=>{setImages(editorDrawingImages(plan,product));setImageId('');},[product.id,product.images,product.defaultDrawingUrl,plan.id,plan.drawingImageUrl]);
   const active=plan.characteristics.find(c=>c.id===activeId)||plan.characteristics[0];
   const links=useMemo<CharacteristicImageLink[]>(()=>{
     if(plan.characteristicImageLinks)return plan.characteristicImageLinks;
     if(!images[0])return [];
-    return plan.characteristics.map(c=>({id:`legacy-link-${c.id}`,characteristicId:c.id,imageId:images[0].id,annotations:c.pin?[{id:`legacy-pin-${c.id}`,type:'pin' as const,x:c.pin.x,y:c.pin.y,label:`#${c.pointNo}`}]:[]}));
+    const primary=images.find(image=>image.url===plan.drawingImageUrl)||images[0];
+    return plan.characteristics.map(c=>({id:`legacy-link-${c.id}`,characteristicId:c.id,imageId:primary.id,annotations:c.pin?[{id:`legacy-pin-${c.id}`,type:'pin' as const,x:c.pin.x,y:c.pin.y,label:`#${c.pointNo}`}]:[]}));
   },[plan.characteristicImageLinks,plan.characteristics,images]);
   const activeLinks=links.filter(l=>l.characteristicId===active?.id);
   useEffect(()=>{if(!activeLinks.some(l=>l.imageId===imageId))setImageId(activeLinks[0]?.imageId||'');},[activeId,plan.characteristicImageLinks]);
@@ -69,7 +71,7 @@ export function CharacteristicWorkspace({product,plan,onChange,onProductUpdated,
         {selectedImage&&<div className="rq-drawing-revision"><label>Çizim revizyonu <input value={imageRevisions[selectedImage.id]??selectedImage.revision??''} placeholder="Belirtilmedi" maxLength={40} onChange={e=>setImageRevisions({...imageRevisions,[selectedImage.id]:e.target.value})}/></label><Button type="button" disabled={uploading||(imageRevisions[selectedImage.id]??selectedImage.revision??'')===(selectedImage.revision??'')} onClick={async()=>{setUploading(true);try{const nextImages=images.map(image=>image.id===selectedImage.id?{...image,revision:(imageRevisions[image.id]||'').trim()||undefined}:image);const next={...product,images:nextImages,updatedAt:new Date().toISOString()};await StorageService.saveProduct(next);setImages(nextImages);onProductUpdated?.(next);}catch(e){alert(e instanceof Error?e.message:'Çizim revizyonu kaydedilemedi.');}finally{setUploading(false);}}}>Revizyonu kaydet</Button><small>Bu bilgi seçili çizime aittir; plan revizyonundan bağımsızdır.</small></div>}
         {selectedLink&&selectedImage?<div className="relative"><AnnotationCanvas key={`${selectedLink.id}:${char.id}`} balloonMode={plan.balloonMode} imageUrl={selectedImage.url} pointNo={char.pointNo} annotations={selectedLink.annotations||[]} onChange={annotations=>{const pin=annotations.find(a=>a.type==='pin');onChange({...plan,characteristics:plan.characteristics.map(c=>c.id===char.id&&pin?.type==='pin'?{...c,pin:{x:pin.x,y:pin.y}}:c),characteristicImageLinks:links.map(l=>l.id===selectedLink.id?{...l,annotations}:l)});}}/>{charLinks.length>1&&<div className="absolute bottom-3 right-3 flex items-center gap-1 rounded-lg border border-slate-200 bg-white/95 p-1 text-xs shadow"><Button type="button" aria-label="Önceki görsel" disabled={selectedImageIndex===0} onClick={()=>showImage(-1)} className="px-2 py-1 disabled:opacity-30">‹</Button><span className="min-w-10 text-center font-semibold">{selectedImageIndex+1} / {charLinks.length}</span><Button type="button" aria-label="Sonraki görsel" disabled={selectedImageIndex===charLinks.length-1} onClick={()=>showImage(1)} className="px-2 py-1 disabled:opacity-30">›</Button></div>}</div>:<EmptyState title="Görsel referansı eklenmemiş" description="Bu kontrol noktası için görsel kullanmak zorunlu değildir."/>}
       </div>
-      <Card className="rq-characteristic-properties">
+      {bulkIds.length>1?<BulkCharacteristicProperties key={bulkIds.slice().sort().join(':')} plan={plan} ids={bulkIds} onChange={onChange} onClear={()=>setSelected([])}/>:<Card className="rq-characteristic-properties">
         <button type="button" className="rq-collapse-points" aria-expanded={!propertiesCollapsed} onClick={()=>setPropertiesCollapsed(!propertiesCollapsed)}>{propertiesCollapsed?'Ölçüleri göster':'Ölçüleri daralt'}</button>
         {!propertiesCollapsed&&<>
         <h3 className="rq-property-heading">#{char.pointNo} Ölçüm özellikleri</h3>
@@ -95,7 +97,7 @@ export function CharacteristicWorkspace({product,plan,onChange,onProductUpdated,
           <div className="grid grid-cols-2 gap-3"><Field label="Örnekleme notu"><Input value={char.sampleSize} onChange={e=>update(char.id,{sampleSize:e.target.value})}/></Field><Field label="Kontrol sıklığı"><Input value={char.frequency} onChange={e=>update(char.id,{frequency:e.target.value})}/></Field></div>
           <Field label="Kontrol açıklaması"><Textarea rows={2} value={char.description||''} onChange={e=>update(char.id,{description:e.target.value})}/></Field>
         </section></div></>}
-      </Card>
+      </Card>}
     </div>;
   };
   const summary=(c:Characteristic)=>`${(c.type||'numeric')==='numeric'?`${c.nominal} ${c.tolUpper>=0?'±':''}${Math.max(Math.abs(c.tolUpper),Math.abs(c.tolLower))} ${c.unit}`:typeLabel[c.type||'numeric']}`;
@@ -106,17 +108,14 @@ export function CharacteristicWorkspace({product,plan,onChange,onProductUpdated,
       <button type="button" className="rq-collapse-points" aria-expanded={!structureCollapsed} onClick={()=>setStructureCollapsed(!structureCollapsed)}>{structureCollapsed?'Noktaları göster':'Noktaları daralt'}</button>
       {!structureCollapsed&&<>
       <h2 className="rq-section-title">Plan yapısı</h2><fieldset className="rq-choice-field rq-balloon-choice"><legend>Balon sistemi</legend><div className="rq-choice-options">{([['overlay','Ritim balonları'],['embedded','Çizimdeki numaralar']] as const).map(([id,label])=><label key={id}><input type="radio" name="balloon-mode" value={id} checked={(plan.balloonMode||'overlay')===id} onChange={()=>onChange({...plan,balloonMode:id})}/><span>{label}</span></label>)}</div></fieldset>{plan.balloonMode==='embedded'&&<p className="rq-helper">İşareti çizimdeki aynı numaranın üzerine taşıyın. Yeni numara eklenmez.</p>}<p className="rq-helper rq-technical">{plan.version} · {plan.characteristics.length} / 50 nokta</p>
-      <div className="rq-plan-point-list">{plan.characteristics.map(c=><div className="rq-point-row" key={c.id}><input type="checkbox" aria-label={`${c.pointNo} ${c.name} seç`} checked={selected.includes(c.id)} onChange={e=>setSelected(e.target.checked?[...selected,c.id]:selected.filter(id=>id!==c.id))}/><Button id={`characteristic-chip-${c.pointNo}`} title={c.name} aria-pressed={c.id===activeId} onClick={()=>{setActiveId(c.id);setAll(false);}}><span className="rq-point-number">{c.pointNo}</span><span className="rq-point-name"><strong>{c.name}</strong></span><span className="rq-point-type" title={typeLabel[c.type||'numeric']}>{React.createElement(typeIcon[c.type||'numeric'],{size:13,'aria-hidden':true})}</span></Button></div>)}</div>
+      <div className="rq-plan-point-list">{plan.characteristics.map(c=><div className="rq-point-row" key={c.id}><input type="checkbox" aria-label={`${c.pointNo} ${c.name} seç`} checked={selected.includes(c.id)} onChange={e=>{const next=e.target.checked?[...selected,c.id]:selected.filter(id=>id!==c.id);setSelected(next);if(next.length===1)setActiveId(next[0]);else if(e.target.checked)setActiveId(c.id);setAll(false);}}/><Button id={`characteristic-chip-${c.pointNo}`} title={c.name} aria-pressed={c.id===activeId} onClick={()=>{setActiveId(c.id);setAll(false);}}><span className="rq-point-number">{c.pointNo}</span><span className="rq-point-name"><strong>{c.name}</strong></span><span className="rq-point-type" title={typeLabel[c.type||'numeric']}>{React.createElement(typeIcon[c.type||'numeric'],{size:13,'aria-hidden':true})}</span></Button></div>)}</div>
       <details className="rq-bulk-disclosure"><summary>Toplu düzenleme <ChevronDown size={12}/></summary><div className="rq-bulk-tools"><label><input type="checkbox" checked={selected.length===plan.characteristics.length} onChange={e=>setSelected(e.target.checked?plan.characteristics.map(c=>c.id):[])}/> Tümünü seç</label><p>{selected.length} nokta seçildi</p>
-      {selected.length>0&&<><Field label="Ortak ölçüm aleti"><Select value={bulkTool} onChange={e=>setBulkTool(e.target.value as MeasurementTool)}>{['Dijital Kumpas 0.01','Mikrometre 0.001','CMM 3D Ölçüm Cihazı','Mihengir / Yükseklik Mastarı','Profil Projeksiyon / Optik','Yüzey Pürüzlülük (Surftest)','Geçer / Geçmez Tampon Mastar','Torkmetre','Sertlik Ölçüm Cihazı (HRC/HB)','Diğer Ölçüm Aleti'].map(t=><option key={t}>{t}</option>)}</Select></Field><Button onClick={()=>{onChange(applyBulkTool(plan,selected,bulkTool));setBulkMessage(`${selected.length} noktaya ölçüm aleti uygulandı.`);}}>Aleti uygula</Button>
-      <div className="rq-bulk-tolerances"><Field label="Alt tolerans"><Input type="number" step="any" value={lower} onChange={e=>setLower(e.target.value)}/></Field><Field label="Üst tolerans"><Input type="number" step="any" value={upper} onChange={e=>setUpper(e.target.value)}/></Field></div>
-      <Button onClick={()=>{try{if(!lower.trim()||!upper.trim())throw new Error('İki toleransı da girin.');const numeric=plan.characteristics.filter(c=>selected.includes(c.id)&&(c.type||'numeric')==='numeric').length;if(!numeric)throw new Error('Seçimde sayısal nokta yok.');onChange(applyBulkTolerance(plan,selected,Number(lower),Number(upper)));setBulkMessage(`${numeric} sayısal nokta güncellendi; ${selected.length-numeric} sayısal olmayan nokta atlandı.`);}catch(e){setBulkMessage((e as Error).message);}}}>Toleransı uygula</Button>
-      <Button variant="danger" disabled={selected.length>=plan.characteristics.length} onClick={()=>{if(!confirm(`${selected.length} nokta ve bu noktalara bağlı çizim işaretleri silinsin mi?`))return;const next=deleteBulkPoints({...plan,characteristicImageLinks:links},selected);onChange(next);setSelected([]);setActiveId(next.characteristics[0].id);setBulkMessage('Seçilen noktalar silindi.');}}>Seçilenleri sil</Button></>}{bulkMessage&&<p role="status">{bulkMessage}</p>}</div></details>
+      {selected.length>0&&<>      <Button variant="danger" disabled={selected.length>=plan.characteristics.length} onClick={()=>{if(!confirm(`${selected.length} nokta ve bu noktalara bağlı çizim işaretleri silinsin mi?`))return;const next=deleteBulkPoints({...plan,characteristicImageLinks:links},selected);onChange(next);setSelected([]);setActiveId(next.characteristics[0].id);setBulkMessage('Seçilen noktalar silindi.');}}>Seçilenleri sil</Button></>}{bulkMessage&&<p role="status">{bulkMessage}</p>}</div></details>
       <div className="rq-point-actions"><Button id="btn-add-characteristic" disabled={plan.characteristics.length>=50} onClick={addCharacteristic}>+ Nokta ekle</Button><Button id="btn-toggle-all-characteristics" aria-pressed={all} onClick={()=>setAll(!all)}>{all?'Tekli görünüme dön':'Hepsini göster'}</Button>{active&&<Button variant="danger" disabled={plan.characteristics.length<=1} onClick={()=>deleteCharacteristic(active.id)}>Noktayı sil</Button>}</div>
       </>}
     </aside>
     <div className="min-w-0 space-y-3">
-    {all?<div className="space-y-2">{plan.characteristics.map(c=><details key={c.id} data-characteristic-id={c.id} className={`rounded-xl bg-white p-4 shadow-sm ${c.id===activeId?'ring-2 ring-blue-300':''}`} onToggle={e=>{if((e.currentTarget as HTMLDetailsElement).open)setActiveId(c.id);}}><summary className="cursor-pointer list-none"><span className="grid gap-2 sm:grid-cols-[55px_1fr_180px_90px_90px]"><b>#{c.pointNo}</b><span>{c.name}</span><span>{summary(c)}</span><span>{severity[c.criticalClass]}</span><span>{links.filter(l=>l.characteristicId===c.id).length||'Görsel Yok'}{links.some(l=>l.characteristicId===c.id)&&' Görsel'}</span></span></summary><div className="mt-4">{editor(c)}</div></details>)}</div>:active&&editor(active)}
+    {all&&bulkIds.length<2?<div className="space-y-2">{plan.characteristics.map(c=><details key={c.id} data-characteristic-id={c.id} className={`rounded-xl bg-white p-4 shadow-sm ${c.id===activeId?'ring-2 ring-blue-300':''}`} onToggle={e=>{if((e.currentTarget as HTMLDetailsElement).open)setActiveId(c.id);}}><summary className="cursor-pointer list-none"><span className="grid gap-2 sm:grid-cols-[55px_1fr_180px_90px_90px]"><b>#{c.pointNo}</b><span>{c.name}</span><span>{summary(c)}</span><span>{severity[c.criticalClass]}</span><span>{links.filter(l=>l.characteristicId===c.id).length||'Görsel Yok'}{links.some(l=>l.characteristicId===c.id)&&' Görsel'}</span></span></summary><div className="mt-4">{editor(c)}</div></details>)}</div>:active&&editor(active)}
     </div>
   </section>;
 }

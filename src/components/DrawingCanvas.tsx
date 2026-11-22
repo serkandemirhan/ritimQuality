@@ -114,10 +114,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   }, [characteristics, zoom, fittedWidth]);
 
   useEffect(() => {
-    if (activePointNo) {
+    if (imageReady && activePointNo) {
       centerOnPoint(activePointNo);
     }
-  }, [activePointNo, centerOnPoint]);
+  }, [activePointNo, centerOnPoint, imageReady]);
 
   // Mouse pan & pin dragging
   const handleStageMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {

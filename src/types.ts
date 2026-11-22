@@ -112,6 +112,7 @@ export interface EvidenceAttachment {
 }
 
 export interface SampleMeasurement {
+  serialNumber?: string;
   sampleIndex: number; // 1, 2, 3, 4, 5
   values: Record<string, MeasurementValue>; // characteristicId -> measured/selected value
   statuses: Record<string, 'pass' | 'warning' | 'fail' | 'empty'>;
