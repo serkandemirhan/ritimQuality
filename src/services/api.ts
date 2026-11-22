@@ -98,6 +98,8 @@ export const SaasApi = {
   saveProduct: (value: { id: string }) => request(`/products/${encodeURIComponent(value.id)}`, { method: 'PUT', body: JSON.stringify(value) }),
   deleteProduct: (id: string) => request(`/products/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   saveControlPlan: (value: { id: string }, guard?:{expected:string;active?:string}) => request<ControlPlan>(`/control-plans/${encodeURIComponent(value.id)}`, { method: 'PUT', body: JSON.stringify(value),headers:guard?{'X-Plan-Expected':guard.expected,...guard.active!==undefined?{'X-Active-Plan-Expected':guard.active}:{}}:{} }),
+  controlPlanCatalogMetadata: () => request<{id:string;updatedAt:string|null;publishedAt:string|null;publishedBy:string|null}[]>('/control-plan-catalog-metadata'),
+  controlPlanPublication: (id:string) => request<{publishedAt:string|null;publishedBy:string|null}>(`/control-plans/${encodeURIComponent(id)}/publication`),
   controlPlanRevisionUsage: (id:string) => request<{used:boolean;token:string;payload:unknown}>(`/control-plans/${encodeURIComponent(id)}/revision-usage`),
   deleteControlPlan: (id: string) => request(`/control-plans/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   saveInspectionLog: (value: { id: string; mobileMeasurement?: unknown; draftId?: string }) => {

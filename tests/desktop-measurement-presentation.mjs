@@ -36,7 +36,7 @@ await cmd('Page.enable');await cmd('Runtime.enable');await cmd('Page.addScriptTo
 await cmd('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});await cmd('Page.navigate',{url:'http://127.0.0.1:3345'});await delay(4000);
 await evaluate(`document.querySelector('#nav-tab-operator')?.click()`);await delay(300);
 await evaluate(`(()=>{const s=document.querySelector('#select-operator-product');if(!s)throw Error(document.body.innerText);s.value=${JSON.stringify(product.id)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`);await delay(350);
-await evaluate(`(()=>{const picker=document.querySelector('.rq-sample-trigger');if(picker)picker.click();else {const input=document.querySelector('[aria-label="Özel numune adedi"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'2');input.dispatchEvent(new Event('input',{bubbles:true}));}})()`);await delay(80);
+await evaluate(`(()=>{const picker=document.querySelector('.rq-sample-trigger');if(picker)picker.click();else document.querySelectorAll('.rq-sample-chips button')[1].click();})()`);await delay(80);
 await evaluate(`document.querySelectorAll('.rq-sample-grid button')[1]?.click()`);await delay(80);
 await evaluate(`document.querySelector('#btn-start-inspection')?.click()`);await delay(500);
 if(!await evaluate(`!!document.querySelector('[id^="input-measured-value"]')`))throw Error(await evaluate('document.body.innerText'));
@@ -58,7 +58,7 @@ const csvPath=resolve(out,'Olcum_Kayitlari_'+new Date().toISOString().slice(0,10
 await evaluate(`document.querySelector('.rq-sample-progress').click()`);await delay(150);
 await assert(`document.querySelector('.rq-measurement-matrix').open`,'Progress did not open matrix');
 await assert(`document.querySelectorAll('.rq-measurement-matrix tbody tr').length===${plan.characteristics.length}&&document.querySelectorAll('.rq-measurement-matrix thead th').length===3`,'Matrix is transposed or missing points/samples');
-await assert(`document.querySelector('.rq-measurement-matrix tbody td button').innerText===${JSON.stringify(firstValue)}`,'Matrix does not display live measurement');
+await assert(`document.querySelector('.rq-measurement-matrix tbody td button').firstChild.textContent===${JSON.stringify(firstValue)}`,'Matrix does not display live measurement');
 await assert(`(()=>{const h=document.querySelector('.rq-measurement-matrix header'),b=h.querySelector('.rq-matrix-csv'),r=h.getBoundingClientRect(),c=b.getBoundingClientRect();return c.right<=r.right&&c.top>=r.top&&c.bottom<=r.bottom;})()`,'CSV toolbar clipped');
 await writeFile(resolve(out,'all-measurements.png'),Buffer.from((await cmd('Page.captureScreenshot',{format:'png'})).data,'base64'));
 await evaluate(`document.querySelector('.rq-matrix-csv').click()`);await delay(350);
@@ -67,10 +67,10 @@ if(csvBytes[0]!==239||csvBytes[1]!==187||csvBytes[2]!==191||csvText.split('\r\n'
 await evaluate(`document.querySelectorAll('.rq-measurement-matrix tbody tr')[2].querySelectorAll('td button')[1].click()`);await delay(120);
 await assert(`!document.querySelector('.rq-measurement-matrix').open&&document.querySelector('#sample-tab-2').getAttribute('aria-pressed')==='true'&&document.querySelectorAll('.rq-point-menu-grid button')[2].getAttribute('aria-pressed')==='true'`,'Cell navigation failed');
 await assert(`document.activeElement===document.querySelector('.measurement-value')`,'Matrix navigation lost input focus');
-await evaluate(`document.querySelector('#sample-tab-1').click();document.querySelector('.rq-point-menu').open=true;document.querySelectorAll('.rq-point-menu-grid button')[${numericCount-1}].click()`);await delay(80);
+await evaluate(`document.querySelector('#sample-tab-1').click();;setTimeout(()=>document.querySelector('.rq-serial-dialog button[type=button]')?.click(),20);document.querySelector('.rq-point-menu').open=true;document.querySelectorAll('.rq-point-menu-grid button')[${numericCount-1}].click()`);await delay(80);
 await evaluate(`document.querySelector('.measurement-presets button').click();document.querySelector('.rq-point-menu').open=true;document.querySelectorAll('.rq-point-menu-grid button')[${numericCount-2}].click()`);await delay(80);
 await evaluate(`(()=>{const input=document.querySelector('.measurement-value');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'1000');input.dispatchEvent(new Event('input',{bubbles:true}));})()`);await delay(80);
-await evaluate(`document.querySelector('#sample-tab-1').click();document.querySelector('.rq-point-menu').open=true;document.querySelectorAll('.rq-point-menu-grid button')[0].click()`);await delay(120);
+await evaluate(`document.querySelector('#sample-tab-1').click();;setTimeout(()=>document.querySelector('.rq-serial-dialog button[type=button]')?.click(),20);document.querySelector('.rq-point-menu').open=true;document.querySelectorAll('.rq-point-menu-grid button')[0].click()`);await delay(120);
 await evaluate(`document.querySelector('.rq-sample-progress').click()`);await delay(80);
 await assert(`!!document.querySelector('.rq-measurement-matrix [data-status=fail]')&&!!document.querySelector('.rq-measurement-matrix [data-status=pass]')`,'Matrix lost measurement statuses');
 await writeFile(resolve(out,'all-measurements.png'),Buffer.from((await cmd('Page.captureScreenshot',{format:'png'})).data,'base64'));
@@ -96,7 +96,8 @@ await evaluate(`(()=>{const input=document.querySelector('.measurement-value');O
 await evaluate(`document.querySelectorAll('.measurement-presets button')[2].click()`);await delay(80);
 await assert(`Number(document.querySelector('.measurement-value').value.replace(',','.'))===${Number(firstValue.replace(',','.'))}`,'Blank value did not start at nominal');
 await evaluate(`document.querySelector('#sample-tab-1').click()`);await delay(80);
-await assert(`document.activeElement===document.querySelector('.rq-sample-serial input')`,'Sample tab did not focus serial editor');
+await assert(`document.activeElement===document.querySelector('.rq-serial-dialog input')`,'Sample tab did not focus serial editor');
+await evaluate(`document.querySelector('.rq-serial-dialog button[type=button]').click()`);await delay(80);
 await evaluate(`document.querySelector('.measurement-presets button').click();document.querySelector('.measurement-value').focus()`);
 await cmd('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await cmd('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await delay(150);
 await assert(`document.querySelector('.rq-desktop-point-nav').innerText.includes('2 /')`,'Enter did not advance');
@@ -104,9 +105,9 @@ await assert(`document.activeElement===document.querySelector('.measurement-valu
 await evaluate(`document.querySelector('.rq-desktop-point-nav button').click()`);await delay(100);
 await assert(`document.querySelector('.measurement-value').value===${JSON.stringify(firstValue)}`,'Previous point lost value');
 // Both current and older preparation screens support at least three samples.
-await evaluate(`document.querySelector('#sample-tab-2').click()`);await delay(100);
+await evaluate(`document.querySelector('#sample-tab-2').click();setTimeout(()=>document.querySelector('.rq-serial-dialog button[type=button]')?.click(),20);`);await delay(100);
 await assert(`document.querySelector('.measurement-value').value===''`,'Sample switch leaked value');
-await evaluate(`document.querySelector('#sample-tab-1').click()`);await delay(100);
+await evaluate(`document.querySelector('#sample-tab-1').click();setTimeout(()=>document.querySelector('.rq-serial-dialog button[type=button]')?.click(),20);`);await delay(100);
 await assert(`document.querySelector('.measurement-value').value===${JSON.stringify(firstValue)}`,'Sample value was lost');
 await evaluate(`document.querySelector('.rq-point-menu').open=true;document.querySelectorAll('.rq-point-menu-grid button')[2].click()`);await delay(150);
 await assert(`document.querySelector('.rq-desktop-point-nav').innerText.includes('3 /')`,'Grid did not select point');
@@ -148,7 +149,7 @@ await upload('keyboard-evidence.png',Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAA
 await assert(`document.activeElement.id==='btn-save-inspection-log'`,'Photo upload did not restore confirmation focus');
 await key('Enter');
 await assert(`document.querySelector('#sample-tab-2').getAttribute('aria-pressed')==='true'&&document.querySelector('.rq-desktop-point-nav').innerText.includes('1 /')`,'Enter after photo upload did not advance: '+await evaluate('document.body.innerText'));
-await evaluate(`document.querySelector('#sample-tab-1').click()`);await point(numericCount+3);
+await evaluate(`document.querySelector('#sample-tab-1').click();setTimeout(()=>document.querySelector('.rq-serial-dialog button[type=button]')?.click(),20);`);await point(numericCount+3);
 await evaluate(`document.querySelector('.measurement-evidence').open=true`);
 await upload('keyboard-evidence.pdf',Buffer.from('%PDF-1.4\n% Isolated upload-transport fixture\n%%EOF'));
 await assert(`document.activeElement.id==='btn-save-inspection-log'`,'PDF upload did not restore confirmation focus');
@@ -158,12 +159,13 @@ console.log('PASS: photo/PDF upload restores confirmation focus and Enter advanc
 const sampleTotal=await evaluate(`document.querySelectorAll('.rq-desktop-samples [id^="sample-tab-"]').length`);
 for(let sample=1;sample<=sampleTotal;sample++){
  await evaluate(`document.querySelector('#sample-tab-${sample}').click()`);await delay(80);
- await evaluate(`(()=>{const input=document.querySelector('.rq-sample-serial input');const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;set.call(input,'SN-${sample}');input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+ await evaluate(`(()=>{const input=document.querySelector('.rq-serial-dialog input');const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;set.call(input,'SN-${sample}');input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+ await delay(80);await cmd('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await cmd('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await delay(80);await assert(`!document.querySelector('.rq-serial-dialog').open`,'Enter did not save serial dialog: '+await evaluate('document.activeElement?.outerHTML'));
 }
 await evaluate(`document.querySelector('#sample-tab-1').click()`);await delay(80);
-await assert(`document.querySelector('.rq-sample-serial input').value==='SN-1'`,'Sample serials were not kept independently');
+await assert(`document.querySelector('.rq-serial-dialog input').value==='SN-1'`,'Sample serials were not kept independently');await evaluate(`document.querySelector('.rq-serial-dialog button[type=button]').click()`);await delay(60);
 for(let sample=1;sample<=sampleTotal;sample++){
-  await evaluate(`document.querySelector('#sample-tab-${sample}').click()`);await delay(80);
+  await evaluate(`document.querySelector('#sample-tab-${sample}').click();setTimeout(()=>document.querySelector('.rq-serial-dialog button[type=button]')?.click(),20);`);await delay(80);
   for(let index=0;index<plan.characteristics.length;index++){
     await point(index);
     if(sample===sampleTotal&&index===plan.characteristics.length-1)break;

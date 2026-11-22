@@ -1,3 +1,5 @@
+import {SampleSerialDialog,PointNavigator} from './MeasurementNavigation';
+import {ContinuingControls,PlanSearchList,type PreparationDraft} from './PreparationLists';
 import {MeasurementMatrix} from './MeasurementMatrix';
 import { MeasurementChoices } from './MeasurementChoices';
 import {planDrawing} from '../services/planDrawing';
@@ -42,6 +44,7 @@ import confetti from 'canvas-confetti';
 import { MobileMeasurementShell } from './MobileMeasurementShell';
 import { evaluateMeasurement,evidenceErrors,readMobileSession, type MobileSession } from '../services/mobileMeasurement';
 import {readOfflineCatalog,saveOfflineRules} from '../services/offlineCatalog';
+import {drawingRevisionStatus} from '../services/drawingRevision';
 
 interface OperatorStationProps {
   initialProductId?: string;
@@ -77,6 +80,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const sessionStartedAt=useRef('');
   const savingRef = useRef(false);
   const [saving,setSaving] = useState(false);
+  const [serialSample,setSerialSample]=useState<number|null>(null);
   const [matrixOpen,setMatrixOpen] = useState(false);
   useEffect(()=>{
     const closeMenu=(event:PointerEvent|KeyboardEvent)=>{
@@ -91,14 +95,15 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const draftKey = 'quality:draft:' + SaasApi.scope();
   const restoredRef = useRef(false);
   const [draftAvailable,setDraftAvailable] = useState(() => Boolean(localStorage.getItem(draftKey)));
-  type ServerDraft={id:string;payload:Record<string,any>;claimed_by:string|null;claimed_by_name?:string;created_by_name:string;updated_at:string};
+  type ServerDraft=PreparationDraft;
   const [serverDrafts,setServerDrafts]=useState<ServerDraft[]>([]);
+  const [draftListError,setDraftListError]=useState('');
   const [draftId,setDraftId]=useState<string|null>(null);
   const [draftBusy,setDraftBusy]=useState(false);
   // Selection State
   const [selectedProductId, setSelectedProductId] = useState<string>(initialProductId || new URLSearchParams(window.location.search).get('product') || '');
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
-  const [productSearch, setProductSearch] = useState('');
+
   
   // Session Metadata
   const [operatorName, setOperatorName] = useState<string>(currentUser ? currentUser.name : 'Operatör Ahmet Kurt');
@@ -108,7 +113,12 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const [machineNo, setMachineNo] = useState<string>(currentUser?.stationOrMachine || 'CNC Torna #01 (Doosan)');
   const [source, setSource] = useState<MeasurementSource>('manual');
   const [equipmentId, setEquipmentId] = useState<string>(currentUser?.stationOrMachine || 'MANUEL-ISTASYON-01');
-  const [sampleCount, setSampleCount] = useState<number>(5);
+  const [sampleCount, setSampleCount] = useState<number>(1);
+  const [samplePickerOpen, setSamplePickerOpen] = useState(false);
+  const [samplePickerMore, setSamplePickerMore] = useState(false);
+  const [sampleManual, setSampleManual] = useState('');
+  const [planPublication,setPlanPublication]=useState<{id:string;publishedAt:string|null;publishedBy:string|null;error?:boolean}|null>(null);
+  const publicationRequest=useRef(0);
   const [mediaUploading, setMediaUploading] = useState(false);
 
   // Sync with current user changes
@@ -128,8 +138,9 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const [mobileResume,setMobileResume]=useState(false);
   useEffect(() => { onSessionChange?.(isSessionActive||mobileResume); return () => onSessionChange?.(false); }, [isSessionActive,mobileResume,onSessionChange]);
   const [mobileAvailable,setMobileAvailable]=useState(false);
+  const [storedMobile,setStoredMobile]=useState<MobileSession>();
   const mobileSeed=useRef<MobileSession | undefined>(undefined);
-  useEffect(()=>{void readMobileSession(SaasApi.scope()).then(s=>setMobileAvailable(Boolean(s))).catch(()=>{});},[]);
+  useEffect(()=>{void readMobileSession(SaasApi.scope()).then(s=>{setMobileAvailable(Boolean(s));setStoredMobile(s);}).catch(()=>{});},[]);
   useEffect(() => { const media = window.matchMedia('(max-width: 767px)'); const change = () => setPhoneInput(media.matches); media.addEventListener('change', change); return () => media.removeEventListener('change', change); }, []);
   const [numericText, setNumericText] = useState('');
   const [replaceNumeric, setReplaceNumeric] = useState(true);
@@ -148,15 +159,16 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!isSessionActive || savedLog) return;
-    try { localStorage.setItem(draftKey, JSON.stringify({request,draftId,submission:submissionRef.current,selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId})); }
+    try { localStorage.setItem(draftKey, JSON.stringify({startedAt:sessionStartedAt.current,updatedAt:new Date().toISOString(),operatorName,request,draftId,submission:submissionRef.current,selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId})); }
     catch { StorageService.reportSyncError(new Error('Taslak cihazda saklanamadı. Tarayıcı depolama alanını kontrol edin.')); }
   }, [isSessionActive,savedLog,draftId,selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId,draftKey,saving]);
-  const refreshDrafts=async()=>setServerDrafts(await SaasApi.inspectionDrafts() as ServerDraft[]);
+  const refreshDrafts=async()=>{try{setServerDrafts(await SaasApi.inspectionDrafts() as ServerDraft[]);setDraftListError('');}catch(e){setDraftListError('Devam eden kontroller alınamadı. Yenile ile tekrar deneyin.');throw e;}};
   useEffect(()=>{void refreshDrafts().catch(()=>{});},[]);
   const applyDraft=(draft:Record<string,any>)=>{
     if(!controlPlans.some(p=>p.id===draft.selectedPlanId && rules && (!rules.requireActivePlan || (p.isActive && p.status==='active'))))throw new Error('Taslağın planı mevcut iş kurallarına göre kullanılamıyor.');
     // A locally interrupted submission must keep its identity and exact payload on retry.
     // Server drafts do not contain a submission and start a new record normally.
+    sessionStartedAt.current=draft.startedAt||'';
     setRequest(draft.request);submissionRef.current=draft.submission||null;restoredRef.current=true;setDraftId(draft.id||draft.draftId);
     setSelectedProductId(draft.productId||draft.selectedProductId);setSelectedPlanId(draft.selectedPlanId);setLotNumber(draft.lotNumber||'');setOrderNumber(draft.orderNumber||'');setMachineNo(draft.machineNo||'');setSampleCount(draft.sampleCount);
     setSamples(draft.samples);setNotes(draft.notes||'');setActivePointNo(draft.activePointNo);setActiveSampleIndex(draft.activeSampleIndex);setSerialNumber(draft.serialNumber||'');setSource(draft.source||'manual');setEquipmentId(draft.equipmentId||'');setOperatorName(currentUser.name);setIsSessionActive(true);setDraftAvailable(false);
@@ -191,7 +203,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
     const active = plans.find(cp => cp.isActive && cp.status === 'active') || (rules && !rules.requireActivePlan ? plans[0] : undefined);
     if (active) {
       setSelectedPlanId(active.id);
-      setSampleCount(active.defaultSampleCount || 5);
+      setSampleCount(1);
     } else {
       setSelectedPlanId('');
     }
@@ -205,6 +217,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
   const currentProduct = products.find(p => p.id === selectedProductId);
   const currentPlan = controlPlans.find(cp => cp.id === selectedPlanId);
+  const drawingStatus=currentPlan&&currentProduct?drawingRevisionStatus(currentPlan,currentProduct):null;
   const characteristics = currentPlan?.characteristics || [];
   const currentCharacteristic = characteristics.find(c => c.pointNo === activePointNo) || characteristics[0];
   const [drawingImageId,setDrawingImageId]=useState<string>();
@@ -214,29 +227,13 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const selectablePlans = currentProduct
     ? controlPlans.filter(cp => cp.productId === currentProduct.id && (!rules?.requireActivePlan || (cp.isActive && cp.status === 'active')))
     : [];
-  const visibleProducts = useMemo(() => {
-    const query = productSearch.trim().toLocaleLowerCase('tr-TR');
-    const ranked = products
-      .map(product => {
-        const plans = controlPlans.filter(cp => cp.productId === product.id && (!rules?.requireActivePlan || (cp.isActive && cp.status === 'active')));
-        const activePlan = plans.find(cp => cp.isActive && cp.status === 'active') || plans[0];
-        return { product, activePlan, plans };
-      })
-      .filter(item => item.activePlan)
-      .filter(item => {
-        if (!query) return true;
-        return `${item.product.code} ${item.product.name} ${item.product.customer || ''}`.toLocaleLowerCase('tr-TR').includes(query);
-      });
-    return ranked.slice(0, query ? 8 : 6);
-  }, [products, controlPlans, rules, productSearch]);
-
   // Auto focus input when active point/sample changes
   useEffect(() => {
-    if (isSessionActive && !phoneInput && inputRef.current) {
+    if (isSessionActive && !phoneInput && serialSample===null && inputRef.current) {
       inputRef.current.focus({preventScroll:true});
       inputRef.current.select();
     }
-  }, [activePointNo, activeSampleIndex, isSessionActive]);
+  }, [activePointNo, activeSampleIndex, isSessionActive,serialSample]);
 
   // Start Inspection Session
   const handleStartSession = () => {
@@ -505,9 +502,9 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const isComplete = totalChecked === totalPossible && totalPossible > 0 && missingEvidenceCount===0;
   const overallResult: 'pass' | 'warning' | 'fail' = failCount > 0 ? 'fail' : (warningCount > 0 ? 'warning' : 'pass');
 
-  const draftPayload=()=>({request,id:draftId||crypto.randomUUID(),productId:selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId});
+  const draftPayload=()=>({startedAt:sessionStartedAt.current,operatorName,request,id:draftId||crypto.randomUUID(),productId:selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId});
   const saveServerDraft=async(release=false)=>{if(!isSessionActive||savedLog||draftBusy)return;setDraftBusy(true);try{const payload=draftPayload();setDraftId(payload.id);await SaasApi.saveInspectionDraft(payload.id,payload);if(release){await SaasApi.releaseInspectionDraft(payload.id);localStorage.removeItem(draftKey);setIsSessionActive(false);setSamples([]);setDraftId(null);}await refreshDrafts();}catch(error){alert(error instanceof Error?error.message:'Taslak kaydedilemedi.');}finally{setDraftBusy(false);}};
-  const claimDraft=async(item:ServerDraft)=>{setDraftBusy(true);try{const claimed=await SaasApi.claimInspectionDraft(item.id) as ServerDraft;applyDraft({...claimed.payload,id:item.id});await refreshDrafts();}catch(error){alert(error instanceof Error?error.message:'Taslak devralınamadı.');}finally{setDraftBusy(false);}};
+  const claimDraft=async(item:ServerDraft)=>{if(!controlPlans.some(p=>p.id===item.payload.selectedPlanId&&rules&&(!rules.requireActivePlan||(p.isActive&&p.status==='active')))){alert('Bu kontrolün başladığı revizyon mevcut iş kurallarına göre kullanılamıyor. Kalite sorumlusuna başvurun; revizyon otomatik değiştirilmeyecek.');return;}setDraftBusy(true);try{const claimed=await SaasApi.claimInspectionDraft(item.id) as ServerDraft;applyDraft({...claimed.payload,id:item.id});await refreshDrafts();}catch(error){alert(error instanceof Error?error.message:'Taslak devralınamadı.');}finally{setDraftBusy(false);}};
 
   // Save Session
   const handleSaveInspection = async () => {
@@ -574,17 +571,18 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
     ? Number((currentVal - currentCharacteristic.nominal).toFixed(3))
     : null;
 
-  if(mobileResume)return <MobileMeasurementShell seed={mobileSeed.current} onCompleted={log=>{setMobileResume(false);mobileSeed.current=undefined;setMobileAvailable(false);setIsSessionActive(false);onOpenCertificate(log);}} onSaved={onInspectionSaved} onOpenActions={onOpenActions} onExit={()=>{setMobileResume(false);mobileSeed.current=undefined;void readMobileSession(SaasApi.scope()).then(s=>setMobileAvailable(Boolean(s)));}}/>;
+  const preparationDrafts:PreparationDraft[]=[...serverDrafts];
+  if(draftAvailable){try{const local=JSON.parse(localStorage.getItem(draftKey)||'null');if(local){const id=local.draftId||local.id;const index=preparationDrafts.findIndex(d=>d.id===id);const server=index>=0?preparationDrafts[index]:undefined;if(!server?.claimed_by||server.claimed_by===currentUser.id){if(index>=0)preparationDrafts.splice(index,1);preparationDrafts.unshift({id:id||'device-draft',payload:local,claimed_by:currentUser.id,created_by_name:local.operatorName||currentUser.name,created_at:server?.created_at||local.startedAt,updated_at:local.updatedAt||server?.updated_at,local:true});}}}catch{}}
+  if(mobileAvailable&&storedMobile)preparationDrafts.unshift({id:'mobile-device',payload:{productId:storedMobile.product.id,selectedPlanId:storedMobile.plan.id,planVersion:storedMobile.plan.version,orderNumber:storedMobile.orderNumber,lotNumber:storedMobile.lotNumber,count:storedMobile.count,mobileFilled:new Set(storedMobile.attempts.map(a=>a.sample+':'+a.characteristic)).size,mobileTotal:storedMobile.count*storedMobile.plan.characteristics.length},claimed_by:currentUser.id,created_by_name:storedMobile.operatorName,created_at:storedMobile.createdAt,updated_at:storedMobile.attempts.at(-1)?.measuredAt||storedMobile.createdAt,mobile:true});
+  if(mobileResume)return <MobileMeasurementShell seed={mobileSeed.current} onCompleted={log=>{setMobileResume(false);mobileSeed.current=undefined;setMobileAvailable(false);setIsSessionActive(false);onOpenCertificate(log);}} onSaved={onInspectionSaved} onOpenActions={onOpenActions} onExit={()=>{setMobileResume(false);mobileSeed.current=undefined;void readMobileSession(SaasApi.scope()).then(s=>{setMobileAvailable(Boolean(s));setStoredMobile(s);});}}/>;
 
   return (
-    <div className={'w-full quality-operator'+(selectedProductId&&!isSessionActive?' rq-operator-ready':'')}>
+    <div className={'w-full quality-operator'+(selectedProductId&&!isSessionActive?' rq-preparation-selected':'')}>
       {!isSessionActive&&savedLog&&<div role="status" className="mb-4 rounded-xl bg-emerald-50 p-4 text-emerald-900"><p>Ölçüm kaydedildi ve oturum kapatıldı.</p><Button onClick={()=>onOpenCertificate(savedLog)}>PDF kalite raporunu aç</Button></div>}
       {!isSessionActive&&<PageHeader title="Ölçüm hazırlığı" description="Ürün, kontrol planı ve üretim bilgilerini doğrulayarak ölçümü başlatın." actions={<IconButton label={soundEnabled?'Sesli uyarıyı kapat':'Sesli uyarıyı aç'} onClick={()=>setSoundEnabled(!soundEnabled)}>{soundEnabled?<Volume2 size={17}/>:<VolumeX size={17}/>}</IconButton>}/>}
       {rulesError && <p role="alert" className="mb-3 text-sm text-red-700">İş kuralları yüklenemedi: {rulesError}</p>}
-      {!isSessionActive&&mobileAvailable&&<div className="mb-4 rounded-xl bg-blue-50 p-4"><p>Bu cihazda saklanan mobil kontrol var.</p><Button onClick={()=>setMobileResume(true)}>Mobil kontrole devam et</Button></div>}
-      {!isSessionActive && draftAvailable && <div className="mb-4 rounded-xl bg-blue-50 p-4"><p className="font-bold">Yarım kalan bir kontrolünüz var.</p><button type="button" onClick={restoreDraft} className="mt-2 rounded-lg bg-blue-700 px-4 py-3 text-white">Kontrole devam et</button></div>}
-      {request&&!isSessionActive&&<p className="rq-feedback rq-tone-info">Atanmış kontrol · {request.planVersion} · {request.orderNumber} · {request.lotNumber} · {request.sampleCount} numune. Ölçüm sunucuya kaydedildiğinde görev otomatik tamamlanır.</p>}
-      {!isSessionActive&&serverDrafts.length>0&&<section className="mb-4 rounded-xl bg-amber-50 p-4"><h2 className="font-bold">Devam edilebilecek kontroller</h2><div className="mt-2 grid gap-2">{serverDrafts.map(item=><div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-3 text-sm"><span>{products.find(p=>p.id===(item.payload.productId||item.payload.selectedProductId))?.name||'Ürün'} · {item.payload.orderNumber||'İş emri yok'} · {item.created_by_name}{item.claimed_by_name&&` · ${item.claimed_by_name} kullanıyor`}</span><button disabled={draftBusy||Boolean(item.claimed_by&&item.claimed_by!==currentUser.id)} className="quality-primary" onClick={()=>void claimDraft(item)}>{item.claimed_by===currentUser.id?'Devam et':'Devral'}</button></div>)}</div></section>}
+      {!isSessionActive&&<ContinuingControls items={preparationDrafts} plans={controlPlans} products={products} userId={currentUser.id} busy={draftBusy} error={draftListError} onRefresh={()=>void refreshDrafts().catch(()=>{})} onOpen={item=>{if(item.mobile)setMobileResume(true);else if(item.local)restoreDraft();else void claimDraft(item);}}/>}
+      {request&&!isSessionActive&&<p className="rq-feedback">Atanmış kontrol · {request.planVersion} · {request.orderNumber} · {request.sampleCount} numune</p>}
       {isSessionActive && submissionRef.current && !savedLog && <p role="status" className="my-2 rounded-lg bg-amber-50 p-3 text-sm">Bu ölçüm gönderim için kilitlendi. Kaydet düğmesi aynı kaydın gönderimini tekrar dener.</p>}
       {/* =========================================================================
           MODE 1: SETUP SCREEN (When session is NOT active)
@@ -592,28 +590,10 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
       {!isSessionActive ? (
         <div className={'rq-preparation-grid mt-4'+(selectedProductId?' is-ready':'')}>
           <Card>
-            <FormSection title="Kontrol kapsamı" description="Ürün listesinden seçmek yerine QR okutun, iş emri/ürün kodu arayın veya istasyon kartına dokunun.">
-              <div className="rq-start-launcher">
-                <div className="rq-start-scan">
-                  <InspectionQR products={products} onSelect={(id,wo)=>{setSelectedProductId(id);setOrderNumber(wo);}}/>
-                </div>
-                <label className="rq-start-search">
-                  <Search size={17}/>
-                  <Input value={productSearch} onChange={e=>setProductSearch(e.target.value)} placeholder="İş emri, ürün kodu veya parça adı ara" />
-                </label>
-                <div className="rq-start-card-grid" role="list" aria-label="Ölçüme hazır ürünler">
-                  {visibleProducts.map(({product,activePlan})=>(
-                    <button key={product.id} type="button" role="listitem" disabled={!!request} onClick={()=>setSelectedProductId(product.id)} className={'rq-start-card'+(product.id===selectedProductId?' is-selected':'')}>
-                      <span className="rq-start-card-mark">{product.id===selectedProductId?<CheckCircle2 size={17}/>:<ClipboardList size={17}/>}</span>
-                      <span className="rq-start-card-copy">
-                        <strong>{product.name}</strong>
-                        <small className="rq-technical">{product.code}{product.revision?` · Rev ${product.revision}`:''}</small>
-                        <small>{activePlan.version} · {activePlan.characteristics.length} nokta · {product.customer}</small>
-                      </span>
-                      <span className="rq-start-card-action">{product.id===selectedProductId?'Seçildi':'Aç'}</span>
-                    </button>
-                  ))}
-                </div>
+            <FormSection title="Yeni ölçüm başlat" description="QR tarayın veya aktif kontrol planını arayıp seçin. Her iki yöntem aynı ölçüm başlatma akışını kullanır.">
+              <div className="rq-prep-launcher">
+                {!request&&<details className="rq-prep-qr"><summary>QR tara / ürün kodu okut</summary><InspectionQR products={products} onSelect={(id,wo)=>{setSelectedProductId(id);setOrderNumber(wo);}}/></details>}
+                <PlanSearchList products={products} plans={controlPlans} selectedId={selectedProductId} disabled={!!request} onSelect={setSelectedProductId}/>
                 <select
                   id="select-operator-product"
                   className="sr-only"
@@ -625,21 +605,26 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                   <option value="">Ürün seçin</option>
                   {products.map(product=><option key={product.id} value={product.id}>{product.code} · {product.name}</option>)}
                 </select>
-                {visibleProducts.length===0&&<div className="rq-feedback rq-tone-warning"><AlertTriangle size={18}/><p>Bu aramada aktif kontrol planı olan ürün bulunamadı.</p></div>}
                 {currentProduct&&<div className="rq-active-plan-pill"><Sparkles size={16}/><span>Aktif plan otomatik seçildi:</span><strong>{currentPlan?.version||'Plan bulunamadı'}</strong><small>{characteristics.length} ölçüm noktası</small></div>}
-                {!request&&selectedProductId&&selectablePlans.length>1&&<details className="rq-plan-override"><summary>Revizyonu değiştir</summary><Field label="Kontrol planı revizyonu"><Select id="select-operator-plan" value={selectedPlanId} onChange={e=>{const plan=controlPlans.find(item=>item.id===e.target.value);setSelectedPlanId(e.target.value);if(plan)setSampleCount(plan.defaultSampleCount||5);}}>{selectablePlans.map(cp=><option key={cp.id} value={cp.id}>{cp.version} · {cp.isActive?'Aktif':cp.status==='draft'?'Taslak':'Arşiv'} · {cp.characteristics.length} nokta</option>)}</Select></Field></details>}
+                {!request&&selectedProductId&&selectablePlans.length>1&&<details className="rq-plan-override"><summary>Revizyonu değiştir</summary><Field label="Kontrol planı revizyonu"><Select id="select-operator-plan" value={selectedPlanId} onChange={e=>{setSelectedPlanId(e.target.value);setSampleCount(1);}}>{selectablePlans.map(cp=><option key={cp.id} value={cp.id}>{cp.version} · {cp.isActive?'Aktif':cp.status==='draft'?'Taslak':'Arşiv'} · {cp.characteristics.length} nokta</option>)}</Select></Field></details>}
               </div>
             </FormSection>
             {selectedProductId&&<section className="rq-quick-start-panel" aria-label="Üretim bilgileri">
               <div className="rq-quick-start-head">
                 <div><h2 className="rq-section-title">İzlenebilirlik</h2><p className="rq-helper">Zorunlu bilgileri girip ölçüme geçin.</p></div>
-                <div className="rq-sample-chips" aria-label="Ölçülecek numune adedi">{[1,3,5].map(count=><button key={count} type="button" aria-pressed={sampleCount===count} disabled={!!request} onClick={()=>setSampleCount(count)}>{count}</button>)}<NumberInput disabled={!!request} aria-label="Özel numune adedi" min={1} max={100} value={sampleCount} onChange={e=>setSampleCount(Math.min(100,Math.max(1,Math.trunc(Number(e.target.value))||1)))} /></div>
+                <div className="rq-sample-picker">
+                  <button type="button" className="rq-sample-trigger" disabled={!!request} aria-expanded={samplePickerOpen} aria-controls="sample-picker-options" onClick={()=>{setSamplePickerOpen(v=>!v);setSamplePickerMore(false);setSampleManual('');}}>Numune sayısı: <strong>{sampleCount}</strong> <span aria-hidden="true">▾</span></button>
+                  {samplePickerOpen&&!request&&<div id="sample-picker-options" className="rq-sample-options" aria-label="Numune sayısı seçimi" onKeyDown={e=>{if(e.key==='Escape')setSamplePickerOpen(false);}}>
+                    <div className="rq-sample-grid">{Array.from({length:samplePickerMore?20:10},(_,i)=>i+1).map(count=><button type="button" key={count} aria-pressed={sampleCount===count} onClick={()=>{setSampleCount(count);setSamplePickerOpen(false);}}>{count}</button>)}</div>
+                    {!samplePickerMore?<button type="button" className="rq-sample-more" onClick={()=>setSamplePickerMore(true)}>Daha fazla</button>:<form onSubmit={e=>{e.preventDefault();const value=Number(sampleManual);if(Number.isInteger(value)&&value>=1&&value<=100){setSampleCount(value);setSamplePickerOpen(false);}}}><label htmlFor="sample-manual">Elle gir (1–100)</label><div><input id="sample-manual" type="number" inputMode="numeric" min="1" max="100" step="1" required value={sampleManual} onChange={e=>setSampleManual(e.target.value)}/><button type="submit">Uygula</button></div></form>}
+                  </div>}
+                </div>
               </div>
               <div className="rq-quick-fields">
                 <Field label={'İş emri '+(rules?.requireOrderNumber?'*':'')}><Input readOnly={!!request} id="inspection-work-order" required={rules?.requireOrderNumber} maxLength={120} value={orderNumber} onChange={e=>setOrderNumber(e.target.value)} placeholder="WO-..." className="rq-technical"/></Field>
                 <Field label={'Lot '+(rules?.requireLotNumber?'*':'')}><Input readOnly={!!request} aria-label="Parti numarası" required={rules?.requireLotNumber} maxLength={120} value={lotNumber} onChange={e=>setLotNumber(e.target.value)} placeholder="LOT-..." className="rq-technical"/></Field>
                 <Field label="Seri"><Input value={serialNumber} onChange={e=>setSerialNumber(e.target.value)} placeholder="SN..." className="rq-technical"/></Field>
-                <Field label="İstasyon"><Input value={machineNo} onChange={e=>setMachineNo(e.target.value)} className="rq-technical"/></Field>
+                <Field label="İstasyon"><Input value={machineNo} onChange={e=>setMachineNo(e.target.value)} className="rq-technical" title={machineNo}/></Field>
               </div>
               <details className="rq-advanced-start">
                 <summary>Operatör ve kaynak bilgisi</summary>
@@ -651,7 +636,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
               </details>
             </section>}
           </Card>
-          <Card className="rq-preparation-summary"><h2 className="rq-section-title">Başlatılacak kontrol</h2>{currentProduct?<><p className="rq-helper rq-technical">{currentProduct.code}</p><h3 className="font-semibold mb-4">{currentProduct.name}</h3>{(previewDrawing?.source)&&<MediaImage src={currentPlan?.drawingImageUrl||currentProduct.defaultDrawingUrl} alt={currentProduct.name+' teknik resmi'} className="h-44 w-full rounded-lg bg-slate-950 object-contain"/>}<dl className="rq-properties"><div><dt>Kontrol planı</dt><dd>{currentPlan?.version||'Seçilmedi'}</dd></div><div><dt>Ölçüm noktası</dt><dd>{characteristics.length}</dd></div><div><dt>Numune</dt><dd>{sampleCount}</dd></div><div><dt>Operatör</dt><dd>{operatorName}</dd></div>{orderNumber&&<div><dt>İş emri</dt><dd className="rq-technical">{orderNumber}</dd></div>}</dl>{currentPlan&&<div className="mt-4"><StatusBadge status={currentPlan.status}/></div>}</>:<p className="rq-helper">Kontrol özetini görmek için ürün seçin.</p>}<Button id="btn-start-inspection" variant="primary" disabled={!rules||!currentPlan||!characteristics.length} onClick={handleStartSession} className="mt-5 w-full"><Play size={16}/>Ölçüme başla</Button>{!rules&&!rulesError&&<p role="status" className="rq-helper">İş kuralları yükleniyor…</p>}</Card>
+          <Card className="rq-preparation-summary"><h2 className="rq-section-title">Başlatılacak kontrol</h2>{currentProduct?<><p className="rq-helper rq-technical">{currentProduct.code}</p><h3 className="font-semibold mb-4">{currentProduct.name}</h3>{previewDrawing?.source&&<MediaImage src={previewDrawing.source} alt={currentProduct.name+' teknik resmi'} className="h-44 w-full rounded-lg bg-slate-950 object-contain"/>}<dl className="rq-properties"><div><dt>Kontrol planı</dt><dd>{currentPlan?<details key={currentPlan.id} className="rq-publication" onToggle={e=>{if(!e.currentTarget.open)return;const id=currentPlan.id;const seq=++publicationRequest.current;setPlanPublication(null);void SaasApi.controlPlanPublication(id).then(data=>{if(seq===publicationRequest.current)setPlanPublication({id,...data});}).catch(()=>{if(seq===publicationRequest.current)setPlanPublication({id,publishedAt:null,publishedBy:null,error:true});});}}><summary aria-label={`Plan ${currentPlan.version}, yayın bilgileri`}>{currentPlan.version} · Bilgi <span aria-hidden="true">ⓘ</span></summary><div className="rq-publication-card" role="status"><strong>Plan {currentPlan.version}</strong>{planPublication?.id!==currentPlan.id?<p>Yayın bilgisi yükleniyor…</p>:planPublication.error?<p>Yayın bilgisi alınamadı. Tekrar denemek için kapatıp açın.</p>:planPublication.publishedAt?<><p>Yayın tarihi: {new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium',timeStyle:'short'}).format(new Date(planPublication.publishedAt))}</p><p>Yayınlayan: {planPublication.publishedBy||'Kayıt bulunamadı'}</p></>:<p>Yayın bilgisi kayıtlarında bulunamadı.</p>}</div></details>:'Seçilmedi'}</dd></div><div><dt>Ölçüm noktası</dt><dd>{characteristics.length}</dd></div><div><dt>Numune</dt><dd>{sampleCount}</dd></div><div><dt>Operatör</dt><dd>{operatorName}</dd></div>{orderNumber&&<div><dt>İş emri</dt><dd className="rq-technical">{orderNumber}</dd></div>}</dl>{currentPlan&&<div className="rq-revision-summary">Plan: {currentPlan.version} · Çizim: {drawingStatus?.expected||'Belirtilmemiş'}{drawingStatus?.mismatch?<strong role="alert"> Çizim revizyonu uyuşmuyor: {drawingStatus.known.join(', ')}</strong>:drawingStatus?.unverified?<span> · Çizim revizyonu doğrulanamadı</span>:null}</div>}<details className="rq-start-context"><summary>İş ve istasyon bilgileri</summary><p>İş emri: {orderNumber||'Belirtilmedi'} · Lot: {lotNumber||'Belirtilmedi'}</p><p>İstasyon: {machineNo||'Belirtilmedi'}</p></details>{currentPlan&&<div className="mt-4"><StatusBadge status={currentPlan.status}/></div>}</>:<p className="rq-helper">Kontrol özetini görmek için ürün seçin.</p>}<Button id="btn-start-inspection" variant="primary" disabled={!rules||!currentPlan||!characteristics.length} onClick={handleStartSession} className="mt-5 w-full"><Play size={16}/>Ölçüme başla</Button>{!rules&&!rulesError&&<p role="status" className="rq-helper">İş kuralları yükleniyor…</p>}</Card>
         </div>
       ) : (
         /* =========================================================================
@@ -677,10 +662,10 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                 {currentPlan?.version}
               </span>
 
-              <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono text-[11px] border border-slate-700">
+              {lotNumber&&<span title="Lot numarası" className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono text-[11px] border border-slate-700">
                 <Hash className="w-3 h-3 text-amber-400" />
                 {lotNumber}
-              </span>
+              </span>}
             </div>
 
 {!phoneInput && (<div className="rq-terminal-context" aria-label="Kontrol kimliği"><span><small>Ürün</small><strong>{currentProduct?.code}</strong></span><span><small>İş emri</small><strong>{orderNumber||'Belirtilmedi'}</strong></span><span><small>İstasyon</small><strong>{machineNo||'Belirtilmedi'}</strong></span><span><small>Operatör</small><strong>{operatorName}</strong></span><span><small>Numune</small><strong>{activeSampleIndex} / {sampleCount}</strong></span><span><small>Ölçüm ilerlemesi</small><progress value={totalChecked} max={Math.max(1,totalPossible)} aria-label="Tamamlanan ölçümler"/><strong>{totalChecked} / {totalPossible}</strong></span></div>)}
@@ -698,7 +683,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                     key={s.sampleIndex}
                     id={`sample-tab-${s.sampleIndex}`}
                     type="button"
-                    onClick={() => {setActiveSampleIndex(s.sampleIndex);requestAnimationFrame(()=>document.querySelector<HTMLInputElement>('.rq-sample-serial input')?.focus());}}
+                    onClick={() => {setActiveSampleIndex(s.sampleIndex);setSerialSample(s.sampleIndex);}}
                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
                       isSelected
                         ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400/50'
@@ -803,6 +788,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                 stepper navigation, and save buttons - all without scrolling!
                 ========================================================================= */}
             <div className="measurement-deck">
+<SampleSerialDialog sample={serialSample} value={samples.find(s=>s.sampleIndex===serialSample)?.serialNumber||''} locked={saving||!!savedLog||!!submissionRef.current} onClose={()=>setSerialSample(null)} onSave={value=>setSamples(previous=>previous.map(s=>s.sampleIndex===serialSample?{...s,serialNumber:value}:s))}/>
 <MeasurementMatrix open={matrixOpen} onClose={()=>setMatrixOpen(false)} samples={samples} characteristics={characteristics} saved={!!savedLog} onSelect={(sample,point)=>{setActiveSampleIndex(sample);setActivePointNo(point);}} />
 {!phoneInput && <section className="rq-desktop-samples" aria-label="Numune seçimi"><div className="measurement-samples flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-700/80">
               <span className="text-[10px] font-bold text-slate-400 px-1 hidden lg:inline">NUMUNE:</span>
@@ -817,7 +803,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                     key={s.sampleIndex}
                     id={`sample-tab-${s.sampleIndex}`}
                     type="button"
-                    onClick={() => {setActiveSampleIndex(s.sampleIndex);requestAnimationFrame(()=>document.querySelector<HTMLInputElement>('.rq-sample-serial input')?.focus());}}
+                    onClick={() => {setActiveSampleIndex(s.sampleIndex);setSerialSample(s.sampleIndex);}}
                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
                       isSelected
                         ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400/50'
@@ -837,7 +823,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                   </button>
                 );
               })}
-            </div><label className="rq-sample-serial">N{activeSampleIndex} seri numarası<input aria-label={`N${activeSampleIndex} seri numarası`} disabled={saving||!!savedLog||!!submissionRef.current} maxLength={120} placeholder="Numuneye özel seri numarası" value={samples.find(s=>s.sampleIndex===activeSampleIndex)?.serialNumber || ''} onChange={e=>{const value=e.target.value;setSamples(previous=>previous.map(s=>s.sampleIndex===activeSampleIndex?{...s,serialNumber:value}:s));}} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();e.stopPropagation();e.currentTarget.blur();}}} /></label><button type="button" className="rq-sample-progress" aria-label="Tüm ölçümleri aç" onClick={()=>setMatrixOpen(true)}><span>Toplam ilerleme</span><span>{totalChecked} / {totalPossible} · %{totalPossible?Math.round(totalChecked/totalPossible*100):0}</span><progress value={totalChecked} max={Math.max(1,totalPossible)} aria-label="Toplam ölçüm ilerlemesi" /></button></section>}
+            </div><button type="button" className="rq-sample-progress" aria-label="Tüm ölçümleri aç" onClick={()=>setMatrixOpen(true)}><span>Toplam ilerleme</span><span>{totalChecked} / {totalPossible} · %{totalPossible?Math.round(totalChecked/totalPossible*100):0}</span><progress value={totalChecked} max={Math.max(1,totalPossible)} aria-label="Toplam ölçüm ilerlemesi" /></button></section>}
               {currentCharacteristic && (
                 <div className="measurement-deck-inner">
                   {/* Point Top Info Row */}
@@ -881,7 +867,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                         <span>{isLastMeasurement?'Son nokta':'Sonraki'}</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
-                    </div><details className="rq-point-menu"><summary aria-label="Ölçüm noktalarını aç">Noktalar ▦</summary><div className="rq-point-menu-grid">{characteristics.map(c=><button key={c.id} type="button" title={c.name} aria-label={"#"+c.pointNo+" "+c.name} data-status={currentSampleObj?.statuses[c.id]||"empty"} aria-pressed={activePointNo===c.pointNo} onClick={event=>{setActivePointNo(c.pointNo);event.currentTarget.closest("details")?.removeAttribute("open");}}>{c.pointNo}</button>)}</div></details></div>}
+                    </div><PointNavigator points={characteristics} active={activePointNo} statuses={currentSampleObj?.statuses||{}} onSelect={setActivePointNo}/></div>}
                       <span className={`measurement-critical px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shrink-0 ${
                         currentCharacteristic.criticalClass === 'critical'
                           ? 'bg-rose-50 text-rose-700 border-rose-200'

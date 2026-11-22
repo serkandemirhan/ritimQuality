@@ -114,6 +114,35 @@ saasRouter.delete('/products/:id', requireRole('admin'), async (req, res, next) 
   } catch (error) { next(error); }
 });
 
+saasRouter.get('/control-plan-catalog-metadata',async(req,res,next)=>{
+ try{const rows=await withTenant(req.auth!.tenantId,c=>c.query(`
+ SELECT p.id,p.updated_at AS "updatedAt",publication.created_at AS "publishedAt",u.name AS "publishedBy"
+ FROM control_plans p LEFT JOIN LATERAL (
+ SELECT a.created_at,a.actor_user_id FROM audit_logs a WHERE a.tenant_id=p.tenant_id
+ AND a.entity_type='control_plan' AND a.entity_id=p.id AND a.action IN ('control_plan.created','control_plan.updated')
+ AND a.after_data->>'isActive'='true' AND a.after_data->>'status'='active'
+ AND (a.before_data IS NULL OR a.before_data->>'isActive' IS DISTINCT FROM 'true' OR a.before_data->>'status' IS DISTINCT FROM 'active')
+ ORDER BY a.created_at DESC,a.id DESC LIMIT 1) publication ON true
+ LEFT JOIN users u ON u.tenant_id=p.tenant_id AND u.id=publication.actor_user_id
+ WHERE p.tenant_id=$1 AND p.is_active=true AND p.status='active'`,[req.auth!.tenantId]));res.json(rows.rows);}catch(error){next(error);}
+});
+saasRouter.get('/control-plans/:id/publication', async(req,res,next)=>{
+  try {
+    const id=idSchema.parse(req.params.id);const {tenantId}=req.auth!;
+    const result=await withTenant(tenantId,async client=>{
+      const plan=await client.query('SELECT id FROM control_plans WHERE tenant_id=$1 AND id=$2',[tenantId,id]);
+      if(!plan.rowCount)throw Object.assign(new Error('Kontrol planı bulunamadı.'),{status:404});
+      const event=await client.query(`SELECT a.created_at,u.name FROM audit_logs a
+        LEFT JOIN users u ON u.tenant_id=a.tenant_id AND u.id=a.actor_user_id
+        WHERE a.tenant_id=$1 AND a.entity_type='control_plan' AND a.entity_id=$2
+          AND a.action IN ('control_plan.created','control_plan.updated')
+          AND a.after_data->>'isActive'='true' AND a.after_data->>'status'='active'
+          AND (a.before_data IS NULL OR a.before_data->>'isActive' IS DISTINCT FROM 'true' OR a.before_data->>'status' IS DISTINCT FROM 'active')
+        ORDER BY a.created_at DESC,a.id DESC LIMIT 1`,[tenantId,id]);
+      const row=event.rows[0];return {publishedAt:row?.created_at||null,publishedBy:row?.name||null};
+    });res.json(result);
+  } catch(error){next(error);}
+});
 saasRouter.get('/control-plans/:id/revision-usage', requireRole('admin', 'quality_engineer'), async (req,res,next)=>{
   try {
     const id=idSchema.parse(req.params.id);const {tenantId}=req.auth!;

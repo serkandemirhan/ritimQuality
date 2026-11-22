@@ -26,6 +26,7 @@ const port=()=>new Promise((resolve,reject)=>{const s=net.createServer();s.on('e
   const history={controlPlanSnapshot:structuredClone(base),samples:[{sampleIndex:1,values:{point:10}}]};
   await admin.query("INSERT INTO inspection_logs(id,tenant_id,product_id,control_plan_id,session_code,occurred_at,payload) VALUES('history',$1,'part','base','HISTORY',now(),$2)",[tenant,history]);
   const baseUsage=await call('/control-plans/base/revision-usage',tokens[0]);assert.equal(baseUsage.status,200);assert.equal(baseUsage.body.used,true);
+  const initialCatalog=await call('/control-plan-catalog-metadata',tokens[0]);assert.equal(initialCatalog.status,200);assert.equal(initialCatalog.body.length,1);assert.equal(initialCatalog.body[0].publishedAt,null);assert.ok(initialCatalog.body[0].updatedAt);
   const overwrite=await call('/control-plans/base',tokens[0],'PUT',{...base,characteristics:[{...base.characteristics[0],name:'Changed'}]},{'X-Plan-Expected':baseUsage.body.token});assert.equal(overwrite.status,409);
   const usage=(await call('/control-plans/draft-a/revision-usage',tokens[0])).body;
   const concurrent=await Promise.all(tokens.map((token,i)=>call('/control-plans/draft-a',token,'PUT',{...usage.payload,revisionNote:'editor-'+i},{'X-Plan-Expected':usage.token})));
@@ -33,6 +34,9 @@ const port=()=>new Promise((resolve,reject)=>{const s=net.createServer();s.on('e
   const ua=(await call('/control-plans/draft-a/revision-usage',tokens[0])).body,ub=(await call('/control-plans/draft-b/revision-usage',tokens[1])).body;
   const publish=await Promise.all([[ua,tokens[0]],[ub,tokens[1]]].map(([u,token])=>call('/control-plans/'+u.payload.id,token,'PUT',{...u.payload,status:'active',isActive:true},{'X-Plan-Expected':u.token,'X-Active-Plan-Expected':'base'})));
   assert.deepEqual(publish.map(r=>r.status).sort(),[200,409]);
+  const catalog=await call('/control-plan-catalog-metadata',tokens[0]);assert.equal(catalog.status,200);assert.equal(catalog.body.length,1);assert.ok(catalog.body[0].publishedAt);assert.ok(catalog.body[0].publishedBy);assert.notEqual(catalog.body[0].id,'base');
+  const foreignUser=crypto.randomUUID();await admin.query("INSERT INTO users(id,tenant_id,name,email,password_hash,role) VALUES($1,$2,'Other','other@example.invalid','unused','operator')",[foreignUser,other]);
+  const foreignToken=auth.signToken({userId:foreignUser,tenantId:other,role:'operator'});const foreignCatalog=await call('/control-plan-catalog-metadata',foreignToken);assert.equal(foreignCatalog.status,200);assert.deepEqual(foreignCatalog.body,[]);
   const rows=await admin.query('SELECT id FROM control_plans WHERE tenant_id=$1 AND is_active',[tenant]);assert.equal(rows.rowCount,1);assert.notEqual(rows.rows[0].id,'base');
   const fork={...base,id:'history-fork',version:'v2.0',status:'draft',isActive:false,characteristics:[{...base.characteristics[0],name:'Changed in new revision'}]};
   assert.equal((await call('/control-plans/history-fork',tokens[0],'PUT',fork,{'X-Plan-Expected':'missing'})).status,200);
