@@ -3,6 +3,7 @@
 @import "./design-tokens.css";
 @import "./design-system.css";
 @import "./premium.css";
+@import "./workspaceStandard.css";
 
 body { font-family: var(--rq-font); }
 button, input, select, textarea { font-family: inherit; }
