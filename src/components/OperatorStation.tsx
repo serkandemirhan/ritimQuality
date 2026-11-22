@@ -1,3 +1,4 @@
+import {MeasurementCompletion,type CompletionStage} from './MeasurementCompletion';
 import {SampleCountPicker} from './SampleCountPicker';
 import {SampleSerialDialog,PointNavigator} from './MeasurementNavigation';
 import {ContinuingControls,PlanSearchList,type PreparationDraft} from './PreparationLists';
@@ -41,7 +42,6 @@ import {
   Search,
   ClipboardList
 } from 'lucide-react';
-import confetti from 'canvas-confetti';
 import { MobileMeasurementShell } from './MobileMeasurementShell';
 import { evaluateMeasurement,evidenceErrors,readMobileSession, type MobileSession } from '../services/mobileMeasurement';
 import {readOfflineCatalog,saveOfflineRules} from '../services/offlineCatalog';
@@ -83,6 +83,10 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const [saving,setSaving] = useState(false);
   const [serialSample,setSerialSample]=useState<number|null>(null);
   const [matrixOpen,setMatrixOpen] = useState(false);
+  const [completionStage,setCompletionStage]=useState<CompletionStage>(null);
+  const [completionError,setCompletionError]=useState('');
+  const [completionToast,setCompletionToast]=useState(false);
+  useEffect(()=>{if(!completionToast)return;const timer=setTimeout(()=>setCompletionToast(false),4000);return()=>clearTimeout(timer);},[completionToast]);
   useEffect(()=>{
     const closeMenu=(event:PointerEvent|KeyboardEvent)=>{
       const menu=document.querySelector<HTMLDetailsElement>('.rq-point-menu[open]');
@@ -423,7 +427,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   // Confirmation reuses the shared validator; upper navigation remains browse-only.
   const confirmMeasurement = (override?:MeasurementValue) => {
     if(saving||mediaUploading||savedLog)return;
-    if(submissionRef.current){void handleSaveInspection();return;}
+    if(submissionRef.current){setCompletionStage('review');return;}
     const sample=samples.find(s=>s.sampleIndex===activeSampleIndex);
     // Wait for the controlled answer to render before final submission reads samples.
     if(override!==undefined&&JSON.stringify(override)!==JSON.stringify(sample?.values[currentCharacteristic.id])){
@@ -436,7 +440,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
       const errors=evidenceErrors(currentCharacteristic,evaluated.result,sample?.evidence?.[currentCharacteristic.id]||[],sample?.pointNotes?.[currentCharacteristic.id]||'','');
       if(errors.length){const details=document.querySelector<HTMLDetailsElement>('.measurement-evidence');if(details){details.open=true;details.querySelector<HTMLElement>('input,textarea')?.focus();}throw new Error(errors.join(' '));}
       if(isLastMeasurement&&!isComplete){setEntryError('Eksik ölçüm veya zorunlu kanıt var. Nokta ve numune seçiminden eksikleri tamamlayın.');return;}
-      setEntryError('');if(isComplete||isLastMeasurement)void handleSaveInspection();else handleAdvanceNext();
+      setEntryError('');if(isComplete||isLastMeasurement)setCompletionStage('review');else handleAdvanceNext();
     }catch(error){setEntryError(error instanceof Error?error.message:'Geçerli bir ölçüm girin.');}
   };
 
@@ -504,11 +508,23 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const saveServerDraft=async(release=false)=>{if(!isSessionActive||savedLog||draftBusy)return;setDraftBusy(true);try{const payload=draftPayload();setDraftId(payload.id);await SaasApi.saveInspectionDraft(payload.id,payload);if(release){await SaasApi.releaseInspectionDraft(payload.id);localStorage.removeItem(draftKey);setIsSessionActive(false);setSamples([]);setDraftId(null);}await refreshDrafts();}catch(error){alert(error instanceof Error?error.message:'Taslak kaydedilemedi.');}finally{setDraftBusy(false);}};
   const claimDraft=async(item:ServerDraft)=>{if(!controlPlans.some(p=>p.id===item.payload.selectedPlanId&&rules&&(!rules.requireActivePlan||(p.isActive&&p.status==='active')))){alert('Bu kontrolün başladığı revizyon mevcut iş kurallarına göre kullanılamıyor. Kalite sorumlusuna başvurun; revizyon otomatik değiştirilmeyecek.');return;}setDraftBusy(true);try{const claimed=await SaasApi.claimInspectionDraft(item.id) as ServerDraft;applyDraft({...claimed.payload,id:item.id});await refreshDrafts();}catch(error){alert(error instanceof Error?error.message:'Taslak devralınamadı.');}finally{setDraftBusy(false);}};
 
+  const discardCurrentInspection=async()=>{
+    if(saving||draftBusy||savedLog)return;
+    setDraftBusy(true);setCompletionError('');
+    try{
+      if(draftId)await SaasApi.discardInspectionDraft(draftId);
+      localStorage.removeItem(draftKey);submissionRef.current=null;
+      setDraftAvailable(false);setDraftId(null);setIsSessionActive(false);setSamples([]);setCompletionStage(null);
+      void refreshDrafts().catch(()=>{});
+    }catch(error){setCompletionError(error instanceof Error?error.message:'Taslak iptal edilemedi.');}
+    finally{setDraftBusy(false);}
+  };
+
   // Save Session
   const handleSaveInspection = async () => {
     try {
     if (!currentProduct || !currentPlan || savingRef.current || savedLog || mediaUploading) return;
-    savingRef.current = true; setSaving(true);
+    savingRef.current = true; setSaving(true);setCompletionError('');
 
     const sessionCode = `INS-${crypto.randomUUID()}`;
     const newLog: InspectionLog = submissionRef.current || {
@@ -543,19 +559,12 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
     submissionRef.current = newLog;
     const confirmed = await StorageService.saveInspectionLog(newLog);
     onInspectionSaved(confirmed);
-    setSavedLog(confirmed);
+    setSavedLog(confirmed);setCompletionStage('saved');setCompletionToast(true);
     localStorage.removeItem(draftKey); setDraftAvailable(false);setDraftId(null);void refreshDrafts().catch(()=>{});
-    if(!phoneInput)setIsSessionActive(false);
+    setIsSessionActive(false);
 
-    if (overallResult === 'pass') {
-      confetti({
-        particleCount: 80,
-        spread: 60,
-        origin: { y: 0.6 },
-      });
-    }
   
-    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); } finally { savingRef.current = false; setSaving(false); }
+    } catch (error) { StorageService.reportSyncError(error); setCompletionError(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); } finally { savingRef.current = false; setSaving(false); }
   };
 
   // Active sample data
@@ -572,11 +581,12 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const preparationDrafts:PreparationDraft[]=[...serverDrafts];
   if(draftAvailable){try{const local=JSON.parse(localStorage.getItem(draftKey)||'null');if(local){const id=local.draftId||local.id;const index=preparationDrafts.findIndex(d=>d.id===id);const server=index>=0?preparationDrafts[index]:undefined;if(!server?.claimed_by||server.claimed_by===currentUser.id){if(index>=0)preparationDrafts.splice(index,1);preparationDrafts.unshift({id:id||'device-draft',payload:local,claimed_by:currentUser.id,created_by_name:local.operatorName||currentUser.name,created_at:server?.created_at||local.startedAt,updated_at:local.updatedAt||server?.updated_at,local:true});}}}catch{}}
   if(mobileAvailable&&storedMobile)preparationDrafts.unshift({id:'mobile-device',payload:{productId:storedMobile.product.id,selectedPlanId:storedMobile.plan.id,planVersion:storedMobile.plan.version,orderNumber:storedMobile.orderNumber,lotNumber:storedMobile.lotNumber,count:storedMobile.count,mobileFilled:new Set(storedMobile.attempts.map(a=>a.sample+':'+a.characteristic)).size,mobileTotal:storedMobile.count*storedMobile.plan.characteristics.length},claimed_by:currentUser.id,created_by_name:storedMobile.operatorName,created_at:storedMobile.createdAt,updated_at:storedMobile.attempts.at(-1)?.measuredAt||storedMobile.createdAt,mobile:true});
-  if(mobileResume)return <MobileMeasurementShell seed={mobileSeed.current} onCompleted={log=>{setMobileResume(false);mobileSeed.current=undefined;setMobileAvailable(false);setIsSessionActive(false);onOpenCertificate(log);}} onSaved={onInspectionSaved} onOpenActions={onOpenActions} onExit={()=>{setMobileResume(false);mobileSeed.current=undefined;void readMobileSession(SaasApi.scope()).then(s=>{setMobileAvailable(Boolean(s));setStoredMobile(s);});}}/>;
+  if(mobileResume)return <MobileMeasurementShell seed={mobileSeed.current} onCompleted={log=>{setMobileResume(false);mobileSeed.current=undefined;setMobileAvailable(false);setIsSessionActive(false);setSavedLog(log);setCompletionStage('saved');setCompletionToast(true);}} onSaved={onInspectionSaved} onOpenActions={onOpenActions} onExit={()=>{setMobileResume(false);mobileSeed.current=undefined;void readMobileSession(SaasApi.scope()).then(s=>{setMobileAvailable(Boolean(s));setStoredMobile(s);});}}/>;
 
   return (
     <div className={'w-full quality-operator'+(selectedProductId&&!isSessionActive?' rq-preparation-selected':'')}>
-      {!isSessionActive&&savedLog&&<div role="status" className="mb-4 rounded-xl bg-emerald-50 p-4 text-emerald-900"><p>Ölçüm kaydedildi ve oturum kapatıldı.</p><Button onClick={()=>onOpenCertificate(savedLog)}>PDF kalite raporunu aç</Button></div>}
+      {completionToast&&<div role="status" className="rq-completion-toast">Ölçüm başarıyla kaydedildi.</div>}
+      <MeasurementCompletion stage={completionStage} busy={saving||draftBusy} error={completionError} samples={sampleCount} total={totalChecked} failed={failCount} warnings={warningCount} onClose={()=>{setCompletionStage(null);setCompletionError('');}} onReview={()=>{setCompletionStage(null);setMatrixOpen(true);}} onSave={()=>void handleSaveInspection()} onRequestDiscard={()=>setCompletionStage('discard')} onDiscard={()=>void discardCurrentInspection()} onReport={()=>{if(savedLog){setCompletionStage(null);onOpenCertificate(savedLog);}}}/>
       {!isSessionActive&&<PageHeader title="Ölçüm hazırlığı" description="Ürün, kontrol planı ve üretim bilgilerini doğrulayarak ölçümü başlatın." actions={<IconButton label={soundEnabled?'Sesli uyarıyı kapat':'Sesli uyarıyı aç'} onClick={()=>setSoundEnabled(!soundEnabled)}>{soundEnabled?<Volume2 size={17}/>:<VolumeX size={17}/>}</IconButton>}/>}
       {rulesError && <p role="alert" className="mb-3 text-sm text-red-700">İş kuralları yüklenemedi: {rulesError}</p>}
       {!isSessionActive&&<ContinuingControls items={preparationDrafts} plans={controlPlans} products={products} userId={currentUser.id} busy={draftBusy} error={draftListError} onRefresh={()=>void refreshDrafts().catch(()=>{})} onOpen={item=>{if(item.mobile)setMobileResume(true);else if(item.local)restoreDraft();else void claimDraft(item);}}/>}
@@ -1076,7 +1086,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                   {phoneInput && (currentCharacteristic.type || 'numeric') === 'numeric' && <div className="measurement-keypad" aria-label="Sayısal tuş takımı">
                     {['7','8','9','⌫','4','5','6','±','1','2','3',','].map(key => <button key={key} type="button" disabled={!!submissionRef.current || !!savedLog} aria-label={key === '⌫' ? 'Son rakamı sil' : key === ',' ? 'Ondalık ayırıcı' : key === '±' ? 'İşareti değiştir' : key} onClick={() => pressNumber(key)}>{key}</button>)}
                     <button type="button" disabled={!!submissionRef.current || !!savedLog} onClick={() => pressNumber('0')} aria-label="0">0</button>
-                    <button type="button" className="keypad-next" disabled={currentVal == null || !!savedLog || saving || mediaUploading || (isLastMeasurement && !isComplete)} onClick={isLastMeasurement ? handleSaveInspection : handleAdvanceNext}>{isLastMeasurement ? 'Ölçümü kaydet' : 'Onayla ve sonraki nokta →'}</button>
+                    <button type="button" className="keypad-next" disabled={currentVal == null || !!savedLog || saving || mediaUploading || (isLastMeasurement && !isComplete)} onClick={isLastMeasurement ? ()=>setCompletionStage('review') : handleAdvanceNext}>{isLastMeasurement ? 'Ölçümü kaydet' : 'Onayla ve sonraki nokta →'}</button>
                   </div>}
                       {(currentValStatus==='fail'||(currentCharacteristic.evidencePolicy||'none')!=='none'||currentSampleObj?.evidence?.[currentCharacteristic.id]?.length||currentSampleObj?.pointNotes?.[currentCharacteristic.id])&&(
                         <details className={`measurement-evidence rounded-xl border bg-slate-50 ${currentValStatus==='fail'?'border-rose-300':'border-slate-200'}`}>
@@ -1134,12 +1144,12 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
                       <button
                         id="btn-save-inspection-log"
                         type="button"
-                        aria-busy={saving} onClick={phoneInput?handleSaveInspection:()=>confirmMeasurement()}
+                        aria-busy={saving} onClick={phoneInput?()=>setCompletionStage('review'):()=>confirmMeasurement()}
                         disabled={saving || mediaUploading || (phoneInput||isLastMeasurement ? !isComplete : false)}
                         className={`w-full text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition disabled:opacity-40 ${isComplete?'bg-emerald-700 hover:bg-emerald-600':'bg-slate-900 hover:bg-slate-800'}`}
                       >
                         <Save className="w-4 h-4 text-blue-400" />
-                        <span>{saving?'Kaydediliyor…':!phoneInput&&(isComplete||isLastMeasurement)?'Ölçümü kaydet ve kapat':!phoneInput?'Kaydet ve sonraki':`Ölçümleri Kaydet (${totalChecked}/${totalPossible})`}</span>
+                        <span>{saving?'Kaydediliyor…':!phoneInput&&(isComplete||isLastMeasurement)?'Ölçümü tamamla':!phoneInput?'Kaydet ve sonraki':`Ölçümleri Kaydet (${totalChecked}/${totalPossible})`}</span>
                       </button>
                     )}
                   </div>

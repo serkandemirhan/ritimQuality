@@ -174,19 +174,35 @@ for(let sample=1;sample<=sampleTotal;sample++){
     if(index===plan.characteristics.length-1){await evaluate(`document.querySelector('.measurement-evidence').open=true`);await upload('completion-evidence.pdf',Buffer.from('%PDF-1.4\n%%EOF'));}
   }
 }
-await assert(`document.querySelector('#btn-save-inspection-log').innerText.includes('Ölçümü kaydet ve kapat')`,'Last measurement has no save-and-close action');
+await assert(`document.querySelector('#btn-save-inspection-log').innerText.includes('Ölçümü tamamla')`,'Last measurement has no save-and-close action');
 await assert(`document.querySelector('#btn-save-inspection-log').disabled`,'Incomplete last measurement can be submitted');
 await evaluate(`document.querySelector('.rq-measurement-choices button').click();document.querySelector('.measurement-evidence').open=true`);await delay(80);
 await upload('final-evidence.pdf',Buffer.from('%PDF-1.4\n%%EOF'));
 await assert(`!document.querySelector('#btn-save-inspection-log').disabled`,'Complete session cannot be saved');
 await point(0);
-await assert(`document.querySelector('#btn-save-inspection-log').innerText.includes('Ölçümü kaydet ve kapat')`,'Completion action depends on current point instead of all samples');
+await assert(`document.querySelector('#btn-save-inspection-log').innerText.includes('Ölçümü tamamla')`,'Completion action depends on current point instead of all samples');
 socket.addEventListener('message',e=>{if(JSON.parse(e.data).method==='Page.javascriptDialogOpening')void cmd('Page.handleJavaScriptDialog',{accept:true});});
-await evaluate(`document.querySelector('#btn-save-inspection-log').click()`);await delay(500);
-await assert(`!!document.querySelector('.quality-session')`,'Failed save closed the session');
-await evaluate(`document.querySelector('#btn-save-inspection-log').click()`);await delay(600);
-await assert(`!document.querySelector('.quality-session')&&document.body.innerText.includes('Ölçüm kaydedildi ve oturum kapatıldı.')`,'Successful save did not close session');
-await assert(`Array.from(document.querySelectorAll('button')).some(b=>b.innerText==='PDF kalite raporunu aç')`,'Closing session removed report access');
+await evaluate(`document.querySelector('#btn-save-inspection-log').click()`);await delay(150);
+await assert(`document.querySelector('.rq-completion').open`,'Completion review did not open');
+if(submissions.length!==0)throw Error('Opening completion saved without confirmation');
+await evaluate(`Array.from(document.querySelectorAll('.rq-completion button')).find(b=>b.innerText==='Ölçümleri incele').click()`);await delay(150);
+await assert(`document.querySelector('.rq-measurement-matrix').open`,'Review did not open measurement matrix');
+await evaluate(`document.querySelector('.rq-measurement-matrix tbody button').click()`);await delay(120);
+await assert(`!document.querySelector('.rq-measurement-matrix').open&&!!document.querySelector('.quality-session')`,'Review cell did not return to measurement');
+await evaluate(`document.querySelector('#btn-save-inspection-log').click()`);await delay(120);
+await evaluate(`document.querySelector('.rq-completion .is-discard').click()`);await delay(100);
+await assert(`document.querySelector('#rq-completion-title').innerText.includes('vazgeçilsin')`,'Discard has no confirmation');
+await evaluate(`document.querySelector('.rq-completion button').click()`);await delay(100);
+await assert(`!!document.querySelector('.quality-session')`,'Cancel discard lost measurement');
+await evaluate(`document.querySelector('#btn-save-inspection-log').click()`);await delay(100);
+await evaluate(`document.querySelector('.rq-completion .is-primary').click()`);await delay(500);
+await assert(`!!document.querySelector('.quality-session')&&!!document.querySelector('.rq-completion [role=alert]')`,'Failed save did not retain session or explain error');
+await evaluate(`document.querySelector('.rq-completion .is-primary').click()`);await delay(600);
+await assert(`!document.querySelector('.quality-session')&&document.querySelector('#rq-completion-title').innerText==='Ölçüm kaydedildi'`,'Successful save did not show result dialog');
+await assert(`document.querySelector('.rq-completion .is-primary').innerText==='Raporu aç'`,'Report access missing');
+await assert(`!!document.querySelector('.rq-completion-toast')`,'Short success notification missing');
+await evaluate(`document.querySelector('.rq-completion button').click()`);await delay(4100);
+await assert(`!document.querySelector('.rq-completion').open&&!document.querySelector('.rq-completion-toast')`,'Result or timed notification stayed open');
 if(submissions.length!==2||submissions[0].id!==submissions[1].id||submissions[1].samples.length!==sampleTotal||submissions[1].samples.at(-1).values['keyboard-ok_nok']!==true)throw Error('Save retry changed identity or lost final answer');
 if(submissions[1].samples.some(s=>s.serialNumber!==`SN-${s.sampleIndex}`))throw Error('Submission lost sample serial numbers');
 console.log('PASS: independent sample serials survive submission; all-sample completion, required evidence, failed-save retention, stable retry and report access. Fixture API only.');

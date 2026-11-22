@@ -62,6 +62,7 @@ export const SaasApi = {
   subscribePush: (body:unknown) => request('/push/subscriptions',{method:'POST',body:JSON.stringify(body)}),
   unsubscribePush: () => request('/push/subscriptions',{method:'DELETE'}),
   work: () => request('/work'),
+  discardInspectionDraft: (id:string) => request('/inspection-drafts/'+encodeURIComponent(id),{method:'DELETE'}),
   inspectionDrafts: () => request('/inspection-drafts'),
   saveInspectionDraft: (id:string,body:unknown) => request('/inspection-drafts/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(body)}),
   claimInspectionDraft: (id:string) => request('/inspection-drafts/'+encodeURIComponent(id)+'/claim',{method:'POST'}),

@@ -51,6 +51,16 @@ const port=()=>new Promise((resolve,reject)=>{const s=net.createServer();s.on('e
   assert.equal((await call('/control-plans/duplicate-version',tokens[0],'PUT',{...fork,id:'duplicate-version'},{'X-Plan-Expected':'missing'})).status,409);
   assert.deepEqual((await admin.query("SELECT payload FROM inspection_logs WHERE tenant_id=$1 AND id='history'",[tenant])).rows[0].payload,history);
   assert.deepEqual((await admin.query("SELECT payload FROM control_plans WHERE tenant_id=$1 AND id='base'",[tenant])).rows[0].payload.characteristics,base.characteristics);
+  const discardId=crypto.randomUUID();
+  await admin.query('INSERT INTO inspection_drafts(id,tenant_id,created_by,claimed_by,product_id,control_plan_id,payload) VALUES($1,$2,$3,$3,$4,$5,$6)',[discardId,tenant,first,'part','base',{}]);
+  const discard=async(token,id=discardId)=>fetch(origin+'/api/inspection-drafts/'+id,{method:'DELETE',headers:{Authorization:'Bearer '+token}});
+  assert.equal((await discard(tokens[1])).status,409,'Other holder discarded draft');
+  assert.equal((await admin.query('SELECT id FROM inspection_drafts WHERE id=$1',[discardId])).rowCount,1);
+  assert.equal((await discard(tokens[0])).status,204);
+  assert.equal((await admin.query('SELECT id FROM inspection_drafts WHERE id=$1',[discardId])).rowCount,0);
+  assert.equal((await discard(tokens[0])).status,204,'Discard retry is not idempotent');
+  assert.equal((await admin.query("SELECT id FROM inspection_logs WHERE tenant_id=$1 AND id='history'",[tenant])).rowCount,1,'Discard touched completed log');
+  console.log('PASS: draft discard ownership, persistence, retry and completed-history protection');
   console.log('PASS: real PostgreSQL immutable used revision/history, separate new draft, duplicate version rejection, concurrent edit/publish 200/409 and one active plan');
  }finally{
   if(server)await new Promise(r=>server.close(r));if(pool)await pool.end();if(admin)await admin.end();
