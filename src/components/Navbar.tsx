@@ -117,7 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     {
       id: 'logs',
       label: 'Kontrol kayıtları',
-      description: 'Geçmiş ve sertifikalar',
+      description: 'Geçmiş ve raporlar',
       icon: <History className="h-4 w-4" />,
       badge: String(logCount),
       allowedRoles: ['admin', 'quality_engineer', 'operator', 'auditor'],

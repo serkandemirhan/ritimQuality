@@ -683,7 +683,7 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
       '3 aktif kullanıcı',
       'Aylık 2.500 numune',
       'Temel Tolerans & Uygunluk Kontrolü',
-      'Standart Ölçüm Sertifikası (PDF / Yazdır)',
+      'Standart Kalite Raporu (PDF / Yazdır)',
     ],
     badge: 'Başlangıç',
     isPopular: false,

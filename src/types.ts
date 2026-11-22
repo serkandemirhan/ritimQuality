@@ -124,6 +124,7 @@ export interface InspectionRequest { taskId:string; planId:string; planVersion:s
 
 export interface InspectionLog {
   controlNumber?: string;
+  operatorRoleAtMeasurement?: User['role'];
   requiresReview?: boolean;
   approval?: {status:'approved'|'rejected'|'pending'|'not_required';reviewedBy?:string;reviewedAt?:string;reason?:string};
   taskId?: string;

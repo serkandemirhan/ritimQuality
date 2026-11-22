@@ -1,3 +1,4 @@
+import {reportApprovalText,reportHeading} from './reportPresentation';
 ﻿import {PDFDocument,rgb,type PDFFont,type PDFPage} from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import {analyzeInspectionReport,reportRowStatusLabel,reportStatusLabel} from './reportAnalysis';
@@ -11,8 +12,7 @@ export interface ReportPdfInput {
  fonts:{regular:Uint8Array;bold:Uint8Array}; drawingPng?:Uint8Array;
 }
 export function reportApprovalLabel(log:InspectionLog,plan?:ControlPlan):string {
- const status=log.approval?.status||(log.requiresReview||(log.controlPlanSnapshot||plan)?.requiresApproval?'pending':'not_required');
- return {approved:'Onaylandı',rejected:'Reddedildi',pending:'Onay bekliyor',not_required:'Onay gerekmiyor'}[status];
+ return reportApprovalText(log,plan);
 }
 export function reportPdfFilename(log:InspectionLog):string{
  const safe=(value:string)=>value.normalize('NFKC').replace(/[^\p{L}\p{N}._-]+/gu,'_').replace(/^\.+/,'').slice(0,70)||'rapor';
@@ -27,8 +27,8 @@ export async function createReportPdf(input:ReportPdfInput):Promise<Uint8Array>{
  if(plan?.drawingImageUrl&&!input.drawingPng)throw Error('Teknik resim hazır olmadan PDF oluşturulamaz.');
  const doc=await PDFDocument.create();doc.registerFontkit(fontkit);
  const normal=await doc.embedFont(input.fonts.regular,{subset:true}),bold=await doc.embedFont(input.fonts.bold,{subset:true});
- const number=controlLabel(log),technical=reportStatusLabel(analysis.status),approval=reportApprovalLabel(log,plan);
- doc.setTitle(`${number} · Kalite kontrol raporu`);doc.setAuthor(company?.legalName||company?.name||'Ritim Quality');doc.setSubject(`${technical} · Yönetici onayı: ${approval}`);doc.setCreator('Ritim Quality');
+ const number=controlLabel(log),technical=reportStatusLabel(analysis.status),approval=reportApprovalLabel(log,plan),heading=reportHeading(log,plan,isExample);
+ doc.setTitle(`${number} · Kalite raporu`);doc.setAuthor(company?.legalName||company?.name||'Ritim Quality');doc.setSubject(`${technical} · Onay durumu: ${approval}`);doc.setCreator('Ritim Quality');
  const width=842,height=595,margin=35,content=width-margin*2,bottom=48;
  const ink=rgb(.09,.18,.25),muted=rgb(.35,.42,.47),line=rgb(.82,.86,.88),red=rgb(.65,.12,.18);
  const clean=(value:unknown)=>String(value??'—').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,'').replace(/\t/g,' ');
@@ -50,7 +50,10 @@ export async function createReportPdf(input:ReportPdfInput):Promise<Uint8Array>{
  function newPage(){
   page=doc.addPage([width,height]);y=height-margin;
   draw('ritim quality',margin,y,19,bold);draw(number,width-260,y,10,bold);y-=24;
-  const status=`Teknik sonuç: ${technical} | Yönetici onayı: ${approval}`;
+  draw(heading.title,margin,y,11,bold,heading.tone==='danger'?red:heading.tone==='warning'?rgb(.52,.30,.05):ink);y-=18;
+  draw('Rapor durumu: '+heading.label,margin,y,9,bold);y-=15;
+  draw(heading.note,margin,y,8,normal,muted);y-=16;
+  const status=`Teknik sonuç: ${technical} | Onay durumu: ${approval}`;
   draw(status,margin,y,9,bold);y-=18;
   if(isExample){draw('DEMO RAPORU — Üretim onayı veya resmi kalite kabul belgesi değildir.',margin,y,9,bold,red);y-=18;}
   if(log.clientSyncStatus==='pending'){draw('YEREL RAPOR — Sunucu senkronizasyonu henüz tamamlanmadı.',margin,y,9,bold,red);y-=18;}
@@ -58,7 +61,7 @@ export async function createReportPdf(input:ReportPdfInput):Promise<Uint8Array>{
  }
  function paragraph(text:unknown,font=normal,size=9){for(const value of wrap(text,font,size,content)){if(y<bottom+16)newPage();draw(value,margin,y,size,font);y-=size+5;}y-=4;}
  newPage();
- paragraph(company?.legalName||company?.name||'Kalite kontrol raporu',bold,12);
+ paragraph(company?.legalName||company?.name||'Kalite raporu',bold,12);
  paragraph(`Parça: ${log.productCode} · ${log.productName} | Çizim revizyonu: ${log.productRevision||'—'} | Plan revizyonu: ${log.controlPlanVersion||'—'}`);
  paragraph(`Lot: ${log.lotNumber||'—'} | İş emri: ${log.orderNumber||'—'} | Seri: ${log.serialNumber||'—'}`);
  paragraph(`Muayene eden: ${log.operatorName||'—'} | Zaman: ${new Date(log.timestamp).toLocaleString('tr-TR')} | İstasyon: ${log.machineNo||'—'} | Ekipman: ${log.equipmentId||'Belirtilmedi'}`);
