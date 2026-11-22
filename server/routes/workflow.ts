@@ -3,12 +3,15 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { withTenant } from '../db/pool.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
-import { workflowAudit, notifyQuality } from '../services/workflow.js';
+import { workflowAudit, notifyQuality, exemptPendingAdminMeasurements } from '../services/workflow.js';
 import { conflict } from '../services/inspectionValidation.js';
 
 export const workflowRouter=Router();
 workflowRouter.use(requireAuth);
 workflowRouter.use(async(req,res,next)=>{try{if(req.method!=='GET' && !req.path.startsWith('/notifications'))await withTenant(req.auth!.tenantId,client=>assertSubscription(client,req.auth!.tenantId));next();}catch(error){next(error);}});
+workflowRouter.post('/approvals/admin-exemption',requireRole('admin'),async(req,res,next)=>{try{
+ const {tenantId,userId}=req.auth!;const resolved=await withTenant(tenantId,c=>exemptPendingAdminMeasurements(c,tenantId,userId));res.json({resolved});
+}catch(error){next(error);}});
 workflowRouter.get('/work',async(req,res,next)=>{
   try {
     const {tenantId,userId,role}=req.auth!;

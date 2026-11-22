@@ -81,6 +81,29 @@ const port=()=>new Promise((resolve,reject)=>{const s=net.createServer();s.on('e
   assert.equal((await discard(tokens[0])).status,204,'Discard retry is not idempotent');
   assert.equal((await admin.query("SELECT id FROM inspection_logs WHERE tenant_id=$1 AND id='history'",[tenant])).rowCount,1,'Discard touched completed log');
   console.log('PASS: draft discard ownership, persistence, retry and completed-history protection');
+  const activePlan=(await admin.query('SELECT payload FROM control_plans WHERE tenant_id=$1 AND is_active',[tenant])).rows[0].payload;
+  activePlan.requiresApproval=true;await admin.query('UPDATE control_plans SET payload=$3 WHERE tenant_id=$1 AND id=$2',[tenant,activePlan.id,activePlan]);
+  const submit=async(token,suffix,value=10,role='admin')=>{const payload={id:'approval-'+suffix,sessionCode:'APPROVAL-'+suffix,productId:'part',controlPlanId:activePlan.id,controlPlanVersion:activePlan.version,operatorRoleAtMeasurement:role,timestamp:new Date().toISOString(),sampleCount:1,samples:[{sampleIndex:1,values:{point:value}}]};const result=await call('/inspection-logs',token,'POST',payload);assert.equal(result.status,201,JSON.stringify(result.body));return result.body;};
+  const adminLog=await submit(tokens[0],'admin',12,'operator');assert.equal(adminLog.operatorRoleAtMeasurement,'admin');
+  assert.equal((await admin.query('SELECT * FROM inspection_approvals WHERE tenant_id=$1 AND inspection_id=$2',[tenant,adminLog.id])).rowCount,0,'Admin needs approval');
+  assert.equal((await admin.query('SELECT * FROM quality_cases WHERE tenant_id=$1 AND inspection_id=$2',[tenant,adminLog.id])).rowCount,1,'Admin failure lost case');
+  await admin.query("UPDATE users SET role='operator' WHERE tenant_id=$1 AND id=$2",[tenant,second]);
+  const operatorLog=await submit(tokens[1],'operator',10,'admin');assert.equal(operatorLog.operatorRoleAtMeasurement,'operator');
+  assert.equal((await admin.query('SELECT status FROM inspection_approvals WHERE tenant_id=$1 AND inspection_id=$2',[tenant,operatorLog.id])).rows[0].status,'pending');
+  assert.equal((await call('/approvals/admin-exemption',tokens[1],'POST',{})).status,403);
+  await admin.query("UPDATE users SET role='quality_engineer' WHERE tenant_id=$1 AND id=$2",[tenant,second]);
+  const qualityLog=await submit(tokens[1],'quality',10,'admin');assert.equal(qualityLog.operatorRoleAtMeasurement,'quality_engineer');
+  assert.equal((await call('/approvals/'+qualityLog.id,tokens[1],'POST',{status:'approved',reason:'Self approval denied'})).status,409);
+  await admin.query("UPDATE users SET role='admin' WHERE tenant_id=$1 AND id=$2",[tenant,second]);
+  // A legacy measurement has no role snapshot; reconcile only pending admin measurements.
+  await admin.query("INSERT INTO inspection_logs(id,tenant_id,product_id,control_plan_id,session_code,occurred_at,payload) VALUES('legacy-admin',$1,'part','base','LEGACY-ADMIN',now(),$2)",[tenant,{operatorUserId:first}]);
+  await admin.query("INSERT INTO inspection_approvals(tenant_id,inspection_id) VALUES($1,'legacy-admin')",[tenant]);
+  const exempt=await call('/approvals/admin-exemption',tokens[0],'POST',{});assert.equal(exempt.status,200);assert.equal(exempt.body.resolved,1);
+  assert.equal((await admin.query("SELECT status FROM inspection_approvals WHERE tenant_id=$1 AND inspection_id='legacy-admin'",[tenant])).rows[0].status,'approved');
+  for(const id of [operatorLog.id,qualityLog.id])assert.equal((await admin.query('SELECT status FROM inspection_approvals WHERE tenant_id=$1 AND inspection_id=$2',[tenant,id])).rows[0].status,'pending','Promotion bypassed historical role');
+  assert.equal((await call('/approvals/admin-exemption',tokens[0],'POST',{})).body.resolved,0);
+  assert.equal((await admin.query("SELECT count(*)::int n FROM audit_logs WHERE tenant_id=$1 AND entity_id='legacy-admin' AND action='inspection.approval_not_required'",[tenant])).rows[0].n,1);
+  console.log('PASS: server-verified admin exemption, failed-result case retained, operator/quality approval protected, legacy reconciliation audited/idempotent');
   console.log('PASS: real PostgreSQL immutable used revision/history, separate new draft, duplicate version rejection, concurrent edit/publish 200/409 and one active plan');
  }finally{
   if(server)await new Promise(r=>server.close(r));if(pool)await pool.end();if(admin)await admin.end();

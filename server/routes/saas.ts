@@ -232,9 +232,9 @@ saasRouter.post('/inspection-logs', requireRole('admin', 'quality_engineer', 'op
         payload={...existing.payload,controlNumber:existing.control_number}; return;
       }
       const plan = (await client.query('SELECT payload FROM control_plans WHERE tenant_id=$1 AND id=$2 FOR SHARE',[tenantId,controlPlanId])).rows[0]?.payload;
-      const actor = (await client.query('SELECT name FROM users WHERE tenant_id=$1 AND id=$2',[tenantId,userId])).rows[0];
+      const actor = (await client.query('SELECT name,role FROM users WHERE tenant_id=$1 AND id=$2 FOR SHARE',[tenantId,userId])).rows[0];
       const rules = inspectionRulesSchema.parse((await client.query('SELECT inspection_rules FROM tenants WHERE id=$1 FOR SHARE', [tenantId])).rows[0].inspection_rules);
-      payload = { ...validateInspection(payload,plan,{id:userId,name:actor.name},rules), requestSignature: signature };
+      payload = { ...validateInspection(payload,plan,{id:userId,name:actor.name},rules), requestSignature: signature, operatorRoleAtMeasurement:actor.role };
       const attachments = (payload.samples as any[]).flatMap(sample => Object.values(sample.evidence || {}).flat()) as {id:string}[];
       const mediaIds=attachments.map(item=>item.id);
       const draftId=typeof payload.draftId==='string'?z.string().uuid().parse(payload.draftId):null;
@@ -274,7 +274,7 @@ saasRouter.post('/inspection-logs', requireRole('admin', 'quality_engineer', 'op
         await client.query('UPDATE media_evidence SET inspection_id=$1,draft_id=NULL,sample_index=$2,characteristic_id=$3 WHERE tenant_id=$4 AND id=ANY($5::uuid[])',[id,sample.sampleIndex,characteristicId,tenantId,(items as {id:string}[]).map(item=>item.id)]);
       }
       await completeInspectionRequest(client,tenantId,userId,payload);
-      await createInspectionWorkflow(client,tenantId,userId,payload);
+      await createInspectionWorkflow(client,tenantId,userId,payload,actor.role);
       if(serverDraftId)await client.query('DELETE FROM inspection_drafts WHERE tenant_id=$1 AND id=$2 AND claimed_by=$3',[tenantId,serverDraftId,userId]);
       await audit(client, { tenantId, userId, action: 'inspection.created', entityType: 'inspection_log', entityId: id, after: payload, ip: req.ip });
     });

@@ -26,7 +26,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     if (error instanceof Error && error.name === 'AbortError') throw error;
     throw new ApiError('Sunucuya ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.', 0, 'NETWORK_ERROR');
   });
-  const announce=()=>{if(options.method&&['POST','PUT','PATCH','DELETE'].includes(options.method)&&!path.startsWith('/auth')&&!path.startsWith('/notifications')&&!path.startsWith('/media'))window.dispatchEvent(new CustomEvent('quality-saved',{detail:{message:path==='/tasks'?'Görev atandı':path.endsWith('/start')?'Görev başlatıldı':path.includes('/tasks/')?'Görev tamamlandı':path==='/inspection-logs'?'Ölçüm kaydedildi':path.includes('/approvals/')?'Onay kararı kaydedildi':'Değişiklikler kaydedildi'}}));};
+  const announce=()=>{if(options.method&&['POST','PUT','PATCH','DELETE'].includes(options.method)&&!path.startsWith('/auth')&&!path.startsWith('/notifications')&&!path.startsWith('/media')&&path!=='/approvals/admin-exemption')window.dispatchEvent(new CustomEvent('quality-saved',{detail:{message:path==='/tasks'?'Görev atandı':path.endsWith('/start')?'Görev başlatıldı':path.includes('/tasks/')?'Görev tamamlandı':path==='/inspection-logs'?'Ölçüm kaydedildi':path.includes('/approvals/')?'Onay kararı kaydedildi':'Değişiklikler kaydedildi'}}));};
   if (response.status === 204) {announce();return undefined as T;}
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -62,6 +62,7 @@ export const SaasApi = {
   subscribePush: (body:unknown) => request('/push/subscriptions',{method:'POST',body:JSON.stringify(body)}),
   unsubscribePush: () => request('/push/subscriptions',{method:'DELETE'}),
   caseCatalog: (query:URLSearchParams,signal?:AbortSignal) => request('/cases/catalog?'+query.toString(),{signal}),
+  resolveAdminMeasurementApprovals: () => request('/approvals/admin-exemption',{method:'POST'}),
   work: () => request('/work'),
   discardInspectionDraft: (id:string) => request('/inspection-drafts/'+encodeURIComponent(id),{method:'DELETE'}),
   inspectionDrafts: () => request('/inspection-drafts'),
