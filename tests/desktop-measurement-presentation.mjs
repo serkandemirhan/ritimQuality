@@ -185,13 +185,12 @@ socket.addEventListener('message',e=>{if(JSON.parse(e.data).method==='Page.javas
 await evaluate(`document.querySelector('#btn-save-inspection-log').click()`);await delay(150);
 await assert(`document.querySelector('.rq-completion').open`,'Completion review did not open');
 if(submissions.length!==0)throw Error('Opening completion saved without confirmation');
-await evaluate(`Array.from(document.querySelectorAll('.rq-completion button')).find(b=>b.innerText==='Ölçümleri incele').click()`);await delay(150);
-await assert(`document.querySelector('.rq-measurement-matrix').open`,'Review did not open measurement matrix');
-await evaluate(`document.querySelector('.rq-measurement-matrix tbody button').click()`);await delay(120);
-await assert(`!document.querySelector('.rq-measurement-matrix').open&&!!document.querySelector('.quality-session')`,'Review cell did not return to measurement');
+await assert(`document.querySelectorAll('.rq-completion button').length===3&&document.activeElement===document.querySelector('.rq-completion .is-primary')`,'Completion must have three choices and focus the save action');
+await evaluate(`Array.from(document.querySelectorAll('.rq-completion button')).find(b=>b.innerText==='Ölçümlere geri dön').click()`);await delay(150);
+await assert(`!document.querySelector('.rq-completion').open&&!!document.querySelector('.quality-session')`,'Return did not preserve measurement');
 await evaluate(`document.querySelector('#btn-save-inspection-log').click()`);await delay(120);
 await evaluate(`document.querySelector('.rq-completion .is-discard').click()`);await delay(100);
-await assert(`document.querySelector('#rq-completion-title').innerText.includes('vazgeçilsin')`,'Discard has no confirmation');
+await assert(`document.querySelector('#rq-completion-title').innerText.includes('silinsin')`,'Discard has no confirmation');
 await evaluate(`document.querySelector('.rq-completion button').click()`);await delay(100);
 await assert(`!!document.querySelector('.quality-session')`,'Cancel discard lost measurement');
 await evaluate(`document.querySelector('#btn-save-inspection-log').click()`);await delay(100);
