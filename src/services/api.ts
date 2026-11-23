@@ -1,3 +1,4 @@
+import {notify} from './feedback';
 import { hasValidSession, pendingStore, sessionScope } from './pendingInspections';
 import type { BillingPeriod, SubscriptionPlanId, ControlPlan } from '../types';
 
@@ -62,6 +63,8 @@ export const SaasApi = {
   subscribePush: (body:unknown) => request('/push/subscriptions',{method:'POST',body:JSON.stringify(body)}),
   unsubscribePush: () => request('/push/subscriptions',{method:'DELETE'}),
   approvalCatalog: (query:URLSearchParams,signal?:AbortSignal) => request('/approvals/catalog?'+query.toString(),{signal}),
+  inspectionCatalog:(query:URLSearchParams,signal?:AbortSignal)=>request<{items:import('../types').InspectionLog[];total:number}>('/inspection-catalog?'+query.toString(),{signal}),
+  workflowCatalog:(kind:'tasks'|'audit',query:URLSearchParams,signal?:AbortSignal)=>request<{items:any[];total:number}>('/workflow-catalog/'+kind+'?'+query.toString(),{signal}),
   caseCatalog: (query:URLSearchParams,signal?:AbortSignal) => request('/cases/catalog?'+query.toString(),{signal}),
   resolveAdminMeasurementApprovals: () => request('/approvals/admin-exemption',{method:'POST'}),
   work: () => request('/work'),
@@ -115,14 +118,16 @@ export const SaasApi = {
   uploadEvidence: (value: { id?:string; fileName: string; mimeType: string; kind: 'photo' | 'video' | 'file'; dataUrl: string }) =>
     request<{ id: string; fileName: string; mimeType: string; kind: 'photo' | 'video' | 'file'; url: string; createdAt: string }>('/media', { method: 'POST', body: JSON.stringify(value) }),
   uploadFile: async (file: File, id?:string) => {
+    const uploadScope=SaasApi.scope();const verifyScope=()=>{if(SaasApi.scope()!==uploadScope)throw new Error('Yükleme sırasında hesap değişti. Dosya önceki hesabın kuyruğunda korunuyor.');};
     const config = await request<{provider:'local'|'supabase';maxBytes:number}>('/media/config');
+    verifyScope();
     if (!file.size || file.size > config.maxBytes) throw new Error(`Dosya en fazla ${config.maxBytes / 1024 / 1024} MB olabilir.`);
     if (config.provider === 'local') {
       const dataUrl=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file);});
-      return SaasApi.uploadEvidence({id,fileName:file.name,mimeType:file.type,kind:file.type.startsWith('image/')?'photo':file.type.startsWith('video/')?'video':'file',dataUrl});
+      verifyScope();return SaasApi.uploadEvidence({id,fileName:file.name,mimeType:file.type,kind:file.type.startsWith('image/')?'photo':file.type.startsWith('video/')?'video':'file',dataUrl});
     }
-    const upload = await request<{id:string;uploadUrl?:string;ready?:boolean}>('/media/uploads',{method:'POST',body:JSON.stringify({id,fileName:file.name,mimeType:file.type,size:file.size})});
-    const complete=()=>request<{id:string;fileName:string;mimeType:string;kind:'photo'|'video'|'file';url:string;createdAt:string}>(`/media/uploads/${encodeURIComponent(upload.id)}/complete`,{method:'POST'});
+    verifyScope();const upload = await request<{id:string;uploadUrl?:string;ready?:boolean}>('/media/uploads',{method:'POST',body:JSON.stringify({id,fileName:file.name,mimeType:file.type,size:file.size})});
+    const complete=()=>{verifyScope();return request<{id:string;fileName:string;mimeType:string;kind:'photo'|'video'|'file';url:string;createdAt:string}>(`/media/uploads/${encodeURIComponent(upload.id)}/complete`,{method:'POST'});};
     if(upload.ready)return complete();
     // The bytes go directly to Supabase, avoiding Vercel's request-size limit.
     const result=await fetch(upload.uploadUrl!,{method:'PUT',headers:{'content-type':file.type,'x-upsert':'false'},body:file});
@@ -139,7 +144,7 @@ export const SaasApi = {
   openEvidence: async (id: string) => {
     const popup=window.open('about:blank','_blank');if(popup)popup.opener=null;
     try{const url=await SaasApi.mediaUrl(id);if(popup)popup.location.replace(url);else window.location.assign(url);if(url.startsWith('blob:'))setTimeout(()=>URL.revokeObjectURL(url),60_000);}
-    catch(error){popup?.close();alert(error instanceof Error?error.message:'Dosya açılamadı.');}
+    catch(error){popup?.close();notify(error instanceof Error?error.message:'Dosya açılamadı.');}
   },
   voidInspectionLog: (id: string, reason: string) => request(`/inspection-logs/${encodeURIComponent(id)}/void`, { method: 'POST', body: JSON.stringify({ reason }) }),
   saveCompany: (value: unknown) => request('/company', { method: 'PATCH', body: JSON.stringify(value) }),

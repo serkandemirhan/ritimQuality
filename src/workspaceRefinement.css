@@ -1,0 +1,38 @@
+@media screen{
+.rq-shell .rq-page-header{margin-bottom:14px}.rq-shell .rq-page-heading{align-items:center;gap:12px}.rq-shell .rq-page-subtitle{max-width:65ch;line-height:1.5;margin-top:4px}
+.rq-shell .rq-card{box-shadow:none;border-color:#dfe5ee;border-radius:9px}
+.rq-shell .rq-card .rq-card{border:0;border-radius:0;padding:10px 0;box-shadow:none;background:transparent}
+.rq-shell .rq-table td{font-weight:400}.rq-shell .rq-table td strong{font-weight:600}
+.rq-shell .rq-record-table td:nth-child(4)>div:first-child{color:#475569;font-weight:400}
+.rq-shell .rq-record-table td:nth-child(3)>span{background:transparent;border:0;font-weight:400;padding:0}
+.rq-shell .rq-record-table td:nth-child(2)>div:first-child{font-weight:600;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rq-shell .rq-table th{letter-spacing:.02em;text-transform:none;font-size:11px}
+.rq-shell .rq-table :is(td,th){vertical-align:middle}
+.rq-shell .rq-table td:nth-child(2){overflow-wrap:anywhere}
+.rq-shell .rq-badge{font-weight:500;box-shadow:none}
+.rq-shell .rq-plan-editor-page .rq-page-header{padding-bottom:10px;border-bottom:1px solid #e2e8f0}
+.rq-shell .rq-plan-context{padding:10px 12px;background:white}
+.rq-shell .rq-plan-editor-page .rq-summary{font-size:12px;gap:10px}
+.rq-shell .rq-preparation-summary{box-shadow:none}
+.rq-shell .rq-properties>div{padding-block:7px}
+.rq-shell .rq-quick-start-panel{padding:12px 0;border:0;border-top:1px solid #dfe5ee;background:transparent}
+
+.rq-shell .rq-characteristic-properties .rq-property-group{border:0;border-bottom:1px solid #e2e8f0;background:transparent;padding:10px 0;border-radius:0}
+.rq-shell .rq-characteristic-properties .rq-property-group:last-child{border-bottom:0}
+.rq-shell .rq-property-group h4{font-size:12px;letter-spacing:0;text-transform:none;font-weight:600;color:#475569}
+.rq-shell .rq-property-fields .rq-field>span{font-size:12px;font-weight:500}
+.rq-shell .rq-reference-toolbar{gap:6px}
+.rq-shell .rq-spc-filters{gap:10px}
+.rq-shell .rq-case-summary{box-shadow:none;font-size:12px;padding:8px 12px}
+.rq-shell .rq-case-summary strong{font-size:14px}
+.rq-shell .rq-list-updated{margin-left:auto;font-size:11px;color:#64748b}.rq-shell .rq-field :is(input,select,textarea):user-invalid{border-color:#d97782}
+.rq-shell .rq-section-title{font-size:14px;font-weight:600;line-height:1.4}
+.rq-shell .rq-metric{box-shadow:none;min-height:78px}
+.rq-shell :is(.rq-detail-grid,.rq-properties) dd{overflow-wrap:anywhere}
+.rq-shell .rq-code-block{font-size:12px;line-height:1.6}
+.rq-feedback-copy{font-size:14px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+.rq-version-label{font-size:11px;color:#64748b;margin:0}
+.rq-update-notice{position:fixed;bottom:16px;right:16px;z-index:10000;display:flex;align-items:center;flex-wrap:wrap;gap:10px;max-width:calc(100vw - 32px);padding:14px;background:white;color:#334155;border:1px solid #bfdbfe;border-radius:10px;box-shadow:0 6px 24px #0f172a1a;font:13px 'Segoe UI',sans-serif}
+.rq-update-notice p{margin:3px 0;font-size:12px;color:#64748b}
+@media(max-width:767px){.rq-shell .rq-record-table td:nth-child(2)>div:first-child{max-width:none;white-space:normal}.rq-shell .rq-card{padding:12px}.rq-shell .rq-page-header{margin-bottom:12px}.rq-update-notice{left:12px;right:12px;bottom:12px}.rq-update-notice>div{flex-basis:100%}}
+}

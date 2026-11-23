@@ -112,6 +112,7 @@ export interface EvidenceAttachment {
 }
 
 export interface SampleMeasurement {
+  qualityResults?: Record<string,'pass'|'fail'|'warning'|'review'|'na'|'unclassified'>;
   serialNumber?: string;
   sampleIndex: number; // 1, 2, 3, 4, 5
   values: Record<string, MeasurementValue>; // characteristicId -> measured/selected value
@@ -139,6 +140,7 @@ export interface InspectionLog {
   productCode: string;
   productName: string;
   productRevision?: string;
+  customerSnapshot?: string;
   controlPlanId: string;
   controlPlanVersion: string;
   operatorName: string;

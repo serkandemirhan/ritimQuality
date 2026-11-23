@@ -1,3 +1,4 @@
+import {notify} from './services/feedback';
 import { AppShell, Topbar, PageContainer, PageHeader, Breadcrumb, Button, Skeleton } from './components/ui';
 import { AccountMenu } from './components/AccountMenu';
 import { Toast } from './components/Toast';
@@ -116,7 +117,7 @@ export default function App() {
     await StorageService.setActiveControlPlanVersion(planId);
     setControlPlans(StorageService.getControlPlans());
   
-    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); }
+    } catch (error) { StorageService.reportSyncError(error); notify(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); }
   };
 
   const handleDeletePlan = async (planId: string) => {
@@ -124,7 +125,7 @@ export default function App() {
     await StorageService.deleteControlPlan(planId);
     setControlPlans(StorageService.getControlPlans());
   
-    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); }
+    } catch (error) { StorageService.reportSyncError(error); notify(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); }
   };
 
   // SaaS User Handlers
@@ -144,7 +145,7 @@ export default function App() {
     }
   
     return true;
-    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); return false; }
+    } catch (error) { StorageService.reportSyncError(error); notify(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); return false; }
   };
 
   const handleDeleteUser = async (userId: string) => {
@@ -156,7 +157,7 @@ export default function App() {
       handleUserSelect(remainingUsers[0].id);
     }
   
-    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); }
+    } catch (error) { StorageService.reportSyncError(error); notify(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); }
   };
 
   // SaaS Subscription & Company Handlers
@@ -170,7 +171,7 @@ export default function App() {
     setCompany(updated);
   
     return true;
-    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); return false; }
+    } catch (error) { StorageService.reportSyncError(error); notify(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); return false; }
   };
 
   // Cross tab navigators

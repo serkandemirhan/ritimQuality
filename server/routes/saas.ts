@@ -235,6 +235,8 @@ saasRouter.post('/inspection-logs', requireRole('admin', 'quality_engineer', 'op
       const actor = (await client.query('SELECT name,role FROM users WHERE tenant_id=$1 AND id=$2 FOR SHARE',[tenantId,userId])).rows[0];
       const rules = inspectionRulesSchema.parse((await client.query('SELECT inspection_rules FROM tenants WHERE id=$1 FOR SHARE', [tenantId])).rows[0].inspection_rules);
       payload = { ...validateInspection(payload,plan,{id:userId,name:actor.name},rules), requestSignature: signature, operatorRoleAtMeasurement:actor.role };
+      const product=(await client.query('SELECT payload FROM products WHERE tenant_id=$1 AND id=$2 FOR SHARE',[tenantId,productId])).rows[0]?.payload;
+      if(product)payload={...payload,productName:product.name,productCode:product.code,productRevision:product.revision||'',customerSnapshot:product.customer||''};
       const attachments = (payload.samples as any[]).flatMap(sample => Object.values(sample.evidence || {}).flat()) as {id:string}[];
       const mediaIds=attachments.map(item=>item.id);
       const draftId=typeof payload.draftId==='string'?z.string().uuid().parse(payload.draftId):null;

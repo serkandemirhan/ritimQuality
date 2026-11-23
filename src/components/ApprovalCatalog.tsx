@@ -1,3 +1,4 @@
+import {usePreference,useListScroll} from './CatalogTools';
 import {useEffect,useState} from 'react';
 import {SaasApi} from '../services/api';
 import {Button,Badge} from './ui';
@@ -10,8 +11,8 @@ const columns=[['session_code','Ölçüm'],['product_code','Ürün kodu'],['prod
 const date=(v:string)=>v?new Date(v).toLocaleString('tr-TR'):'—';
 export function ApprovalCatalog({refreshToken,manager,busy,onOpenRecord,onDecision}:{refreshToken:unknown;manager:boolean;busy:boolean;onOpenRecord?:(id:string)=>void;onDecision:(kind:'approved'|'rejected',id:string)=>void}){
  const [data,setData]=useState<Catalog>(empty),[loading,setLoading]=useState(true),[error,setError]=useState('');
- const [search,setSearch]=useState(''),[query,setQuery]=useState(''),[status,setStatus]=useState(''),[product,setProduct]=useState(''),[revision,setRevision]=useState(''),[operator,setOperator]=useState(''),[from,setFrom]=useState(''),[to,setTo]=useState('');
- const [sort,setSort]=useState('measured_at'),[direction,setDirection]=useState('desc'),[page,setPage]=useState(1),[size,setSize]=useState(50),[reload,setReload]=useState(0);
+ const [search,setSearch]=usePreference('approvals:search',''),[query,setQuery]=useState(search.trim()),[status,setStatus]=usePreference('approvals:status',''),[product,setProduct]=usePreference('approvals:product',''),[revision,setRevision]=usePreference('approvals:revision',''),[operator,setOperator]=usePreference('approvals:operator',''),[from,setFrom]=usePreference('approvals:from',''),[to,setTo]=usePreference('approvals:to','');
+ const [sort,setSort]=usePreference('approvals:sort','measured_at'),[direction,setDirection]=usePreference('approvals:direction','desc'),[page,setPage]=usePreference('approvals:page',1),[size,setSize]=usePreference('approvals:size',50),[reload,setReload]=useState(0);
  useEffect(()=>{const timer=setTimeout(()=>{if(search.trim()!==query){setQuery(search.trim());setPage(1);}},250);return()=>clearTimeout(timer);},[search]);
  useEffect(()=>{
   if(from&&to&&from>to){setError('Başlangıç tarihi bitiş tarihinden sonra olamaz.');setData(empty);setLoading(false);return;}
@@ -22,6 +23,7 @@ export function ApprovalCatalog({refreshToken,manager,busy,onOpenRecord,onDecisi
   void SaasApi.approvalCatalog(params,controller.signal).then(result=>{if(!controller.signal.aborted)setData(result as Catalog);}).catch(e=>{if(!controller.signal.aborted){setError(e instanceof Error?e.message:'Liste yüklenemedi.');setData(empty);}}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
   return()=>controller.abort();
  },[query,status,product,revision,operator,from,to,sort,direction,page,size,refreshToken,reload]);
+ useListScroll('ApprovalCatalog',!loading);
  const pages=Math.max(1,Math.ceil(data.total/size));
  useEffect(()=>{if(!loading&&page>pages)setPage(pages);},[loading,page,pages]);
  const change=(set:(v:string)=>void,v:string)=>{set(v);setPage(1);};

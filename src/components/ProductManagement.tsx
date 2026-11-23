@@ -1,3 +1,4 @@
+import {confirmAction,notify} from './FeedbackHost';
 import { PageHeader, Button, Card, DataTable, SearchInput, TableToolbar, StatusBadge, Badge, Tabs, IconButton, Breadcrumb, Modal, FormSection, Field, Input, Select, Textarea, PageActions } from './ui';
 import { EmptyState } from './EmptyState';
 import { SaasApi } from '../services/api';
@@ -63,12 +64,12 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
   const initialForm=useRef('');
   const formSnapshot=JSON.stringify({code,name,customer,revision,material,category,description,drawingUrl});
   const dirty=isAddModalOpen&&initialForm.current!==formSnapshot;
-  const confirmDiscard=()=>!dirty||window.confirm('Kaydedilmemiş değişiklikler var. Değişikliklerden vazgeçilsin mi?');
-  const requestClose=()=>{if(saving||uploading)return;if(confirmDiscard())setIsAddModalOpen(false);};
+  const confirmDiscard=async()=>!dirty||await confirmAction('Kaydedilmemiş değişiklikler var. Değişikliklerden vazgeçilsin mi?');
+  const requestClose=async()=>{if(saving||uploading)return;if(await confirmDiscard())setIsAddModalOpen(false);};
   useEffect(()=>{
     if(!isAddModalOpen)return;
     const unload=(event:BeforeUnloadEvent)=>{if(dirty||saving||uploading){event.preventDefault();event.returnValue='';}};
-    const navigate=(event:Event)=>{if(saving||uploading||!confirmDiscard())event.preventDefault();};
+    const navigate=async(event:Event)=>{if(!dirty&&!saving&&!uploading)return;event.preventDefault();if(!saving&&!uploading&&await confirmDiscard())(event as CustomEvent<()=>void>).detail?.();};
     window.addEventListener('beforeunload',unload);
     window.addEventListener('ritim-measurement-navigate',navigate);
     return()=>{window.removeEventListener('beforeunload',unload);window.removeEventListener('ritim-measurement-navigate',navigate);};
@@ -170,25 +171,25 @@ export const ProductManagement: React.FC<ProductManagementProps> = ({
     setIsAddModalOpen(false);
     onProductsChanged();
   
-    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); } finally {setSaving(false);}
+    } catch (error) { StorageService.reportSyncError(error); notify(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); } finally {setSaving(false);}
   };
 
   const handleDrawingUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file=event.target.files?.[0]; if(!file) return;
-    if(!file.type.startsWith('image/')&&file.type!=='application/pdf'){alert('Teknik resim için PDF veya görsel seçin.');return;}
+    if(!file.type.startsWith('image/')&&file.type!=='application/pdf'){notify('Teknik resim için PDF veya görsel seçin.');return;}
     setUploading(true);
-    try { const asset=await SaasApi.uploadFile(file);setDrawingUrl('media:'+asset.id+'#'+asset.mimeType); } catch(error){alert(error instanceof Error?error.message:'Dosya yüklenemedi.');} finally {setUploading(false);}
+    try { const asset=await SaasApi.uploadFile(file);setDrawingUrl('media:'+asset.id+'#'+asset.mimeType); } catch(error){notify(error instanceof Error?error.message:'Dosya yüklenemedi.');} finally {setUploading(false);}
   };
 
   const handleDeleteProduct = async (productId: string) => {
     try {
-    if (confirm('Bu parçayı ve ilişkili kontrol planlarını silmek istediğinize emin misiniz?')) {
+    if (await confirmAction('Bu parçayı ve ilişkili kontrol planlarını silmek istediğinize emin misiniz?')) {
       await StorageService.deleteProduct(productId);
       if (selectedProductId === productId) setSelectedProductId(null);
       onProductsChanged();
     }
   
-    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); }
+    } catch (error) { StorageService.reportSyncError(error); notify(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); }
   };
 
   const filteredProducts = useMemo(() => {

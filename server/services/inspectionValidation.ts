@@ -78,6 +78,7 @@ export function validateInspection(input: Record<string, unknown>, rawPlan: unkn
   const normalized = samples.map(sample => {
     if (Object.keys(sample.pointNotes || {}).some(id => !expected.has(id)) || Object.keys(sample.values).some(id => !expected.has(id)) || Object.keys(sample.evidence || {}).some(id => !expected.has(id)))
       conflict('Planda bulunmayan kontrol noktası.');
+    const qualityResults:Record<string,string>={};
     const statuses: Record<string, 'pass' | 'warning' | 'fail'> = {};
     for (const c of plan.characteristics) {
       const value = sample.values[c.id];
@@ -85,6 +86,7 @@ export function validateInspection(input: Record<string, unknown>, rawPlan: unkn
       let evaluatedNumeric: ReturnType<typeof evaluateMeasurement> | undefined;
       if (mobile || c.type === 'boolean' || c.type === 'text' || c.type === 'visual' && value === 'SUSPECT') {
         const evaluated = evaluateMeasurement(c as MeasurementDefinition, typeof value === 'number' ? String(value) : value as string | string[]);
+        qualityResults[c.id]=evaluated.result;
         status = evaluated.result === 'pass' ? 'pass' : evaluated.result === 'fail' ? 'fail' : 'warning';
       } else if (c.type === 'numeric') {
         if (typeof value !== 'number' || !Number.isFinite(value)) conflict(`#${c.pointNo}: sayısal ölçüm zorunludur.`);
@@ -121,11 +123,11 @@ export function validateInspection(input: Record<string, unknown>, rawPlan: unkn
         if(c.policy.liveCaptureRequired)errors.push('Doğrulanmış canlı çekim desteği gerekli.');
         if(errors.length)conflict(errors.join(' '));
       }
-      statuses[c.id] = status;
+      statuses[c.id] = status;qualityResults[c.id]??=status;
       if (status === 'fail') failed++;
       if (status === 'warning') warning++;
     }
-    return { ...sample, statuses };
+    return { ...sample, statuses,qualityResults };
   });
   const lotNumber = z.string().trim().min(rules.requireLotNumber ? 1 : 0).max(120).parse(input.lotNumber ?? '');
   const orderNumber = z.string().trim().min(rules.requireOrderNumber ? 1 : 0).max(120).parse(input.orderNumber ?? '');

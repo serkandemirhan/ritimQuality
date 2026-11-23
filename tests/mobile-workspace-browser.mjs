@@ -13,11 +13,11 @@ const drawing='data:image/svg+xml;base64,'+Buffer.from('<svg xmlns="http://www.w
 const product={id:'part',code:'TEST-250',name:'Mobil kabul parçası',defaultDrawingUrl:drawing,images:[]};
 const plan={id:'plan',productId:'part',version:'v1',status:'active',isActive:true,defaultSampleCount:5,characteristics:chars,characteristicImageLinks:[]};
 const record={id:'synced-record',sessionCode:'INS-301a9771-dbe7-4ed0-935b-f56619113060',timestamp:new Date().toISOString(),productId:'part',productName:product.name,productCode:product.code,controlPlanId:'plan',controlPlanVersion:'v1',controlPlanSnapshot:plan,lotNumber:'LOT-2026-TEST-12345678901234567890',orderNumber:'ORDER-2026-TEST-12345678901234567890',operatorName:'Operatör',machineNo:'CNC-01',sampleCount:1,totalPointsChecked:1,failedPointsCount:0,overallStatus:'pass',samples:[{sampleIndex:1,values:{c1:18.5},statuses:{c1:'pass'}}]};
-const app=express();app.use(express.json({limit:'20mb'}));let posts=0;let rejected=0;const accepted=new Map();let mediaFailure=true;const mediaIds=new Set();
+const app=express();app.use(express.json({limit:'20mb'}));let posts=0;let rejected=0;const accepted=new Map();let mediaFailure=true;let mediaAttempts=0;const mediaIds=new Set();
 let delayedId='';const heldUploads=[];
 app.get('/test-reset',(_,res)=>res.type('html').send('<!doctype html><title>Reset</title>'));
 app.get('/api/media/config',(_,res)=>res.json({provider:'local',maxBytes:8*1024*1024}));
-app.post('/api/media',(req,res)=>{if(mediaFailure){res.status(503).json({error:'Fotoğraf yükleme hatası'});return;}mediaIds.add(req.body.id);res.json({...req.body,url:'/api/media/'+req.body.id,createdAt:new Date().toISOString()});});
+app.post('/api/media',(req,res)=>{mediaAttempts++;if(mediaFailure){res.status(503).json({error:'Fotoğraf yükleme hatası'});return;}mediaIds.add(req.body.id);res.json({...req.body,url:'/api/media/'+req.body.id,createdAt:new Date().toISOString()});});
 app.get('/api/bootstrap',(_req,res)=>res.json({company:{id:'review',name:'Mobil Kabul',plan_id:'enterprise',subscription_status:'active'},currentUserId:'user',users:[{id:'user',name:'Operatör',role:'admin',status:'active',email:'test@example.test'}],products:[product],controlPlans:[plan],inspectionLogs:[record],usage:{control_plans:1,users:1,monthly_measurements:0}}));
 app.get('/api/inspection-rules',(_,res)=>res.json({requireActivePlan:true,requireLotNumber:false,requireOrderNumber:false}));
 app.get('/api/work',(_,res)=>res.json({tasks:[],cases:[],approvals:[],notifications:[]}));
@@ -71,6 +71,12 @@ for(const [width,height] of [[320,568],[360,640],[390,844],[430,932]]){
   const shot=await cmd('Page.captureScreenshot',{format:'png'});await writeFile(resolve(out,`mobile-${width}.png`),Buffer.from(shot.data,'base64'));
 }
 const before=await evaluate(`[...document.querySelectorAll('.mm-keypad button')].map(b=>b.textContent).join()`);await evaluate(`document.querySelector('[aria-label="Diğer işlemler"]').click()`);await delay(100);await evaluate(`(()=>{const e=document.querySelector('select[aria-label="El tercihi"]');e.value='left';e.dispatchEvent(new Event('change',{bubbles:true}));})()`);await click('✕');assert.equal(await evaluate(`[...document.querySelectorAll('.mm-keypad button')].map(b=>b.textContent).join()`),before);
+// Expiry must preserve the active cell/draft; restoring the same identity resumes it.
+const beforeExpiry=await evaluate(`JSON.stringify(await core.readMobileSession('review:user'))`);
+await evaluate(`window.savedToken=localStorage.getItem('qualitrack_access_token');localStorage.setItem('qualitrack_access_token','review.'+btoa(JSON.stringify({tenantId:'review',userId:'user',exp:1}))+'.fixture')`);
+assert.match(await evaluate(`try{await core.commitMobileCell('review:user',{sample:1,characteristic:'c2'},{...core.emptyDraft(),raw:'18.5'},true);'unsafe'}catch(e){e.message}`),/Oturum/);
+assert.equal(await evaluate(`JSON.stringify(await core.readMobileSession('review:user'))`),beforeExpiry);
+await evaluate(`localStorage.setItem('qualitrack_access_token',window.savedToken)`);
 // Exercise durable attempts without 1,250 synthetic keypad clicks.
 await evaluate(`Object.defineProperty(navigator,'onLine',{configurable:true,get:()=>false});window.dispatchEvent(new Event('offline'));`);
 assert.equal(await evaluate(`await core.commitMobileCell('review:user',{sample:1,characteristic:'c2'},{...core.emptyDraft(),raw:'18.67'},true);(await core.readMobileSession('review:user')).attempts.length`),2);
@@ -90,6 +96,10 @@ await evaluate(`await core.changeMobileSession('review:user',s=>{const id=crypto
 assert.match(await evaluate(`window.originalPut=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(){throw new DOMException('Storage full','QuotaExceededError')};try{await core.commitMobileCell('review:user',{sample:1,characteristic:'c1'},{...core.emptyDraft(),raw:'18.67',comment:'Çizik',photos:Object.keys((await core.readMobileSession('review:user')).media)},true);'unexpected'}catch(e){e.message}finally{IDBObjectStore.prototype.put=window.originalPut}`),/Storage full/);
 assert.equal(await evaluate(`(await core.readMobileSession('review:user')).attempts.length`),0,'quota failure does not commit');
 await evaluate(`await core.commitMobileCell('review:user',{sample:1,characteristic:'c1'},{...core.emptyDraft(),raw:'18.67',comment:'Çizik',photos:Object.keys((await core.readMobileSession('review:user')).media)},true)`);
+const beforeSwitchedUpload=mediaAttempts;
+await evaluate(`window.oldFetch=window.fetch;window.beforeSwitchToken=localStorage.getItem('qualitrack_access_token');window.fetch=async(...args)=>{const r=await window.oldFetch(...args);if(String(args[0]).includes('/media/config'))localStorage.setItem('qualitrack_access_token','review.'+btoa(JSON.stringify({tenantId:'other',userId:'other',exp:9999999999}))+'.fixture');return r;};await core.syncMobileSession('review:user');window.fetch=window.oldFetch;localStorage.setItem('qualitrack_access_token',window.beforeSwitchToken)`);
+assert.equal(mediaAttempts,beforeSwitchedUpload,'No media may be posted with a changed identity');
+assert.equal(await evaluate(`core.mobileSummary(await core.readMobileSession('review:user')).photos`),2);
 await evaluate(`await core.syncMobileSession('review:user')`);assert.equal(await evaluate(`core.mobileSummary(await core.readMobileSession('review:user')).photos`),2);assert.equal(await evaluate(`!!(await core.readMobileSession('review:user')).confirmed`),false);
 await evaluate(`await core.changeMobileSession('review:user',s=>({...s,submissionRequested:true}))`);
 mediaFailure=false;await evaluate(`await core.syncMobileSession('review:user')`);assert.equal(mediaIds.size,2);assert.equal(await evaluate(`core.mobileSummary(await core.readMobileSession('review:user')).photos`),0);

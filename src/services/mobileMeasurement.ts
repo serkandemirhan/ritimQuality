@@ -122,9 +122,10 @@ export function mobileLog(s: MobileSession, localPreview=false): InspectionLog {
   const summary = mobileSummary(s);
   if (summary.missing.length || (!localPreview&&summary.photos)) throw new Error('Ölçüm veya kanıt gönderimi eksik.');
   const samples: SampleMeasurement[] = Array.from({length:s.count},(_,i) => {
-    const sample: SampleMeasurement = {sampleIndex:i+1,values:{},statuses:{},evidence:{},pointNotes:{}};
+    const sample: SampleMeasurement = {sampleIndex:i+1,values:{},statuses:{},qualityResults:{},evidence:{},pointNotes:{}};
     for (const c of s.plan.characteristics) {
       const a = latestAttempt(s,{sample:i+1,characteristic:c.id})!;
+      (sample.qualityResults||= {})[c.id]=a.result;
       sample.values[c.id] = a.value; sample.statuses[c.id] = a.result === 'pass' ? 'pass' : a.result === 'fail' ? 'fail' : 'warning';
       // All attempt evidence stays attached to the original cell, including earlier NOK attempts.
       sample.evidence![c.id] = [...new Set(s.attempts.filter(a => a.sample === i+1 && a.characteristic === c.id).flatMap(a => a.photos))].flatMap(id => s.media[id].attachment?[s.media[id].attachment!]:[]);
@@ -152,6 +153,7 @@ export async function syncMobileSession(scope: string, queued?:MobileSession) {
       if (SaasApi.scope() !== scope) throw new Error('Oturum sahibi değişti; kendi hesabınızla giriş yapın.');
       for (const media of Object.values(s.media).filter(m => !m.attachment && s!.attempts.some(a => a.photos.includes(m.id)))) {
         try {
+          if(SaasApi.scope()!==scope)throw new Error('Oturum sahibi değişti; kendi hesabınızla giriş yapın.');
           const attachment = await SaasApi.uploadFile(media.file,media.id);
             s = await changeStoredSession(scope,s.id, current => ({...current,media:{...current.media,[media.id]:{...current.media[media.id],attachment,error:undefined}}}));
         } catch (error) {
@@ -162,6 +164,7 @@ export async function syncMobileSession(scope: string, queued?:MobileSession) {
       // Existing API accepts complete inspections; incomplete attempts remain in the durable local outbox.
       if (s.submissionRequested && !mobileSummary(s).missing.length) {
         s = await changeStoredSession(scope,s.id,current => ({...current,submission:current.submission || mobileLog(current)}));
+        if(SaasApi.scope()!==scope)throw new Error('Oturum sahibi değişti; kendi hesabınızla giriş yapın.');
         const confirmed = await StorageService.saveInspectionLog(s.submission!);
         s = await changeStoredSession(scope,s.id,current => ({...current,confirmed,syncError:undefined}));
       }

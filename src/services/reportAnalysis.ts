@@ -1,7 +1,8 @@
+import {cellQuality} from './presentation';
 import type {Characteristic, InspectionLog, MeasurementValue, SampleMeasurement} from '../types';
 
 export type ReportTechnicalStatus = 'conforming'|'nonconforming'|'incomplete'|'not_evaluated';
-export type ReportRowStatus = 'pass'|'fail'|'incomplete'|'not_evaluated'|'not_applicable';
+export type ReportRowStatus = 'pass'|'fail'|'incomplete'|'not_evaluated'|'not_applicable'|'review'|'unclassified'|'warning';
 
 export interface ReportMeasurementRow {
   id:string;
@@ -45,7 +46,11 @@ export function toleranceAnalysis(nominal:number|null,lowerLimit:number|null,upp
   return {measuredNumeric,deviation,outOfToleranceDeviation};
 }
 
-function rowStatus(characteristic:Characteristic,sample:SampleMeasurement,value:MeasurementValue):ReportRowStatus{
+function rowStatus(characteristic:Characteristic,sample:SampleMeasurement,value:MeasurementValue,log?:InspectionLog):ReportRowStatus{
+  const quality=cellQuality(sample,characteristic.id,log);
+  if(quality==='na')return 'not_applicable';
+  if(quality==='review'||quality==='unclassified')return quality;
+  if(quality==='warning'&&sample.qualityResults?.[characteristic.id])return 'warning';
   const status=sample.statuses[characteristic.id];
   if(value===null||value===undefined||status==='empty'||!status)return 'incomplete';
   if(value==='__NA__')return 'not_applicable';
@@ -62,17 +67,17 @@ export function analyzeInspectionReport(log:InspectionLog,characteristics:Charac
     const lowerLimit=typeOf(characteristic)==='numeric'&&Number.isFinite(characteristic.lsl)?characteristic.lsl:null;
     const upperLimit=typeOf(characteristic)==='numeric'&&Number.isFinite(characteristic.usl)?characteristic.usl:null;
     const calculation=toleranceAnalysis(nominal,lowerLimit,upperLimit,measuredValue);
-    return {id:`${sample.sampleIndex}:${characteristic.id}`,sampleIndex:sample.sampleIndex,pointNo:characteristic.pointNo,characteristic:characteristic.name,unit:characteristic.unit,nominal,lowerLimit,upperLimit,measuredValue, ...calculation,status:rowStatus(characteristic,sample,measuredValue),note:sample.pointNotes?.[characteristic.id],isDemo} satisfies ReportMeasurementRow;
+    return {id:`${sample.sampleIndex}:${characteristic.id}`,sampleIndex:sample.sampleIndex,pointNo:characteristic.pointNo,characteristic:characteristic.name,unit:characteristic.unit,nominal,lowerLimit,upperLimit,measuredValue, ...calculation,status:rowStatus(characteristic,sample,measuredValue,log),note:sample.pointNotes?.[characteristic.id],isDemo} satisfies ReportMeasurementRow;
   }));
   const realRows=rows.filter(row=>!row.isDemo);
   const evaluated=realRows.filter(row=>row.status==='pass'||row.status==='fail');
   const failed=evaluated.filter(row=>row.status==='fail');
   const incomplete=realRows.filter(row=>row.status==='incomplete').length;
-  const notEvaluated=realRows.filter(row=>row.status==='not_evaluated').length;
+  const notEvaluated=realRows.filter(row=>['not_evaluated','review','unclassified','warning'].includes(row.status)).length;
   const status:ReportTechnicalStatus=failed.length?'nonconforming':!realRows.length||!evaluated.length?'not_evaluated':incomplete||notEvaluated?'incomplete':'conforming';
   return {status,totalCharacteristics:characteristics.length,measuredCharacteristics:evaluated.length,conformingCharacteristics:evaluated.filter(row=>row.status==='pass').length,nonconformingCharacteristics:failed.length,incompleteCharacteristics:incomplete,demoMeasurements:rows.filter(row=>row.isDemo).length,rows,nonconformities:failed};
 }
 
 export function reportStatusLabel(status:ReportTechnicalStatus){return {conforming:'UYGUN',nonconforming:'UYGUNSUZ',incomplete:'TAMAMLANMADI',not_evaluated:'DEĞERLENDİRİLMEDİ'}[status];}
 
-export function reportRowStatusLabel(status:ReportRowStatus){return {pass:'UYGUN',fail:'UYGUNSUZ',incomplete:'ÖLÇÜLMEDİ',not_evaluated:'DEĞERLENDİRİLMEDİ',not_applicable:'UYGULANAMAZ'}[status];}
+export function reportRowStatusLabel(status:ReportRowStatus){return {pass:'UYGUN',fail:'UYGUNSUZ',incomplete:'ÖLÇÜLMEDİ',not_evaluated:'DEĞERLENDİRİLMEDİ',not_applicable:'UYGULANAMAZ',review:'ŞÜPHELİ / İNCELEME',unclassified:'KALİTE KARARI BEKLİYOR',warning:'UYARILI SONUÇ'}[status];}

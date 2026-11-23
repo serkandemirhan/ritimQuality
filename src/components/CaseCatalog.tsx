@@ -1,3 +1,4 @@
+import {usePreference,useListScroll} from './CatalogTools';
 import {useEffect,useState} from 'react';
 import {SaasApi} from '../services/api';
 import './caseCatalog.css';
@@ -10,8 +11,8 @@ const columns=[['title','Uygunsuzluk'],['product_code','Ürün / parça'],['lot_
 const date=(value?:string)=>value&&Number.isFinite(Date.parse(value))?new Date(value).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
 export function CaseCatalog({onSelect,refreshToken}:{onSelect:(item:QualityCase)=>void;refreshToken:unknown}){
  const [data,setData]=useState<Catalog>(empty),[loading,setLoading]=useState(true),[error,setError]=useState('');
- const [search,setSearch]=useState(''),[query,setQuery]=useState(''),[state,setState]=useState(''),[importance,setImportance]=useState(''),[owner,setOwner]=useState(''),[creator,setCreator]=useState(''),[from,setFrom]=useState(''),[to,setTo]=useState('');
- const [sort,setSort]=useState('created_at'),[direction,setDirection]=useState('desc'),[page,setPage]=useState(1),[size,setSize]=useState(50),[reload,setReload]=useState(0);
+ const [search,setSearch]=usePreference('cases:search',''),[query,setQuery]=useState(search.trim()),[state,setState]=usePreference('cases:state',''),[importance,setImportance]=usePreference('cases:importance',''),[owner,setOwner]=usePreference('cases:owner',''),[creator,setCreator]=usePreference('cases:creator',''),[from,setFrom]=usePreference('cases:from',''),[to,setTo]=usePreference('cases:to','');
+ const [sort,setSort]=usePreference('cases:sort','created_at'),[direction,setDirection]=usePreference('cases:direction','desc'),[page,setPage]=usePreference('cases:page',1),[size,setSize]=usePreference('cases:size',50),[reload,setReload]=useState(0);
  useEffect(()=>{const timer=setTimeout(()=>{if(search.trim()!==query){setQuery(search.trim());setPage(1);}},250);return()=>clearTimeout(timer);},[search]);
  useEffect(()=>{
   if(from&&to&&from>to){setError('Başlangıç tarihi bitiş tarihinden sonra olamaz.');setData(empty);setLoading(false);return;}
@@ -22,6 +23,7 @@ export function CaseCatalog({onSelect,refreshToken}:{onSelect:(item:QualityCase)
   void SaasApi.caseCatalog(params,controller.signal).then(result=>{if(!controller.signal.aborted)setData(result as Catalog);}).catch(e=>{if(!controller.signal.aborted){setError(e instanceof Error?e.message:'Liste yüklenemedi.');setData(empty);}}).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
   return()=>controller.abort();
  },[query,state,importance,owner,creator,from,to,sort,direction,page,size,refreshToken,reload]);
+ useListScroll('CaseCatalog',!loading);
  const pages=Math.max(1,Math.ceil(data.total/size));
  useEffect(()=>{if(!loading&&page>pages)setPage(pages);},[loading,page,pages]);
  const change=(set:(value:string)=>void,value:string)=>{set(value);setPage(1);};

@@ -52,11 +52,31 @@ const port=()=>new Promise((resolve,reject)=>{const s=net.createServer();s.on('e
   assert.deepEqual((await admin.query("SELECT payload FROM inspection_logs WHERE tenant_id=$1 AND id='history'",[tenant])).rows[0].payload,history);
   assert.deepEqual((await admin.query("SELECT payload FROM control_plans WHERE tenant_id=$1 AND id='base'",[tenant])).rows[0].payload.characteristics,base.characteristics);
   await admin.query(`INSERT INTO inspection_logs(id,tenant_id,product_id,control_plan_id,session_code,occurred_at,payload)
-   SELECT 'catalog-'||n,$1,'part','base','CAT-'||n,now(),jsonb_build_object('productCode','PRODUCT-'||lpad(n::text,3,'0'),'lotNumber','LOT-'||(n%4),'machineNo','CNC-'||(n%3),'operatorName','Operator '||(n%2),'controlPlanVersion','v'||(n%3)) FROM generate_series(1,260) n`,[tenant]);
+   SELECT 'catalog-'||n,$1,'part','base','CAT-'||n,now(),jsonb_build_object('productCode','PRODUCT-'||lpad(n::text,3,'0'),'lotNumber','LOT-'||(n%4),'machineNo','CNC-'||(n%3),'operatorName','Operator '||(n%2),'controlPlanVersion','v'||(n%3),'productRevision','A','customerSnapshot','Historical customer','operatorUserId',CASE WHEN n%2=0 THEN $2::text ELSE $3::text END,'operatorRoleAtMeasurement','operator','samples',jsonb_build_array(jsonb_build_object('sampleIndex',1,'values',jsonb_build_object('point',10),'statuses',jsonb_build_object('point','warning'),'qualityResults',jsonb_build_object('point',CASE WHEN n%2=0 THEN 'review' ELSE 'unclassified' END)))) FROM generate_series(1,260) n`,[tenant,first,second]);
   await admin.query(`INSERT INTO quality_cases(tenant_id,inspection_id,title,owner_id,severity,created_at)
    SELECT $1,'catalog-'||n,'Case '||lpad(n::text,3,'0'),CASE WHEN n%2=0 THEN $2 ELSE NULL END,CASE WHEN n%2=0 THEN 'critical' ELSE 'major' END,'2026-11-01T00:00:00Z'::timestamptz+n*interval '1 minute' FROM generate_series(1,260) n`,[tenant,first]);
   await admin.query(`INSERT INTO audit_logs(tenant_id,actor_user_id,action,entity_type,entity_id,after_data)
    SELECT $1,$2,'ncr.created','quality_workflow',id::text,'{}'::jsonb FROM quality_cases WHERE tenant_id=$1`,[tenant,second]);
+  const records=await call('/inspection-catalog?pageSize=100&sort=controlPlanVersion&direction=asc',tokens[0]);assert.equal(records.status,200,JSON.stringify(records.body));assert.equal(records.body.total,261);assert.equal(records.body.items.length,100);
+  assert.equal((await call('/inspection-catalog?pageSize=100&page=3',tokens[0])).body.items.length,61);
+  assert.equal((await call('/inspection-catalog?customer=Historical%20customer&revision=A&planRevision=v1',tokens[0])).body.total,87);
+  assert.equal((await call('/inspection-catalog?operator='+first,tokens[0])).body.total,130);
+  assert.equal((await call('/inspection-catalog?search=PRODUCT-259',tokens[0])).body.total,1);
+  assert.equal((await call('/inspection-catalog',foreignToken)).body.total,0);
+  for(const sort of ['timestamp','controlNumber','productName','controlPlanVersion','lotNumber','operatorName','sampleCount','overallStatus','machineNo'])assert.equal((await call('/inspection-catalog?sort='+sort,tokens[0])).status,200);
+  assert.equal((await call('/inspection-catalog?sort=invalid',tokens[0])).status,400);
+  assert.equal((await call('/inspection-catalog?quality=review',tokens[0])).body.total,130);
+  assert.equal((await call('/inspection-catalog?quality=unclassified',tokens[0])).body.total,130);
+  const expectedToday=(await admin.query("SELECT count(*)::int n FROM inspection_logs WHERE tenant_id=$1 AND voided_at IS NULL AND (occurred_at AT TIME ZONE 'Europe/Istanbul')::date=(now() AT TIME ZONE 'Europe/Istanbul')::date",[tenant])).rows[0].n;
+  assert.equal((await call('/inspection-catalog?period=today',tokens[0])).body.total,expectedToday);
+  await admin.query("INSERT INTO quality_tasks(tenant_id,title,owner_id,product_id,due_at) SELECT $1,'Task '||n,CASE WHEN n%2=0 THEN $2 ELSE $3 END,'part',now()+n*interval '1 minute' FROM generate_series(1,260) n",[tenant,first,second]);
+  const tasks=await call('/workflow-catalog/tasks?pageSize=100',tokens[0]);assert.equal(tasks.status,200,JSON.stringify(tasks.body));assert.equal(tasks.body.total,260);assert.equal(tasks.body.items.length,100);
+  assert.equal((await call('/workflow-catalog/tasks?operator='+first,tokens[0])).body.total,130);
+  await admin.query("INSERT INTO audit_logs(tenant_id,actor_user_id,action,entity_type,entity_id,after_data) SELECT $1,$2,'catalog.test','catalog',n::text,'{}'::jsonb FROM generate_series(1,600) n",[tenant,first]);
+  const olderEvents=await call('/workflow-catalog/audit?pageSize=100&page=6&search=catalog.test',tokens[0]);assert.equal(olderEvents.body.total,600);assert.equal(olderEvents.body.items.length,100);
+  const events=await call('/workflow-catalog/audit?pageSize=100&search=ncr.created',tokens[0]);assert.equal(events.status,200,JSON.stringify(events.body));assert.equal(events.body.total,260);assert.equal(events.body.items.length,100);
+  assert.equal((await call('/workflow-catalog/audit',foreignToken)).status,403);
+  console.log('PASS: record/task/audit server catalogs, historical customer and separate revisions, operator identities, Istanbul dates, paging and tenant scope');
   const listing=await call('/cases/catalog?pageSize=100',tokens[0]);assert.equal(listing.status,200);assert.equal(listing.body.total,260);assert.equal(listing.body.items.length,100);assert.equal(listing.body.items[0].title,'Case 260');assert.equal(listing.body.items[0].created_by,second);assert.equal(listing.body.items[0].created_by_name,second);assert.equal(listing.body.items[0].product_code,'PRODUCT-260');
   const page3=await call('/cases/catalog?pageSize=100&page=3',tokens[0]);assert.equal(page3.body.items.length,60);assert.equal(page3.body.items[0].title,'Case 060');
   const ascending=await call('/cases/catalog?sort=title&direction=asc',tokens[0]);assert.equal(ascending.body.items[0].title,'Case 001');
@@ -93,6 +113,11 @@ const port=()=>new Promise((resolve,reject)=>{const s=net.createServer();s.on('e
   const discardId=crypto.randomUUID();
   await admin.query('INSERT INTO inspection_drafts(id,tenant_id,created_by,claimed_by,product_id,control_plan_id,payload) VALUES($1,$2,$3,$3,$4,$5,$6)',[discardId,tenant,first,'part','base',{}]);
   const discard=async(token,id=discardId)=>fetch(origin+'/api/inspection-drafts/'+id,{method:'DELETE',headers:{Authorization:'Bearer '+token}});
+  assert.equal((await call('/inspection-drafts/'+discardId+'/claim',tokens[1],'POST',{})).status,409);
+  const released=await fetch(origin+'/api/inspection-drafts/'+discardId+'/release',{method:'POST',headers:{Authorization:'Bearer '+tokens[0],'Content-Type':'application/json'},body:'{}'});assert.equal(released.status,204);
+  assert.equal((await call('/inspection-drafts/'+discardId+'/claim',tokens[1],'POST',{})).status,200);
+  const reclaimed=await fetch(origin+'/api/inspection-drafts/'+discardId+'/release',{method:'POST',headers:{Authorization:'Bearer '+tokens[1],'Content-Type':'application/json'},body:'{}'});assert.equal(reclaimed.status,204);
+  assert.equal((await call('/inspection-drafts/'+discardId+'/claim',tokens[0],'POST',{})).status,200);
   assert.equal((await discard(tokens[1])).status,409,'Other holder discarded draft');
   assert.equal((await admin.query('SELECT id FROM inspection_drafts WHERE id=$1',[discardId])).rowCount,1);
   assert.equal((await discard(tokens[0])).status,204);

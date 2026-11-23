@@ -1,3 +1,4 @@
+import {recordOperator} from './presentation';
 import type {Characteristic,ControlPlan,InspectionLog,SPCMetric} from '../types';
 import {SPCEngine,type SPCFilters} from './spcEngine';
 export type SPCLink={sourcePlanId:string;sourceCharacteristicId:string;targetPlanId:string;targetCharacteristicId:string;enabled:boolean;reason:string;approvedBy?:string;approvedAt?:string};
@@ -38,7 +39,7 @@ export function analyzeRevisions(anchor:ControlPlan,char:Characteristic,plans:Co
  const rows=matches.flatMap(({plan,candidates})=>{
   if(candidates.length!==1)return [{plan,characteristic:undefined as Characteristic|undefined,reason:candidates.length?'Belirsiz eşleşme: aynı revizyonda birden fazla nokta':'Nokta yok / eşleşme onaylanmadı',metric:null as SPCMetric|null,compatible:false,first:'',last:'',currentSpecFailCount:null as number|null,points:[] as RevisionPoint[]}];
   const linked=candidates[0],groups=new Map<string,{characteristic:Characteristic;logs:InspectionLog[]}>();
-  const scoped=logs.filter(l=>l.productId===anchor.productId&&l.controlPlanId===plan.id&&l.controlPlanVersion===plan.version&&(!filters.operator||l.operatorName===filters.operator)&&(!filters.lotNumber||l.lotNumber===filters.lotNumber)&&(!filters.machineNo||l.machineNo===filters.machineNo)&&(!filters.startDate||new Date(l.timestamp)>=new Date(filters.startDate))&&(!filters.endDate||new Date(l.timestamp)<=new Date(filters.endDate)));
+  const scoped=logs.filter(l=>l.productId===anchor.productId&&l.controlPlanId===plan.id&&l.controlPlanVersion===plan.version&&(!filters.operator||l.operatorName===filters.operator)&&(!filters.operatorKey||recordOperator(l)===filters.operatorKey)&&(!filters.lotNumber||l.lotNumber===filters.lotNumber)&&(!filters.machineNo||l.machineNo===filters.machineNo)&&(!filters.startDate||new Date(l.timestamp)>=new Date(filters.startDate))&&(!filters.endDate||new Date(l.timestamp)<=new Date(filters.endDate)));
   for(const log of scoped){const snap=log.controlPlanSnapshot;if(!snap||snap.id!==log.controlPlanId||snap.version!==log.controlPlanVersion||snap.productId!==anchor.productId){missingSnapshots++;continue;}const historical=snap.characteristics.find(c=>c.id===linked.id);if(!historical)continue;const key=JSON.stringify([historical.nominal,historical.lsl,historical.usl,historical.unit,historical.type,historical.tool,historical.resolution,historical.precision,log.machineNo,log.source||'manual',log.equipmentId||'']);const group=groups.get(key)||{characteristic:historical,logs:[]};group.logs.push(log);groups.set(key,group);}
   if(!groups.size)groups.set('empty',{characteristic:linked,logs:[]});
   return [...groups.values()].map(({characteristic:c,logs:groupLogs})=>{

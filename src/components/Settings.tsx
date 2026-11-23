@@ -10,7 +10,7 @@ export function Settings({currentUser,users,products,onInspect,onOpenBackup,onNa
   const [section,setSection]=useState('preferences');
   const key='quality:preferences:'+currentUser.id;
   const [hand,setHand]=useState(()=>localStorage.getItem(key)==='left'?'left':'right');
-  return <div className="space-y-6">
+  return <div className="space-y-6"><p className="rq-version-label">Uygulama sürümü: {import.meta.env.VITE_APP_VERSION} · Saat dilimi: Europe/Istanbul</p>
     <Tabs label="Ayar kategorileri" value={section} onChange={setSection} items={[{id:'preferences',label:'Kişisel tercihler'},...(['admin','auditor'].includes(currentUser.role)?[{id:'audit',label:'Denetim izi'}]:[])]}/>
     {section==='preferences'?<div className="max-w-3xl space-y-5">
       <section className="rq-card">

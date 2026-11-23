@@ -66,7 +66,7 @@ export async function createReportPdf(input:ReportPdfInput):Promise<Uint8Array>{
  paragraph(`Lot: ${log.lotNumber||'—'} | İş emri: ${log.orderNumber||'—'} | Seri: ${log.serialNumber||'—'}`);
  paragraph(`Muayene eden: ${log.operatorName||'—'} | Zaman: ${new Date(log.timestamp).toLocaleString('tr-TR')} | İstasyon: ${log.machineNo||'—'} | Ekipman: ${log.equipmentId||'Belirtilmedi'}`);
  paragraph(`Ölçüm kaynağı: ${log.source||'manual'} | Program: ${log.programName||'—'}`);
- if(product?.customer||product?.material)paragraph(`Müşteri: ${product?.customer||'—'} | Malzeme: ${product?.material||'—'}`);
+ paragraph(`Müşteri: ${log.customerSnapshot===undefined?'Geçmiş müşteri bilgisi yok':log.customerSnapshot||'—'} | Malzeme: ${product?.material||'—'}`);
  paragraph(`Kontrol noktası: ${analysis.totalCharacteristics} | Ölçülen: ${analysis.measuredCharacteristics} | Uygun: ${analysis.conformingCharacteristics} | Uygunsuz: ${analysis.nonconformingCharacteristics} | Ölçülmedi: ${analysis.incompleteCharacteristics}`,bold);
  if(log.approval?.reviewedBy||log.approval?.reason)paragraph(`İnceleyen: ${log.approval.reviewedBy||'—'} | İnceleme zamanı: ${log.approval.reviewedAt?new Date(log.approval.reviewedAt).toLocaleString('tr-TR'):'—'} | Gerekçe: ${log.approval.reason||'—'}`);
  const columns=[40,174,70,70,70,78,78,78,114];

@@ -1,3 +1,5 @@
+import {revisionLabel} from '../services/presentation';
+import {confirmAction,notify} from './FeedbackHost';
 import {ControlPlanList} from './ControlPlanList';
 import './planEditor.css';
 import {nextPlanVersion} from '../services/planVersion';
@@ -81,10 +83,10 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
   const [newRevisionNote,setNewRevisionNote]=useState('');
   const [revisionError,setRevisionError]=useState('');
   useEffect(()=>{onEditingChange?.(detailOpen);return ()=>onEditingChange?.(false);},[detailOpen,onEditingChange]);
-  const mayLeave=()=>!saving&&!uploading&&(!unsaved||confirm('Kaydedilmemiş değişiklikleriniz var. Kaydetmeden çıkılsın mı?'));
+  const mayLeave=async()=>!saving&&!uploading&&(!unsaved||await confirmAction('Kaydedilmemiş değişiklikleriniz var. Kaydetmeden çıkılsın mı?'));
   useEffect(()=>{
     if(!detailOpen)return;
-    const leaving=(event:Event)=>{if(!unsaved&&!saving&&!uploading)return;event.preventDefault();if(!saving&&!uploading&&confirm('Kaydedilmemiş değişiklikleriniz var. Kaydetmeden çıkılsın mı?'))(event as CustomEvent<()=>void>).detail?.();};
+    const leaving=async(event:Event)=>{if(!unsaved&&!saving&&!uploading)return;event.preventDefault();if(!saving&&!uploading&&await confirmAction('Kaydedilmemiş değişiklikleriniz var. Kaydetmeden çıkılsın mı?'))(event as CustomEvent<()=>void>).detail?.();};
     const unload=(event:BeforeUnloadEvent)=>{if(unsaved||saving||uploading){event.preventDefault();event.returnValue='';}};
     window.addEventListener('ritim-measurement-navigate',leaving);window.addEventListener('beforeunload',unload);
     return()=>{window.removeEventListener('ritim-measurement-navigate',leaving);window.removeEventListener('beforeunload',unload);};
@@ -118,8 +120,8 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
   }, [selectedProductId, controlPlans]);
 
   // When selected plan ID changes
-  const handleSelectPlan = (planId: string) => {
-    if(!mayLeave())return;
+  const handleSelectPlan = async(planId: string) => {
+    if(!await mayLeave())return;
     const found = controlPlans.find(cp => cp.id === planId);
     if (found) {
       setSelectedPlanId(planId);
@@ -242,7 +244,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
   };
 
   const handleCreateBlankPlan = async () => {
-    if(!mayLeave())return;
+    if(!await mayLeave())return;
     document.querySelector<HTMLDetailsElement>('.rq-plan-actions')?.removeAttribute('open');
     setSaving(true);
     try {
@@ -287,7 +289,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
     setSelectedPlanId(newPlan.id);
     setCurrentPlan(newPlan);
   
-    } catch (error) { StorageService.reportSyncError(error); alert(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); } finally {setSaving(false);}
+    } catch (error) { StorageService.reportSyncError(error); notify(error instanceof Error ? error.message : 'İşlem kaydedilemedi.'); } finally {setSaving(false);}
   };
 
   // Save changes
@@ -311,7 +313,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
   
     } catch (error) {
       if(currentPlan){try{const usage=await SaasApi.controlPlanRevisionUsage(currentPlan.id);if(usage.used){setRevisionUsage({id:currentPlan.id,...usage});handleCreateNewRevision();setRevisionError('Bu plan düzenleme sırasında kullanıma alındı. Değişikliklerinizi yeni revizyon olarak kaydedebilirsiniz.');return;}}catch{/* Keep the original error and all local edits. */}}
-      StorageService.reportSyncError(error);alert(error instanceof Error?error.message:'İşlem kaydedilemedi.');
+      StorageService.reportSyncError(error);notify(error instanceof Error?error.message:'İşlem kaydedilemedi.');
     } finally {setSaving(false);}
   };
 
@@ -320,7 +322,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
     const file=e.target.files?.[0];if(!file||!currentPlan)return;
     const planId=currentPlan.id;
     try {const asset=await SaasApi.uploadFile(file);setCurrentPlan(previous=>previous?.id===planId?{...previous,drawingImageUrl:'media:'+asset.id+'#'+asset.mimeType}:previous);}
-    catch(error){alert(error instanceof Error?error.message:'Dosya yüklenemedi.');}
+    catch(error){notify(error instanceof Error?error.message:'Dosya yüklenemedi.');}
   };
 
   const toolOptions: MeasurementTool[] = [
@@ -346,7 +348,7 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
   const publishPlan=async()=>{
     if(!currentPlan||!storedPlan||unsaved||saving||uploading||revisionUsage?.id!==currentPlan.id)return;
     const active=controlPlans.find(plan=>plan.productId===currentPlan.productId&&plan.isActive);
-    if(!confirm(`${currentPlan.version} yayınlanacak${active&&active.id!==currentPlan.id?`; ${active.version} artık aktif olmayacak`:''}. Devam edilsin mi?`))return;
+    if(!await confirmAction(`${revisionLabel(currentPlan.version)} yayınlanacak${active&&active.id!==currentPlan.id?`; ${active.version} artık aktif olmayacak`:''}. Devam edilsin mi?`))return;
     setSaving(true);
     try{
       const published={...currentPlan,isActive:true,status:'active' as const};
@@ -354,10 +356,10 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
       requestedPlan.current=published.id;setCurrentPlan(published);onSavePlan(published);
       setRevisionUsage(null);
       try{const usage=await SaasApi.controlPlanRevisionUsage(published.id);setRevisionUsage({id:published.id,...usage});setUsageError('');}catch{setUsageError('Plan yayınlandı; güncel sürüm bilgisi alınamadı. Devam etmek için sayfayı yenileyin.');}
-    }catch(error){StorageService.reportSyncError(error);alert(error instanceof Error?error.message:'Plan yayınlanamadı.');}finally{setSaving(false);}
+    }catch(error){StorageService.reportSyncError(error);notify(error instanceof Error?error.message:'Plan yayınlanamadı.');}finally{setSaving(false);}
   };
   return <div className={`rq-plan-editor-page space-y-4${focusMode?' rq-plan-focus-view':''}`}>
-    <PageHeader title={currentProduct?.name||'Kontrol planı'} description="Kontrol noktaları, teknik resimler ve revizyon yönetimi." breadcrumb={<Breadcrumb items={[{label:'Kontrol planları',onClick:()=>{if(mayLeave())setDetailOpen(false);}},{label:currentProduct?.code||'Ürün'}]}/>} summary={currentPlan&&<><span className="rq-technical">{currentProduct?.code} · {currentPlan.version}</span><StatusBadge status={currentPlan.status}/><Badge tone={unsaved?'warning':'neutral'}>{unsaved?'Kaydedilmemiş değişiklikler':'Kaydedildi'}</Badge><span>{currentPlan.characteristics.length} kontrol noktası</span></>} actions={<>
+    <PageHeader title={currentProduct?.name||'Kontrol planı'} description="Kontrol noktaları, teknik resimler ve revizyon yönetimi." breadcrumb={<Breadcrumb items={[{label:'Kontrol planları',onClick:async()=>{if(await mayLeave())setDetailOpen(false);}},{label:currentProduct?.code||'Ürün'}]}/>} summary={currentPlan&&<><span className="rq-technical">{currentProduct?.code} · {revisionLabel(currentPlan.version)}</span><StatusBadge status={currentPlan.status}/><Badge tone={unsaved?'warning':'neutral'}>{unsaved?'Kaydedilmemiş değişiklikler':'Kaydedildi'}</Badge><span>{currentPlan.characteristics.length} kontrol noktası</span></>} actions={<>
       {onToggleNavigation&&<Button disabled={focusMode} onClick={onToggleNavigation} aria-expanded={!navigationCollapsed}>{navigationCollapsed?<PanelLeftOpen size={15}/>:<PanelLeftClose size={15}/>} {navigationCollapsed?'Menüyü genişlet':'Menüyü daralt'}</Button>}
       {currentPlan?.isActive&&onInspect&&<Button onClick={()=>onInspect(currentPlan.productId)}>Ölçüme başla</Button>}
       <Button aria-pressed={focusMode} onClick={()=>setFocusMode(!focusMode)}>{focusMode?'Odak modundan çık':'Çizime odaklan'}</Button>
@@ -368,15 +370,15 @@ export const ControlPlanEditor: React.FC<ControlPlanEditorProps> = ({
       {currentPlan&&<Button id="btn-save-control-plan" variant="primary" loading={saving} disabled={uploading||(!revisionUsage&&!!storedPlan)} onClick={handleSaveCurrentPlan}><Save size={14}/>{revisionUsage?.id===currentPlan.id&&revisionUsage.used?'Yeni revizyon olarak kaydet':'Değişiklikleri kaydet'}</Button>}
     </>}/>
     <Modal open={revisionOpen} title="Yeni revizyon olarak kaydet" busy={saving} onClose={()=>{if(!saving)setRevisionOpen(false);}}>
-      <p className="rq-revision-explanation">{currentPlan?.version} revizyonunun içeriği ve geçmiş ölçümleri korunur. Yeni sürüm taslak olarak kaydedilir; yayınlanana kadar mevcut aktif plan kullanılmaya devam eder.</p>
+      <p className="rq-revision-explanation">{revisionLabel(currentPlan?.version)} revizyonunun içeriği ve geçmiş ölçümleri korunur. Yeni sürüm taslak olarak kaydedilir; yayınlanana kadar mevcut aktif plan kullanılmaya devam eder.</p>
       <div className="rq-revision-form"><Field label="Yeni revizyon numarası"><Input maxLength={40} value={newVersion} onChange={e=>setNewVersion(e.target.value)}/></Field><Field label="Değişiklik açıklaması"><Textarea rows={3} maxLength={2000} value={newRevisionNote} onChange={e=>setNewRevisionNote(e.target.value)}/></Field></div>
       {revisionError&&<p role="alert" className="rq-feedback rq-tone-warning">{revisionError}</p>}
       <div className="rq-actions rq-revision-actions"><Button disabled={saving} onClick={()=>setRevisionOpen(false)}>Vazgeç</Button><Button variant="primary" loading={saving} disabled={uploading} onClick={()=>void handleSaveNewRevision()}>Taslak revizyonu kaydet</Button></div>
     </Modal>
     {analysisOpen&&currentProduct&&<Suspense fallback={<p role="status">PDF inceleme ekranı hazırlanıyor…</p>}><DrawingAnalysis key={currentProduct.id} product={currentProduct} onClose={()=>setAnalysisOpen(false)} onProductUpdated={onProductUpdated} onCreated={plan=>{requestedPlan.current=plan.id;onSavePlan(plan);setSelectedPlanId(plan.id);setCurrentPlan(plan);setAnalysisOpen(false);}}/></Suspense>}
     {currentPlan?.drawingAnalysis&&<details className="rq-card"><summary>PDF kaynak ve analiz bilgileri</summary><p>{currentPlan.drawingAnalysis.pageCount} sayfa · İncelenen sayfa: {currentPlan.drawingAnalysis.analyzedPage}</p><ul>{currentPlan.drawingAnalysis.notes.map((note,i)=><li key={i}>{note}</li>)}</ul><Button onClick={()=>void SaasApi.openEvidence(currentPlan.drawingAnalysis!.originalUrl.replace(/^media:/,'').split('#')[0])}>Kaynak PDF’yi aç</Button></details>}
-    <details className="rq-card rq-plan-context"><summary>Ürün / revizyon seçimi ve plan durumu <span className="rq-technical">{currentPlan?.version} · {currentPlan?.revisionDate}</span></summary><div className="mt-4 grid gap-4 lg:grid-cols-2"><Field label="Parça / ürün"><Select value={selectedProductId} onChange={e=>{if(mayLeave())setSelectedProductId(e.target.value);}}>{products.map(product=><option key={product.id} value={product.id}>{product.code} · {product.name}</option>)}</Select></Field><Field label="Kontrol planı revizyonu"><Select value={selectedPlanId} onChange={e=>handleSelectPlan(e.target.value)}>{productPlans.map(plan=><option key={plan.id} value={plan.id}>{plan.version} · {PLAN_STATUS_LABELS[plan.status]}</option>)}</Select></Field></div>
-      {currentPlan&&<div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3"><div className="rq-actions"><StatusBadge status={currentPlan.status}/>{currentPlan.status!=='archived'&&<Button disabled={saving||uploading} onClick={async()=>{if(!confirm('Bu plan arşivlenecek. Devam edilsin mi?'))return;setSaving(true);try{const stored=controlPlans.find(p=>p.id===currentPlan.id);if(!stored)return;const archived={...stored,status:'archived' as const,isActive:false};if(revisionUsage?.id!==stored.id)throw new Error('Plan s\u00fcr\u00fcm\u00fc do\u011frulanamad\u0131.');await StorageService.saveControlPlan(archived,{expected:revisionUsage.token});setRevisionUsage(null);setCurrentPlan(archived);onSavePlan(archived);const usage=await SaasApi.controlPlanRevisionUsage(archived.id);setRevisionUsage({id:archived.id,...usage});}catch(error){StorageService.reportSyncError(error);}finally{setSaving(false);}}}>Arşivle</Button>}</div><span className="rq-helper m-0">{currentPlan.author} · <span className="rq-technical">{currentPlan.revisionDate}</span></span></div>}
+    <details className="rq-card rq-plan-context"><summary>Ürün / revizyon seçimi ve plan durumu <span className="rq-technical">{revisionLabel(currentPlan?.version)} · {currentPlan?.revisionDate}</span></summary><div className="mt-4 grid gap-4 lg:grid-cols-2"><Field label="Parça / ürün"><Select value={selectedProductId} onChange={async e=>{const value=e.target.value;if(await mayLeave())setSelectedProductId(value);}}>{products.map(product=><option key={product.id} value={product.id}>{product.code} · {product.name}</option>)}</Select></Field><Field label="Kontrol planı revizyonu"><Select value={selectedPlanId} onChange={e=>handleSelectPlan(e.target.value)}>{productPlans.map(plan=><option key={plan.id} value={plan.id}>{revisionLabel(plan.version)} · {PLAN_STATUS_LABELS[plan.status]}</option>)}</Select></Field></div>
+      {currentPlan&&<div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3"><div className="rq-actions"><StatusBadge status={currentPlan.status}/>{currentPlan.status!=='archived'&&<Button disabled={saving||uploading} onClick={async()=>{if(!await confirmAction('Bu plan arşivlenecek. Devam edilsin mi?'))return;setSaving(true);try{const stored=controlPlans.find(p=>p.id===currentPlan.id);if(!stored)return;const archived={...stored,status:'archived' as const,isActive:false};if(revisionUsage?.id!==stored.id)throw new Error('Plan s\u00fcr\u00fcm\u00fc do\u011frulanamad\u0131.');await StorageService.saveControlPlan(archived,{expected:revisionUsage.token});setRevisionUsage(null);setCurrentPlan(archived);onSavePlan(archived);const usage=await SaasApi.controlPlanRevisionUsage(archived.id);setRevisionUsage({id:archived.id,...usage});}catch(error){StorageService.reportSyncError(error);}finally{setSaving(false);}}}>Arşivle</Button>}</div><span className="rq-helper m-0">{currentPlan.author} · <span className="rq-technical">{currentPlan.revisionDate}</span></span></div>}
       {isSavedBanner&&<p role="status" className="mt-3 text-sm text-emerald-700">Kontrol planı ve ölçüm noktaları kaydedildi.</p>}
     </details>
     {!currentPlan&&currentProduct&&<EmptyState title="İlk kontrol planınızı hazırlayın" description="Bu ürün için toleransları ve ölçüm noktalarını tanımlayın." label="İlk kontrol planını oluştur" action={()=>void handleCreateBlankPlan()}/>}

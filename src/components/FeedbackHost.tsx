@@ -1,0 +1,5 @@
+import {useEffect,useState,useRef} from 'react';
+import {Modal,Button,PageActions} from './ui';
+import {feedbackQueue,type FeedbackRequest} from '../services/feedback';
+export {confirmAction,notify} from '../services/feedback';
+export function FeedbackHost(){const [current,setCurrent]=useState<FeedbackRequest>();const currentRef=useRef<FeedbackRequest|undefined>(undefined);useEffect(()=>{const wake=()=>{if(currentRef.current)return;const next=feedbackQueue.shift();currentRef.current=next;setCurrent(next);};window.addEventListener('rq-feedback',wake);wake();return()=>window.removeEventListener('rq-feedback',wake);},[]);const finish=(value:boolean)=>{currentRef.current?.resolve(value);const next=feedbackQueue.shift();currentRef.current=next;setCurrent(next);};return <Modal open={!!current} title={current?.confirm?'İşlemi onaylayın':'Bilgilendirme'} onClose={()=>finish(false)}><p className="rq-feedback-copy">{current?.message}</p><PageActions>{current?.confirm&&<Button onClick={()=>finish(false)}>Vazgeç</Button>}<Button variant={current?.confirm?'danger':'primary'} onClick={()=>finish(true)}>{current?.confirm?'Onayla':'Tamam'}</Button></PageActions></Modal>;}

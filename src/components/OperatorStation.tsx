@@ -1,3 +1,5 @@
+import {revisionLabel} from '../services/presentation';
+import {confirmAction,notify} from './FeedbackHost';
 import {MeasurementCompletion,type CompletionStage} from './MeasurementCompletion';
 import {SampleCountPicker} from './SampleCountPicker';
 import {SampleSerialDialog,PointNavigator} from './MeasurementNavigation';
@@ -180,7 +182,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
       const draft=JSON.parse(localStorage.getItem(draftKey) || 'null');
       if(!draft || !controlPlans.some(p=>p.id===draft.selectedPlanId && rules && (!rules.requireActivePlan || (p.isActive && p.status==='active'))))throw new Error('Taslağın planı mevcut iş kurallarına göre kullanılamıyor.');
       applyDraft({...draft,id:draft.draftId||crypto.randomUUID(),productId:draft.selectedProductId});
-    }catch(error){alert(error instanceof Error?error.message:'Taslak açılamadı.');}
+    }catch(error){notify(error instanceof Error?error.message:'Taslak açılamadı.');}
   };
 
 
@@ -239,16 +241,16 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
   // Start Inspection Session
   const handleStartSession = () => {
-    if (!rules) { alert(rulesError || 'İş kuralları yükleniyor.'); return; }
-    if (!currentPlan || !characteristics.length) { alert('Ölçüm noktaları olan bir kontrol planı seçin.'); return; }
-    if (rules.requireActivePlan && (!currentPlan.isActive || currentPlan.status !== 'active')) { alert('Aktif bir kontrol planı seçin.'); return; }
-    if(request&&(selectedPlanId!==request.planId||sampleCount!==request.sampleCount||orderNumber.trim()!==request.orderNumber||lotNumber.trim()!==request.lotNumber)){alert('Kontrol isteğinin plan, numune ve iş emri bilgilerini değiştirmeyin.');return;}
-    if (rules.requireLotNumber && !lotNumber.trim()) { alert('Parti / şarj numarası zorunludur.'); return; }
-    if (rules.requireOrderNumber && !orderNumber.trim()) { alert('İş emri numarası zorunludur.'); return; }
+    if (!rules) { notify(rulesError || 'İş kuralları yükleniyor.'); return; }
+    if (!currentPlan || !characteristics.length) { notify('Ölçüm noktaları olan bir kontrol planı seçin.'); return; }
+    if (rules.requireActivePlan && (!currentPlan.isActive || currentPlan.status !== 'active')) { notify('Aktif bir kontrol planı seçin.'); return; }
+    if(request&&(selectedPlanId!==request.planId||sampleCount!==request.sampleCount||orderNumber.trim()!==request.orderNumber||lotNumber.trim()!==request.lotNumber)){notify('Kontrol isteğinin plan, numune ve iş emri bilgilerini değiştirmeyin.');return;}
+    if (rules.requireLotNumber && !lotNumber.trim()) { notify('Parti / şarj numarası zorunludur.'); return; }
+    if (rules.requireOrderNumber && !orderNumber.trim()) { notify('İş emri numarası zorunludur.'); return; }
 
     sessionStartedAt.current=new Date().toISOString();
     if(phoneInput) {
-      if(sampleCount>100||characteristics.length>50){alert('Mobil ölçüm en fazla 100 numune ve 50 karakteristik destekler.');return;}
+      if(sampleCount>100||characteristics.length>50){notify('Mobil ölçüm en fazla 100 numune ve 50 karakteristik destekler.');return;}
       mobileSeed.current={taskId:request?.taskId,id:crypto.randomUUID(),scope:SaasApi.scope(),plan:structuredClone(currentPlan),product:structuredClone(currentProduct!),count:sampleCount,operatorId:currentUser!.id,operatorName:currentUser!.name,orderNumber,lotNumber,serialNumber,instrumentId:equipmentId,source,active:{sample:1,characteristic:characteristics[0].id},order:'sample',drafts:{},attempts:[],media:{},createdAt:new Date().toISOString()};
       setMobileResume(true);return;
     }
@@ -361,7 +363,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
       const attachment=await SaasApi.uploadFile(file);
       pendingUploadFocus.current=sampleIndex+':'+characteristicId;
       setSamples(previous=>previous.map(sample=>sample.sampleIndex===sampleIndex?{...sample,evidence:{...(sample.evidence||{}),[characteristicId]:[...((sample.evidence||{})[characteristicId]||[]),attachment]}}:sample));
-    } catch(error){alert(error instanceof Error?error.message:'Kanıt yüklenemedi.');}
+    } catch(error){notify(error instanceof Error?error.message:'Kanıt yüklenemedi.');}
     finally{setMediaUploading(false);fileInput.value='';}
   };
 
@@ -505,8 +507,8 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
   const overallResult: 'pass' | 'warning' | 'fail' = failCount > 0 ? 'fail' : (warningCount > 0 ? 'warning' : 'pass');
 
   const draftPayload=()=>({startedAt:sessionStartedAt.current,operatorName,request,id:draftId||crypto.randomUUID(),productId:selectedProductId,selectedPlanId,lotNumber,orderNumber,machineNo,sampleCount,samples,notes,activePointNo,activeSampleIndex,serialNumber,source,equipmentId});
-  const saveServerDraft=async(release=false)=>{if(!isSessionActive||savedLog||draftBusy)return;setDraftBusy(true);try{const payload=draftPayload();setDraftId(payload.id);await SaasApi.saveInspectionDraft(payload.id,payload);if(release){await SaasApi.releaseInspectionDraft(payload.id);localStorage.removeItem(draftKey);setIsSessionActive(false);setSamples([]);setDraftId(null);}await refreshDrafts();}catch(error){alert(error instanceof Error?error.message:'Taslak kaydedilemedi.');}finally{setDraftBusy(false);}};
-  const claimDraft=async(item:ServerDraft)=>{if(!controlPlans.some(p=>p.id===item.payload.selectedPlanId&&rules&&(!rules.requireActivePlan||(p.isActive&&p.status==='active')))){alert('Bu kontrolün başladığı revizyon mevcut iş kurallarına göre kullanılamıyor. Kalite sorumlusuna başvurun; revizyon otomatik değiştirilmeyecek.');return;}setDraftBusy(true);try{const claimed=await SaasApi.claimInspectionDraft(item.id) as ServerDraft;applyDraft({...claimed.payload,id:item.id});await refreshDrafts();}catch(error){alert(error instanceof Error?error.message:'Taslak devralınamadı.');}finally{setDraftBusy(false);}};
+  const saveServerDraft=async(release=false)=>{if(!isSessionActive||savedLog||draftBusy)return;setDraftBusy(true);try{const payload=draftPayload();setDraftId(payload.id);await SaasApi.saveInspectionDraft(payload.id,payload);if(release){await SaasApi.releaseInspectionDraft(payload.id);localStorage.removeItem(draftKey);setIsSessionActive(false);setSamples([]);setDraftId(null);}await refreshDrafts();}catch(error){notify(error instanceof Error?error.message:'Taslak kaydedilemedi.');}finally{setDraftBusy(false);}};
+  const claimDraft=async(item:ServerDraft)=>{if(!controlPlans.some(p=>p.id===item.payload.selectedPlanId&&rules&&(!rules.requireActivePlan||(p.isActive&&p.status==='active')))){notify('Bu kontrolün başladığı revizyon mevcut iş kurallarına göre kullanılamıyor. Kalite sorumlusuna başvurun; revizyon otomatik değiştirilmeyecek.');return;}setDraftBusy(true);try{const claimed=await SaasApi.claimInspectionDraft(item.id) as ServerDraft;applyDraft({...claimed.payload,id:item.id});await refreshDrafts();}catch(error){notify(error instanceof Error?error.message:'Taslak devralınamadı.');}finally{setDraftBusy(false);}};
 
   const discardCurrentInspection=async()=>{
     if(saving||draftBusy||savedLog)return;
@@ -619,7 +621,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
             </FormSection>
 
           </Card>
-          <Card className="rq-preparation-summary"><h2 className="rq-section-title">Başlatılacak kontrol</h2>{currentProduct?<><p className="rq-helper rq-technical">{currentProduct.code}</p><h3 className="font-semibold mb-4">{currentProduct.name}</h3>{previewDrawing?.source&&<MediaImage src={previewDrawing.source} alt={currentProduct.name+' teknik resmi'} className="h-44 w-full rounded-lg bg-white object-contain"/>}<dl className="rq-properties"><div><dt>Kontrol planı</dt><dd>{currentPlan?<details key={currentPlan.id} className="rq-publication" onToggle={e=>{if(!e.currentTarget.open)return;const id=currentPlan.id;const seq=++publicationRequest.current;setPlanPublication(null);void SaasApi.controlPlanPublication(id).then(data=>{if(seq===publicationRequest.current)setPlanPublication({id,...data});}).catch(()=>{if(seq===publicationRequest.current)setPlanPublication({id,publishedAt:null,publishedBy:null,error:true});});}}><summary aria-label={`Plan ${currentPlan.version}, yayın bilgileri`}>{currentPlan.version} · Bilgi <span aria-hidden="true">ⓘ</span></summary><div className="rq-publication-card" role="status"><strong>Plan {currentPlan.version}</strong>{planPublication?.id!==currentPlan.id?<p>Yayın bilgisi yükleniyor…</p>:planPublication.error?<p>Yayın bilgisi alınamadı. Tekrar denemek için kapatıp açın.</p>:planPublication.publishedAt?<><p>Yayın tarihi: {new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium',timeStyle:'short'}).format(new Date(planPublication.publishedAt))}</p><p>Yayınlayan: {planPublication.publishedBy||'Kayıt bulunamadı'}</p></>:<p>Yayın bilgisi kayıtlarında bulunamadı.</p>}</div></details>:'Seçilmedi'}</dd></div><div><dt>Ölçüm noktası</dt><dd>{characteristics.length}</dd></div><div><dt>Operatör</dt><dd>{operatorName}</dd></div>{orderNumber&&<div><dt>İş emri</dt><dd className="rq-technical">{orderNumber}</dd></div>}</dl>{currentPlan&&<div className="rq-revision-summary">Plan: {currentPlan.version} · Çizim: {drawingStatus?.expected||'Belirtilmemiş'}{drawingStatus?.mismatch?<strong role="alert"> Çizim revizyonu uyuşmuyor: {drawingStatus.known.join(', ')}</strong>:drawingStatus?.unverified?<span> · Çizim revizyonu doğrulanamadı</span>:null}</div>}{currentPlan&&<div className="mt-4"><StatusBadge status={currentPlan.status}/></div>}</>:<p className="rq-helper">Kontrol özetini görmek için ürün seçin.</p>}            {selectedProductId&&<section className="rq-quick-start-panel" aria-label="Üretim bilgileri">
+          <Card className="rq-preparation-summary"><h2 className="rq-section-title">Başlatılacak kontrol</h2>{currentProduct?<><p className="rq-helper rq-technical">{currentProduct.code}</p><h3 className="font-semibold mb-4">{currentProduct.name}</h3>{previewDrawing?.source&&<MediaImage src={previewDrawing.source} alt={currentProduct.name+' teknik resmi'} className="h-44 w-full rounded-lg bg-white object-contain"/>}<dl className="rq-properties"><div><dt>Kontrol planı</dt><dd>{currentPlan?<details key={currentPlan.id} className="rq-publication" onToggle={e=>{if(!e.currentTarget.open)return;const id=currentPlan.id;const seq=++publicationRequest.current;setPlanPublication(null);void SaasApi.controlPlanPublication(id).then(data=>{if(seq===publicationRequest.current)setPlanPublication({id,...data});}).catch(()=>{if(seq===publicationRequest.current)setPlanPublication({id,publishedAt:null,publishedBy:null,error:true});});}}><summary aria-label={`Plan ${revisionLabel(currentPlan.version)}, yayın bilgileri`}>{revisionLabel(currentPlan.version)} · Bilgi <span aria-hidden="true">ⓘ</span></summary><div className="rq-publication-card" role="status"><strong>Plan {revisionLabel(currentPlan.version)}</strong>{planPublication?.id!==currentPlan.id?<p>Yayın bilgisi yükleniyor…</p>:planPublication.error?<p>Yayın bilgisi alınamadı. Tekrar denemek için kapatıp açın.</p>:planPublication.publishedAt?<><p>Yayın tarihi: {new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium',timeStyle:'short'}).format(new Date(planPublication.publishedAt))}</p><p>Yayınlayan: {planPublication.publishedBy||'Kayıt bulunamadı'}</p></>:<p>Yayın bilgisi kayıtlarında bulunamadı.</p>}</div></details>:'Seçilmedi'}</dd></div><div><dt>Ölçüm noktası</dt><dd>{characteristics.length}</dd></div><div><dt>Operatör</dt><dd>{operatorName}</dd></div>{orderNumber&&<div><dt>İş emri</dt><dd className="rq-technical">{orderNumber}</dd></div>}</dl>{currentPlan&&<div className="rq-revision-summary">Plan: {revisionLabel(currentPlan.version)} · Çizim: {drawingStatus?.expected||'Belirtilmemiş'}{drawingStatus?.mismatch?<strong role="alert"> Çizim revizyonu uyuşmuyor: {drawingStatus.known.join(', ')}</strong>:drawingStatus?.unverified?<span> · Çizim revizyonu doğrulanamadı</span>:null}</div>}{currentPlan&&<div className="mt-4"><StatusBadge status={currentPlan.status}/></div>}</>:<p className="rq-helper">Kontrol özetini görmek için ürün seçin.</p>}            {selectedProductId&&<section className="rq-quick-start-panel" aria-label="Üretim bilgileri">
               <div className="rq-quick-start-head">
                 <div><h2 className="rq-section-title">İzlenebilirlik</h2><p className="rq-helper">Zorunlu bilgileri girip ölçüme geçin.</p></div>
                 <SampleCountPicker count={sampleCount} onChange={setSampleCount} locked={!!request} max={100}/>
@@ -661,7 +663,7 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
 
               <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono text-[11px] border border-slate-700">
                 <Cpu className="w-3 h-3 text-emerald-400" />
-                {currentPlan?.version}
+                {revisionLabel(currentPlan?.version)}
               </span>
 
               {lotNumber&&<span title="Lot numarası" className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono text-[11px] border border-slate-700">
@@ -742,8 +744,8 @@ export const OperatorStation: React.FC<OperatorStationProps> = ({
               {/* End Session */}
               <button
                 type="button"
-                onClick={() => {
-                  if (confirm('Ölçüm oturumunu kapatmak istiyor musunuz?')) {
+                onClick={async() => {
+                  if (await confirmAction('Ölçüm oturumunu kapatmak istiyor musunuz?')) {
                     setIsSessionActive(false);
                   }
                 }}

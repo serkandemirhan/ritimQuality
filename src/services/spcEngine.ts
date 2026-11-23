@@ -1,7 +1,8 @@
+import {recordOperator} from './presentation';
 import type { Characteristic, ControlPlan, InspectionLog, SampleMeasurement, SPCMetric } from '../types';
 import {formatSpcMeasurement} from './spcFormat';
 
-export interface SPCFilters { startDate?:string; endDate?:string; operator?:string; lotNumber?:string; machineNo?:string; }
+export interface SPCFilters { startDate?:string; endDate?:string; operator?:string; operatorKey?:string; lotNumber?:string; machineNo?:string; }
 
 /** Every consumer uses the exact product, plan and immutable revision scope. */
 export function selectPlanLogs(plan:ControlPlan,logs:InspectionLog[]):InspectionLog[]{
@@ -22,7 +23,7 @@ export const SPCEngine = {
     const groups=logs.filter(log=>
       (!filters.startDate||new Date(log.timestamp)>=new Date(filters.startDate))&&
       (!filters.endDate||new Date(log.timestamp)<=new Date(filters.endDate))&&
-      (!filters.operator||log.operatorName===filters.operator)&&
+      (!filters.operator||log.operatorName===filters.operator)&&(!filters.operatorKey||recordOperator(log)===filters.operatorKey)&&
       (!filters.lotNumber||log.lotNumber===filters.lotNumber)&&
       (!filters.machineNo||log.machineNo===filters.machineNo)
     ).slice().sort((a,b)=>new Date(a.timestamp).getTime()-new Date(b.timestamp).getTime())

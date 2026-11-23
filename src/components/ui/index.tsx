@@ -39,11 +39,11 @@ export function SearchInput(props:React.InputHTMLAttributes<HTMLInputElement>) {
 export function FilterBar({className,...props}:BoxProps) {return <div {...props} className={cx('rq-filter-bar',className)}/>;}
 export const TableToolbar=FilterBar;
 export function DataTable({children,label,className}:{children:React.ReactNode;label:string;className?:string}) {
- type TableElement=React.ReactElement<{children?:React.ReactNode;'data-label'?:React.ReactNode}>;
+ type TableElement=React.ReactElement<{children?:React.ReactNode;label?:React.ReactNode;'data-label'?:React.ReactNode}>;
  const sections=React.Children.toArray(children) as TableElement[];
  const head=sections.find(section=>React.isValidElement(section)&&section.type==='thead');
  const headerRow=React.Children.toArray(head?.props.children)[0] as TableElement|undefined;
- const labels=React.Children.toArray(headerRow?.props.children).map(cell=>(cell as TableElement).props.children);
+ const labels=React.Children.toArray(headerRow?.props.children).map(cell=>(cell as TableElement).props.label??(cell as TableElement).props.children);
  const content=className?.includes('rq-mobile-cards')?sections.map(section=>section.type==='tbody'?React.cloneElement(section,{},React.Children.map(section.props.children,row=>{
   if(!React.isValidElement(row))return row;
   const tableRow=row as TableElement;

@@ -1,3 +1,4 @@
+import {confirmAction,notify} from './FeedbackHost';
 import {RoleMatrix} from './RoleMatrix';
 import {Badge, Button, DataTable, Field, FilterBar, FormSection, IconButton, Input, MetricCard, Modal, PageActions, Select, SearchInput, StatusBadge} from './ui';
 import React, { useMemo, useState } from 'react';
@@ -77,9 +78,9 @@ export const UserManager: React.FC<UserManagerProps> = ({ users, currentUser, on
     } finally {setSaving(false);}
   };
 
-  const deleteUser = (user: User) => {
+  const deleteUser = async(user: User) => {
     if (user.id === currentUser.id || users.length <= 1) return;
-    if (window.confirm(`${user.name} adlı kullanıcı silinsin mi?`)) onDeleteUser(user.id);
+    if (await confirmAction(`${user.name} adlı kullanıcı silinsin mi?`)) onDeleteUser(user.id);
   };
 
   return <div className="space-y-5">

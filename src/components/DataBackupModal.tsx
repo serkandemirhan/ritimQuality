@@ -1,3 +1,4 @@
+import {confirmAction,notify} from './FeedbackHost';
 import {Button, Card, Field, Input, Modal, PageActions} from './ui';
 import React, { useState } from 'react';
 import { StorageService } from '../services/storage';
@@ -30,10 +31,10 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({
   };
 
   // Import JSON
-  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportFile = async(e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!confirm('Bu tarayıcıdaki veriler yedekle değiştirilecek. Devam edilsin mi?')) return;
+    if (!await confirmAction('Bu tarayıcıdaki veriler yedekle değiştirilecek. Devam edilsin mi?')) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -52,8 +53,8 @@ export const DataBackupModal: React.FC<DataBackupModalProps> = ({
   };
 
   // Reset to Demo
-  const handleResetDemo = () => {
-    if (confirm('Tüm mevcut veriler silinecek ve fabrika varsayılan örnek parçalar, kontrol planları ve ölçümler yüklenecek. Emin misiniz?')) {
+  const handleResetDemo = async() => {
+    if (await confirmAction('Tüm mevcut veriler silinecek ve fabrika varsayılan örnek parçalar, kontrol planları ve ölçümler yüklenecek. Emin misiniz?')) {
       StorageService.resetToDemo();
       setStatusMessage({ type: 'success', text: 'Örnek endüstriyel veriler başarıyla yüklendi!' });
       onDataRestored();

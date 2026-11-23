@@ -1,3 +1,4 @@
+import {catalogRouter} from './routes/catalogs.js';
 import {platformRouter} from './routes/platform.js';
 import express from 'express';
 import { ZodError } from 'zod';
@@ -28,6 +29,7 @@ app.use('/api/cron', cronRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/platform',platformRouter);
 app.use('/api', drawingAnalysisRouter);
+app.use('/api', catalogRouter);
 app.use('/api', workflowRouter);
 app.use('/api', pushRouter);
 app.use('/api/billing', billingRouter);
